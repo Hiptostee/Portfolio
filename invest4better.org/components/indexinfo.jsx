@@ -1,12 +1,5 @@
 "use client";
-
-import { useState } from "react";
-import ReactMarkdown from "react-markdown";
-import remarkGfm from "remark-gfm";
-import styles from "../app/TypingText.module.css";
 import { BlockMath } from "react-katex";
-
-import rehypeKatex from "rehype-katex";
 import "katex/dist/katex.min.css";
 
 import {
@@ -15,7 +8,6 @@ import {
   DialogPanel,
   DialogTitle,
 } from "@headlessui/react";
-import { CheckIcon } from "@heroicons/react/24/outline";
 
 export default function Info({ open, setOpen }) {
   return (

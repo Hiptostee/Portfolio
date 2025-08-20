@@ -10,19 +10,17 @@ import { XMarkIcon } from "@heroicons/react/24/outline";
 import { Doughnut } from "react-chartjs-2";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from "chart.js";
 
-// Register Chart.js components
 ChartJS.register(ArcElement, Tooltip, Legend);
 
 export default function EnvDrawer({
   open,
   setOpen,
-  descriptions, // Use 'descriptions' variable
+  descriptions,
   totalesg,
   eesg,
   sesg,
   gesg,
 }) {
-  // Chart data with updated colors
   const data = {
     labels: ["Environmental", "Social", "Governance"],
     datasets: [

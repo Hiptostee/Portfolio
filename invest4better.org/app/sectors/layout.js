@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 export const metadata = {
-  title: "Chat",
-  description: "Chat with the Research Bot",
+  title: "Sectors",
 };
 
 export default async function Layout({ children }) {
