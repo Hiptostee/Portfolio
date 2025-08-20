@@ -1,0 +1,158 @@
+.typingContainer {
+  overflow: hidden;
+  animation: blink-caret 0.75s step-end infinite;
+}
+
+/* Typing animation */
+@keyframes blink-caret {
+  from,
+  to {
+    border-color: transparent;
+  }
+  50% {
+    border-color: black;
+  }
+}
+.typingContainer {
+  min-width: 100px; /* Set a minimum width */
+  max-width: 100%; /* Ensure it doesn’t exceed the parent’s width */
+  word-wrap: break-word; /* Ensure long words wrap correctly */
+}
+.typingContainer p {
+  margin-bottom: 1rem; /* Adjust spacing for paragraphs */
+}
+.typingContainer h1 {
+  font-size: 1.5rem; /* Set the font size for h1 */
+  font-weight: 700;
+  margin-bottom: 1rem; /* Adjust spacing for h1 */
+}
+.typingContainer h2 {
+  font-size: 1.25rem; /* Set the font size for h1 */
+  font-weight: 500;
+  margin-bottom: 1rem; /* Adjust spacing for h1 */
+}
+.typingContainer h3 {
+  font-size: 1.15rem; /* Set the font size for h1 */
+  font-weight: 500;
+  margin-bottom: 1rem; /* Adjust spacing for h1 */
+}
+.typingContainer ul {
+  list-style: disc;
+  padding-left: 2rem;
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+}
+.typingContainer ol {
+  list-style: decimal;
+  padding-left: 2rem;
+  margin-top: 1rem;
+  margin-bottom: 2rem;
+}
+
+.typingContainer li {
+  margin-bottom: 0.5rem; /* Adjust spacing for list items */
+}
+
+.typingContainer a {
+  color: #0070f3; /* Set the link color */
+  text-decoration: none; /* Remove underline */
+  font-weight: 500;
+}
+
+.typingContainer a:hover {
+  text-decoration: underline; /* Add underline on hover */
+}
+
+.typingContainer code {
+  font-family: "Fira Code", monospace; /* Use Fira Code as the font */
+  font-size: 0.9rem; /* Set the font size */
+  background-color: #f0f0f0; /* Set the background color */
+  padding: 0.2rem 0.4rem; /* Add padding */
+  border-radius: 4px; /* Add border radius */
+}
+
+.typingContainer pre {
+  font-family: "Fira Code", monospace; /* Use Fira Code as the font */
+  font-size: 0.9rem; /* Set the font size */
+  background-color: #f0f0f0; /* Set the background color */
+  padding: 1rem; /* Add padding */
+  border-radius: 4px; /* Add border radius */
+  overflow-x: auto; /* Add horizontal scroll */
+}
+
+.typingContainer img {
+  max-width: 100%; /* Ensure images don’t exceed the parent’s width */
+  height: auto; /* Ensure images maintain their aspect ratio */
+  display: block; /* Remove default inline display */
+  margin: 1rem auto; /* Add margin */
+}
+
+.typingContainer table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  background-color: #006828;
+  border: 1px solid #006828;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.typingContainer th {
+  font-weight: 700;
+  background-color: #006828;
+  color: #ffffff;
+  padding: 1rem;
+  text-align: left;
+}
+
+.typingContainer td {
+  border: 1px solid #eaeaea;
+  color: #333333;
+  padding: 0.75rem;
+  background-color: #ffffff;
+}
+
+.typingContainer tr:nth-child(even) td {
+  background-color: #f1f1f1; /* Alternating row colors for readability */
+}
+
+.typingContainer th,
+.typingContainer td {
+  border-left: none; /* Remove left border */
+  border-right: none; /* Remove right border */
+}
+
+.typingContainer th:first-child,
+.typingContainer td:first-child {
+  border-left: 1px solid #eaeaea; /* Left border for the first column */
+}
+
+.typingContainer th:last-child,
+.typingContainer td:last-child {
+  border-right: 1px solid #eaeaea; /* Right border for the last column */
+}
+
+.typingContainer table caption {
+  font-size: 1.25rem; /* Larger font size for captions */
+  font-weight: 600; /* Bold caption */
+  margin-bottom: 0.5rem; /* Margin below caption */
+  color: #333333; /* Darker color for the caption */
+  text-align: center; /* Center the caption */
+}
+
+.typingContainer iframe {
+  display: block; /* Remove default inline display */
+  margin: 1rem auto; /* Add margin */
+}
+
+.typingContainer hr {
+  border: 0; /* Remove default border */
+  border-top: 1px solid #eaeaea; /* Add top border */
+  margin-bottom: 1rem; /* Adjust spacing */
+}
+
+.typingContainer math {
+  margin: 1rem auto; /* Add margin */
+}

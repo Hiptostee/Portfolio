@@ -1,0 +1,5 @@
+{
+  "quote-props": ["error", "always"],
+
+  "extends": "next/core-web-vitals"
+}
