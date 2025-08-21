@@ -8,6 +8,20 @@ This API serves as the intelligent backbone of Research Chat, showcasing an impl
 
 ---
 
+## 💡 Skills & Technologies
+
+This project showcases expertise in:
+
+- **Web Development:** Next.js (API Routes)
+- **AI/ML Integration:** Azure OpenAI Service (Chat Completions, Streaming API)
+- **Backend Development:** Node.js, API Design
+- **Language Models:** Prompt Engineering, System Message Design
+- **Data Handling:** JSON Parsing, Request/Response Management
+- **Error Handling:** Robust API Error Management
+- **Deployment:** Azure Cloud Platform (Conceptual)
+- **Languages:** JavaScript
+- **Version Control:** Git, GitHub
+
 ## ✅ Key Benefits & Features
 
 - **🔍 Concise Summaries:** Quickly access concise, AI-generated answers and summaries from intricate research papers and other documents.

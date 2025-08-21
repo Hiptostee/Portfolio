@@ -2,6 +2,20 @@ This document contains the Autonomous OpMode from the 2025 season and the TeleOp
 
 At this [Youtube Link](https://www.youtube.com/shorts/U5X9nA4jx2Q) you can find a solo match from the 2025 robot which advanced to the _FIRST_ World Championship
 
+## 💡 Skills & Technologies
+
+This project showcases expertise in:
+
+- **Robotics Programming:** FTC SDK, OpModes (Autonomous, TeleOp)
+- **Motion Control:** Road Runner (Trajectory Generation, Following)
+- **Computer Vision:** OpenCV (AprilTag Detection - planned), Color Detection
+- **Sensor Integration:** Distance Sensors, Color Sensors
+- **Hardware Control:** Motors, Servos, Encoders
+- **Debugging & Tuning:** FTC Dashboard, Telemetry
+- **Languages:** Kotlin (Primary)
+- **Version Control:** Git, GitHub
+- **Soft Skills:** Teamwork, Collaboration, Time Management, Delegation
+
 # 🤖 FTC Robot OpMode Documentation
 
 ---

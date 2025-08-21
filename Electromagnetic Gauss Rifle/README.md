@@ -2,6 +2,20 @@
 
 A demo video is available at [this link](https://photos.app.goo.gl/oTzyxrED9PwBCRbX7).
 
+## 💡 Skills & Technologies
+
+This project showcases expertise in:
+
+- **Computer Vision:** OpenCV (Object Detection, Tracking, Filtering)
+- **Microcontroller Programming:** Arduino (C++)
+- **Robotics & Control:** Servo Control, Real-time Aiming Systems
+- **Hardware Interfacing:** Serial Communication (Python-Arduino), Camera Control
+- **Image Processing:** HSV Color Space, Morphological Operations, Contours
+- **Languages:** Python, C++ (Arduino)
+- **Data Communication:** Serial Port Management
+- **Numerical Methods:** Mapping, Constraining, Scaling Functions
+- **Version Control:** Git, GitHub
+
 ## ✨ Project Overview
 
 Welcome to the **Coil Gun Aiming & Tracking System** project! This repository combines computer vision with precision servo control to create an intelligent aiming mechanism for an electromagnetic coil gun. The system uses a camera to detect and track objects in real-time, then communicates with an Arduino Nano to precisely adjust the coil gun's horizontal and vertical aiming. Get ready to lock on to your targets! 🚀
