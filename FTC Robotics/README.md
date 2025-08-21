@@ -2,7 +2,7 @@ This document contains the Autonomous OpMode from the 2025 season and the TeleOp
 
 At this [Youtube Link](https://www.youtube.com/shorts/U5X9nA4jx2Q) you can find a solo match from the 2025 robot which advanced to the _FIRST_ World Championship
 
-# FTC Robot OpMode Documentation
+# 🤖 FTC Robot OpMode Documentation
 
 ---
 
@@ -10,7 +10,7 @@ At this [Youtube Link](https://www.youtube.com/shorts/U5X9nA4jx2Q) you can find 
 
 This document details an **FTC autonomous mode** (`Autov3`) designed for advanced trajectory planning using [Road Runner](https://acmerobotics.github.io/road-runner/) and integrated mechanism control for scoring, sample pickup, and transfer operations.
 
-### Key Capabilities
+### 🌐 Key Capabilities
 
 - **Dynamic Path Planning:** Utilizes Road Runner's `ActionBuilder` for generating smooth spline paths and coordinating mechanism actions during robot movement.
 
@@ -36,7 +36,7 @@ This document details an **FTC autonomous mode** (`Autov3`) designed for advance
 
 ---
 
-### How It Works
+### 🔧 How It Works
 
 The autonomous sequence follows a structured flow:
 
@@ -56,7 +56,7 @@ The autonomous sequence follows a structured flow:
 
 ---
 
-### Configurable Parameters (via FTC Dashboard)
+### 📊 Configurable Parameters (via FTC Dashboard)
 
 | **Parameter**        | **Description**                       |
 | :------------------- | :------------------------------------ |
@@ -73,7 +73,7 @@ The autonomous sequence follows a structured flow:
 
 ---
 
-### Technical Details & Libraries
+### 📚 Technical Details & Libraries
 
 - **Road Runner:** The primary library for generating and following complex trajectories.
 
@@ -125,7 +125,7 @@ The autonomous sequence follows a structured flow:
 
 ---
 
-## TeleOp – FTC Driver-Controlled OpMode
+## 🎮 TeleOp – FTC Driver-Controlled OpMode
 
 This file defines the **driver-controlled (TeleOp) mode** for an FTC robot, integrating **Road Runner** for precise motion control with a comprehensive suite of mechanisms for intake, scoring, hanging, and plane launching. It uses **sensor feedback** and **driver inputs** for responsive and robust control during the TeleOp period.
 
@@ -170,7 +170,7 @@ This file defines the **driver-controlled (TeleOp) mode** for an FTC robot, inte
 
   - **Hanging System:** Supports both **manual** and **assisted modes** for robust hanging operations.
 
-  - **Plane Launcher & Drone Deployment:** Pre-programmed sequences are triggered via Road Runner Actions for reliable launch.
+  - **✈️ Plane Launcher & Drone Deployment:** Pre-programmed sequences are triggered via Road Runner Actions for reliable launch.
 
 - **Distance Sensor Safety:** Automatically limits backward movement when the robot is too close to the backdrop (within 15 cm) to prevent collisions and disturbing previously placed pixels.
 
@@ -189,9 +189,9 @@ This file defines the **driver-controlled (TeleOp) mode** for an FTC robot, inte
   }
   ```
 
-- **Color Detection Feedback:** Provides visual feedback through gamepad LED indicators, reflecting the color of detected pixels using onboard color sensors.
+- **🎨Color Detection Feedback:** Provides visual feedback through gamepad LED indicators, reflecting the color of detected pixels using onboard color sensors.
 
-### How It Works
+### 🔧 How It Works
 
 1.  **Hardware Initialization:** All motors, servos, and sensors are initialized to their default states (e.g., hoppers closed, hanging mechanism down, plane launcher in default position).
 
@@ -249,7 +249,7 @@ This file defines the **driver-controlled (TeleOp) mode** for an FTC robot, inte
 | `extensionHeight` | Maximum allowed extension height               |
 | `headlessOffset`  | Reference heading for field-centric control    |
 
-### Technical Details & Libraries
+### 📚 Technical Details & Libraries
 
 - **Road Runner:** Essential for smooth drive control and defining action sequences within TeleOp.
 
@@ -271,7 +271,7 @@ This file defines the **driver-controlled (TeleOp) mode** for an FTC robot, inte
 
   - `motorToPos()`: Drives a motor to a specified encoder position.
 
-### Driver Control Overview
+### 🎛️ Driver Control Overview
 
 #### **Gamepad A (Driver)**
 
