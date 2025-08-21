@@ -2,7 +2,7 @@
 
 ## ✨ Project Overview
 
-**Research Chat** (ResearchChat.org) is an innovative tool designed to transform how users interact with complex documents like **research papers, financial reports, and congressional bills**. This project is a collaborative effort by **Abhay Gupta (John Jay High School)** and **Rishabh Nambiar (Binghamton University)**, aimed at **democratizing access to knowledge** by simplifying dense, jargon-filled text into clear, digestible answers.
+**Research Chat** [ResearchChat.org]("https://researchchat.org/) is an innovative tool designed to transform how users interact with complex documents like **research papers, financial reports, and congressional bills**. This project is a collaborative effort by **Abhay Gupta (John Jay High School)** and **Rishabh Nambiar (Binghamton University)**, aimed at **democratizing access to knowledge** by simplifying dense, jargon-filled text into clear, digestible answers.
 
 This API serves as the intelligent backbone of Research Chat, showcasing an implementation that leverages cutting-edge AI to provide accurate, context-specific answers. It's designed to illustrate how such a system can simplify convoluted language and lead to more efficient insights. 🚀
 

@@ -2,7 +2,7 @@
 
 ## ✨ Project Overview
 
-Welcome to **Invest4Better**! This application competed in and won the **Congressional App Challenge** in New York's 18th Congressional District with a clear vision: to empower users to make investment decisions that are not only financially sound but also environmentally responsible. In today's world, it's crucial to align your investments with your values, and Invest4Better makes it easy to find companies that are both good for the planet and good for your wallet.
+Welcome to [Invest4Better]("https://invest4better.org/")! This application competed in and won the **Congressional App Challenge** in New York's 18th Congressional District with a clear vision: to empower users to make investment decisions that are not only financially sound but also environmentally responsible. In today's world, it's crucial to align your investments with your values, and Invest4Better makes it easy to find companies that are both good for the planet and good for your wallet.
 
 Our goal is to simplify sustainable investing, showing you how to make money while supporting companies that prioritize environmental well-being. Get ready to invest in a brighter, greener future! 🌍💵
 
