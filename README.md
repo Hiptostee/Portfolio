@@ -10,23 +10,23 @@ Welcome to my project portfolio repository! My name is Joe, and I am an aspiring
 
 ![invest4better.org](/images/invest4better.png)
 
-This project was made in collaboration with Abhay Gupta (John Jay High School) and Rishabh Nambiar (Binghamton University)
+Made in collaboration with Abhay Gupta (John Jay High School) and Rishabh Nambiar (Binghamton University)
 
 ---
 
 ### 💬 Research Chat: AI-Powered Document Q&A
 
-**Overview:** Research Chat (ResearchChat.org) is a collaborative project designed to transform how users interact with complex documents like research papers, financial reports, and congressional bills. Its core purpose is to **democratize access to knowledge** by simplifying dense, jargon-filled text into clear, digestible answers using advanced AI.
+**Overview:** [Research Chat](https://researchchat.org/) is a collaborative project designed to transform how users interact with complex documents like research papers, financial reports, and congressional bills. Its core purpose is to **democratize access to knowledge** by simplifying dense, jargon-filled text into clear, digestible answers using advanced AI.
 
 ![researchchat.org](/images/researchchat.png)
 
-This project was made in collaboration with Abhay Gupta (John Jay High School) and Rishabh Nambiar (Binghamton University)
+Made in collaboration with Abhay Gupta (John Jay High School) and Rishabh Nambiar (Binghamton University)
 
 ---
 
 ### 🤖 FTC Autonomous & TeleOp OpModes
 
-**Overview:** As a member of the Jaybots, the FTC robotics team at John Jay High School, I held the positions of **Equipment Manager**,**Corporate Outreach Manager**, and most recently, **Build Leader**. This past season, we advanced to the _FIRST_ World Championship through the 3rd Place Inspire Award. I have had a large role in both programming and building the robot. I will detail the software for an FTC robot, encompassing both its **Autonomous** and **Driver-Controlled (TeleOp)** operational modes. It focuses on precision robotics, utilizing advanced motion planning for pre-programmed tasks and intelligent sensor integration for responsive manual control during competitions.
+**Overview:** As a member of the Jaybots, the FTC robotics team at John Jay High School, I held the positions of **Equipment Manager**, **Corporate Outreach Manager**, and most recently, **Build Leader**. This past season, we advanced to the _FIRST_ World Championship through the 3rd Place Inspire Award. I have had a large role in both programming and building the robot. I will detail the software for an FTC robot, encompassing both its **Autonomous** and **Driver-Controlled (TeleOp)** operational modes. It focuses on precision robotics, utilizing advanced motion planning for pre-programmed tasks and intelligent sensor integration for responsive manual control during competitions.
 
 ![FTC Robotics](/images/jaybots.png)
 
@@ -37,6 +37,8 @@ This project was made in collaboration with Abhay Gupta (John Jay High School) a
 **Overview:** This project combines computer vision with precision servo control to create an intelligent aiming mechanism. It's designed to detect and track objects in real-time using a camera, then autonomously adjust the horizontal and vertical aim of an electromagnetic coil gun to keep the target centered.
 
 ![Electromagnetic Gauss Rifle](/images/gaussrifle.png)
+
+This project was made in collaboration with Francis Leahy (Binghamton University) and Matthew Russo (University at Buffalo)
 
 ---
 
@@ -65,8 +67,6 @@ This portfolio demonstrates proficiency in a wide array of technologies and doma
 - **Security:** Hashing Algorithms
 
 - **Mobile Development:** Apple PassKit API (iOS Wallet integration)
-
-## This project was made in collaboration with Francis Leahy (Binghamton University) and Matthew Russo (University at Buffalo)
 
 ## 📚 Other Notable Projects
 
