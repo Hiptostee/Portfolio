@@ -97,7 +97,7 @@ To explore these projects:
 1.  **Clone the Repository:**
 
     ```bash
-    git clone [https://github.com/Hiptostee/Portfolio.git](https://github.com/Hiptostee/Portfolio.git)
+    git clone https://github.com/Hiptostee/Portfolio.git
     ```
 
 2.  **Navigate to Project Directories:**
