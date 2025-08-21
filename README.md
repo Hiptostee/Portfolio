@@ -2,7 +2,7 @@
 
 Welcome to my project portfolio repository! My name is Joe, and I am an aspiring AI/Robotics engineer studying Computer Science at the **Georgia Institute of Technology** 🐝. This collection showcases various applications and systems I've developed, demonstrating a diverse range of skills in AI integration, robotics, and web development. Each project aims to solve real-world problems or enhance efficiency through innovative solutions.
 
-## FOR TECHNICAL DETAILS ABOUT EACH PROJECT VIEW THE README IN EACH PROJECT FOLDER
+## **_FOR TECHNICAL DETAILS ABOUT EACH PROJECT VIEW THE README IN EACH PROJECT FOLDER_**
 
 ## 💻 Featured Projects
 
