@@ -113,6 +113,6 @@ For any inquiries or collaborations, feel free to reach out to me!:
 
 - **Email:** josephmmarra2007@gmail.com
 
-- **LinkedIn:** [Joseph Marra](linkedin.com/in/joseph-marra-245185273/)
+- **LinkedIn:** [Joseph Marra](https://linkedin.com/in/joseph-marra-245185273/)
 
 ---
