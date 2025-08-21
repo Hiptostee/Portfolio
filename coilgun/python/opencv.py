@@ -4,9 +4,9 @@ import time
 import numpy as np
 
 # === SERIAL SETUP ===
-arduino_port = '/dev/cu.usbserial-110' 
+# arduino_port = '/dev/cu.usbserial-110' 
 baud_rate = 115200
-arduino = serial.Serial(arduino_port, baud_rate, timeout=1)
+# arduino = serial.Serial(arduino_port, baud_rate, timeout=1)
 time.sleep(2)
 
 # === VIDEO CAPTURE ===
@@ -18,7 +18,7 @@ frame_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 print(f"Resolution: {frame_width}x{frame_height}")
 
 # === COLOR RANGE (HSV) ===
-# Example: Blue object (adjust to your color)
+# Blue object
 lower_color = np.array([100, 150, 50])
 upper_color = np.array([140, 255, 255])
 
@@ -72,7 +72,7 @@ while True:
 
             # Send data to Arduino
             data = f"{center_x},{center_y},{w},{h}\n"
-            arduino.write(data.encode())
+            # arduino.write(data.encode())
 
             # Draw rectangle and center
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
@@ -85,5 +85,5 @@ while True:
         break
 
 cap.release()
-arduino.close()
+# arduino.close()
 cv2.destroyAllWindows()
