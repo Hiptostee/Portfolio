@@ -142,11 +142,9 @@ This project functions as a closed-loop control system:
 1.  **Run Python Script:**
 
     ```
-    python your_tracking_script_name.py
+    python opencv.py
 
     ```
-
-    (Replace `your_tracking_script_name.py` with the actual name of your Python file).
 
 2.  **Observe:** A window named "Color Tracker" will pop up, showing the camera feed with bounding boxes and circle at the center of the detected object.
 
@@ -154,7 +152,7 @@ This project functions as a closed-loop control system:
 
 ## 🎛️ Configurable Parameters
 
-### Python (`your_tracking_script_name.py`)
+### Python (`opencv.py`)
 
 - `arduino_port`: Serial port for Arduino communication.
 
@@ -187,7 +185,5 @@ This project functions as a closed-loop control system:
 - **Calibration Routine:** Develop an automated routine to calibrate servo limits and camera offsets.
 
 - **PID Control:** Implement a PID (Proportional-Integral-Derivative) controller for even smoother and more accurate servo movements. 📈
-
-- **Distance Estimation:** Use object size or additional sensors to estimate distance to the target. 📏
 
 This project was made in collaboration with Francis Leahy (Binghamton University) and Matthew Russo (University at Buffalo)
