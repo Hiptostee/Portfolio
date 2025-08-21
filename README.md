@@ -6,9 +6,11 @@ Welcome to my project portfolio repository! My name is Joe, and I am an aspiring
 
 ### 🌱💰 Invest4Better: Sustainable & Profitable Investing App
 
-**Overview:** Invest4Better is an application developed for the Congressional App Challenge. It empowers users to make investment decisions that are not only financially sound but also environmentally responsible. It guides users through sector selection based on ESG scores, allows them to analyze selected companies with a proprietary **I4B Index**, and provides **AI-powered recommendations** for sustainable and profitable investments.
+**Overview:** [Invest4Better](https://invest4better.org/) is an application developed for the Congressional App Challenge. It empowers users to make investment decisions that are not only financially sound but also environmentally responsible. It guides users through sector selection based on ESG scores, allows them to analyze selected companies with a proprietary **I4B Index**, and provides **AI-powered recommendations** for sustainable and profitable investments.
 
 ![invest4better.org](/images/invest4better.png)
+
+This project was made in collaboration with Abhay Gupta (John Jay High School) and Rishabh Nambiar (Binghamton University)
 
 ---
 
@@ -18,11 +20,13 @@ Welcome to my project portfolio repository! My name is Joe, and I am an aspiring
 
 ![researchchat.org](/images/researchchat.png)
 
+This project was made in collaboration with Abhay Gupta (John Jay High School) and Rishabh Nambiar (Binghamton University)
+
 ---
 
 ### 🤖 FTC Autonomous & TeleOp OpModes
 
-**Overview:** This project details the software for an FTC robot, encompassing both its **Autonomous** and **Driver-Controlled (TeleOp)** operational modes. It focuses on precision robotics, utilizing advanced motion planning for pre-programmed tasks and intelligent sensor integration for responsive manual control during competitions.
+**Overview:** As a member of the Jaybots, the FTC robotics team at John Jay High School, I held the positions of **Equipment Manager**,**Corporate Outreach Manager**, and most recently, **Build Leader**. This past season, we advanced to the _FIRST_ World Championship through the 3rd Place Inspire Award. I have had a large role in both programming and building the robot. I will detail the software for an FTC robot, encompassing both its **Autonomous** and **Driver-Controlled (TeleOp)** operational modes. It focuses on precision robotics, utilizing advanced motion planning for pre-programmed tasks and intelligent sensor integration for responsive manual control during competitions.
 
 ![FTC Robotics](/images/jaybots.png)
 
@@ -62,7 +66,7 @@ This portfolio demonstrates proficiency in a wide array of technologies and doma
 
 - **Mobile Development:** Apple PassKit API (iOS Wallet integration)
 
----
+## This project was made in collaboration with Francis Leahy (Binghamton University) and Matthew Russo (University at Buffalo)
 
 ## 📚 Other Notable Projects
 
@@ -70,7 +74,7 @@ Here are a couple more projects that highlight diverse applications of technolog
 
 ### 🧪 ChemistryTools.org (ChemTools)
 
-**Overview:** ChemTools is a web application developed for high school chemistry students to simplify tedious and repetitive chemistry calculations. Its goal is to make complex chemical concepts more accessible, reduce calculation errors, and boost efficiency for both students and educators in the classroom.
+**Overview:** [ChemTools](https://chemistrytools.org/) is a web application developed for high school chemistry students to simplify tedious and repetitive chemistry calculations. Its goal is to make complex chemical concepts more accessible, reduce calculation errors, and boost efficiency for both students and educators in the classroom.
 
 ![ChemTools](/images/chemtools.png)
 
