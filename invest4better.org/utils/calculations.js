@@ -1,5 +1,3 @@
-// /utils/calculations.js
-
 /**
  * Calculates the percentage price change over a given number of days.
  * @param {object} data - The historical price data object.

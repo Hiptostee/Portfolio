@@ -4,9 +4,9 @@ import time
 import numpy as np
 
 # === SERIAL SETUP ===
-# arduino_port = '/dev/cu.usbserial-110' 
+arduino_port = '/dev/cu.usbserial-110' #change this to your Arduino port
 baud_rate = 115200
-# arduino = serial.Serial(arduino_port, baud_rate, timeout=1)
+arduino = serial.Serial(arduino_port, baud_rate, timeout=1)
 time.sleep(2)
 
 # === VIDEO CAPTURE ===
@@ -72,7 +72,7 @@ while True:
 
             # Send data to Arduino
             data = f"{center_x},{center_y},{w},{h}\n"
-            # arduino.write(data.encode())
+            arduino.write(data.encode())
 
             # Draw rectangle and center
             cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 2)
@@ -85,5 +85,5 @@ while True:
         break
 
 cap.release()
-# arduino.close()
+arduino.close()
 cv2.destroyAllWindows()

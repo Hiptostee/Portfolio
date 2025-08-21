@@ -13,7 +13,7 @@ import { useGptRecommendation } from "../../hooks/GPTRecommendation";
 import Header from "../../components/header";
 import CompanySelector from "../../components/companySelector";
 import Dashboard from "../../components/dashboard";
-import Info from "../../components/indexinfo";
+import Info from "../../components/indexInfo";
 
 export default function ChatPage() {
   const [selectedCompanies, setSelectedCompanies] = useState([]);
