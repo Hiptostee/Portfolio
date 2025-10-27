@@ -70,7 +70,7 @@ RUN chmod +x /home/$USER_NAME/start.sh && chown $USER_NAME:$USER_NAME /home/$USE
 
 # --- STEP 4: Complete ROS setup (Switching to non-root user) ---
 USER $USER_NAME
-ENV HOME /home/$USER_NAME
+ENV HOME=/home/$USER_NAME
 
 # Set up the shell for ROS 2
 RUN echo "source /opt/ros/jazzy/setup.bash" >> $HOME/.bashrc
