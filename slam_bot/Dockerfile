@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     xfce4 \
     xfce4-goodies \
     xterm \
-    twm \
+    openbox \
     dbus-x11 \
     locales \
     xfonts-base \
@@ -61,7 +61,7 @@ RUN echo '#!/bin/bash' > /home/$USER_NAME/.vnc/xstartup && \
     echo 'export XKL_XMODMAP_DISABLE=1' >> /home/$USER_NAME/.vnc/xstartup && \
     echo 'xsetroot -solid grey' >> /home/$USER_NAME/.vnc/xstartup && \
     echo 'xterm -geometry 120x32+50+50 -ls -title "$VNCDESKTOP Desktop" &' >> /home/$USER_NAME/.vnc/xstartup && \    
-    echo 'exec twm' >> /home/$USER_NAME/.vnc/xstartup && \
+    echo 'exec openbox-session' >> /home/$USER_NAME/.vnc/xstartup && \
     chmod +x /home/$USER_NAME/.vnc/xstartup
 
 # Change ownership of the entire .vnc directory to the user
