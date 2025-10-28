@@ -21,6 +21,9 @@ RUN apt-get update && apt-get install -y \
     twm \
     dbus-x11 \
     locales \
+    xfonts-base \
+    xfonts-75dpi \
+    xfonts-100dpi \
     --no-install-recommends && \
     rm -rf /var/lib/apt/lists/*
 
@@ -57,8 +60,8 @@ RUN echo '#!/bin/bash' > /home/$USER_NAME/.vnc/xstartup && \
     echo 'unset DBUS_SESSION_BUS_ADDRESS' >> /home/$USER_NAME/.vnc/xstartup && \
     echo 'export XKL_XMODMAP_DISABLE=1' >> /home/$USER_NAME/.vnc/xstartup && \
     echo 'xsetroot -solid grey' >> /home/$USER_NAME/.vnc/xstartup && \
-    echo 'xterm -geometry 80x24+10+10 -ls -title "$VNCDESKTOP Desktop" &' >> /home/$USER_NAME/.vnc/xstartup && \
-    echo 'twm &' >> /home/$USER_NAME/.vnc/xstartup && \
+    echo 'xterm -geometry 120x32+50+50 -ls -title "$VNCDESKTOP Desktop" &' >> /home/$USER_NAME/.vnc/xstartup && \    
+    echo 'exec twm' >> /home/$USER_NAME/.vnc/xstartup && \
     chmod +x /home/$USER_NAME/.vnc/xstartup
 
 # Change ownership of the entire .vnc directory to the user
