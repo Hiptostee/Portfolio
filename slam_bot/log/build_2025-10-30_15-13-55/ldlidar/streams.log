@@ -1,0 +1,26 @@
+[0.005s] Invoking command in '/home/slambot/ros2_ws/build/ldlidar': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --build /home/slambot/ros2_ws/build/ldlidar -- -j14 -l14
+[0.145s] [ 12%] [32mBuilding CXX object CMakeFiles/ldlidar.dir/home/slambot/ros2_ws/src/ldlidar_driver/src/logger/log_module.cpp.o[0m
+[0.280s] [01m[K/home/slambot/ros2_ws/src/ldlidar_driver/src/logger/log_module.cpp:[m[K In member function ‘[01m[Kvoid LogModule::[01;32m[KInitLock[m[K()[m[K’:
+[0.280s] [01m[K/home/slambot/ros2_ws/src/ldlidar_driver/src/logger/log_module.cpp:172:3:[m[K [01;31m[Kerror: [m[K‘[01m[Kpthread_mutex_init[m[K’ was not declared in this scope; did you mean ‘[01m[Kpthread_mutex_t[m[K’?
+[0.280s]   172 |   [01;31m[Kpthread_mutex_init[m[K(&mutex_lock_,NULL);
+[0.280s]       |   [01;31m[K^~~~~~~~~~~~~~~~~~[m[K
+[0.280s]       |   [32m[Kpthread_mutex_t[m[K
+[0.280s] [01m[K/home/slambot/ros2_ws/src/ldlidar_driver/src/logger/log_module.cpp:[m[K In member function ‘[01m[Kvoid LogModule::[01;32m[KRealseLock[m[K()[m[K’:
+[0.281s] [01m[K/home/slambot/ros2_ws/src/ldlidar_driver/src/logger/log_module.cpp:180:9:[m[K [01;31m[Kerror: [m[K‘[01m[Kpthread_mutex_unlock[m[K’ was not declared in this scope; did you mean ‘[01m[Kpthread_mutex_t[m[K’?
+[0.281s]   180 |         [01;31m[Kpthread_mutex_unlock[m[K(&mutex_lock_);
+[0.281s]       |         [01;31m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[0.281s]       |         [32m[Kpthread_mutex_t[m[K
+[0.281s] [01m[K/home/slambot/ros2_ws/src/ldlidar_driver/src/logger/log_module.cpp:[m[K In member function ‘[01m[Kvoid LogModule::[01;32m[KLock[m[K()[m[K’:
+[0.281s] [01m[K/home/slambot/ros2_ws/src/ldlidar_driver/src/logger/log_module.cpp:188:9:[m[K [01;31m[Kerror: [m[K‘[01m[Kpthread_mutex_lock[m[K’ was not declared in this scope; did you mean ‘[01m[Kpthread_mutex_t[m[K’?
+[0.281s]   188 |         [01;31m[Kpthread_mutex_lock[m[K(&mutex_lock_);
+[0.281s]       |         [01;31m[K^~~~~~~~~~~~~~~~~~[m[K
+[0.281s]       |         [32m[Kpthread_mutex_t[m[K
+[0.282s] [01m[K/home/slambot/ros2_ws/src/ldlidar_driver/src/logger/log_module.cpp:[m[K In member function ‘[01m[Kvoid LogModule::[01;32m[KUnLock[m[K()[m[K’:
+[0.282s] [01m[K/home/slambot/ros2_ws/src/ldlidar_driver/src/logger/log_module.cpp:196:9:[m[K [01;31m[Kerror: [m[K‘[01m[Kpthread_mutex_unlock[m[K’ was not declared in this scope; did you mean ‘[01m[Kpthread_mutex_t[m[K’?
+[0.282s]   196 |         [01;31m[Kpthread_mutex_unlock[m[K(&mutex_lock_);
+[0.282s]       |         [01;31m[K^~~~~~~~~~~~~~~~~~~~[m[K
+[0.282s]       |         [32m[Kpthread_mutex_t[m[K
+[0.293s] gmake[2]: *** [CMakeFiles/ldlidar.dir/build.make:132: CMakeFiles/ldlidar.dir/home/slambot/ros2_ws/src/ldlidar_driver/src/logger/log_module.cpp.o] Error 1
+[0.293s] gmake[1]: *** [CMakeFiles/Makefile2:137: CMakeFiles/ldlidar.dir/all] Error 2
+[0.293s] gmake: *** [Makefile:146: all] Error 2
+[0.294s] Invoked command in '/home/slambot/ros2_ws/build/ldlidar' returned '2': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --build /home/slambot/ros2_ws/build/ldlidar -- -j14 -l14
