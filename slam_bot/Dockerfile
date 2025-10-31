@@ -47,11 +47,12 @@ RUN apt-get install -y \
 
 # --- STEP 3: Create non-root user (as root) ---
 ENV USER_NAME=user
+ENV USER_PASSWORD=password
 RUN useradd -m -s /bin/bash $USER_NAME
 
 # --- Set up TigerVNC password and startup script ---
 RUN mkdir -p /home/$USER_NAME/.vnc && \
-    echo "password" | /usr/bin/vncpasswd -f > /home/$USER_NAME/.vnc/passwd && \
+    echo $USER_PASSWORD | /usr/bin/vncpasswd -f > /home/$USER_NAME/.vnc/passwd && \
     chmod 600 /home/$USER_NAME/.vnc/passwd
 
 # VNC startup script - simple window manager that works
