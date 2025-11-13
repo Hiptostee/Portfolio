@@ -15,7 +15,7 @@ ament_target_dependencies(
 rclcpp_components_register_node(
         ${PROJECT_NAME}_components
         PLUGIN "test_node::TestNode"
-        EXECUTABLE ${PROJECT_NAME}_node
+        EXECUTABLE ${PROJECT_NAME}_exec
 )
 
 install(

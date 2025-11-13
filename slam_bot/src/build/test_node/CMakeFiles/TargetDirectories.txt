@@ -1,7 +1,7 @@
 /home/slambot/ros2_ws/src/build/test_node/CMakeFiles/uninstall.dir
 /home/slambot/ros2_ws/src/build/test_node/CMakeFiles/test_node_uninstall.dir
-/home/slambot/ros2_ws/src/build/test_node/CMakeFiles/test_node.dir
-/home/slambot/ros2_ws/src/build/test_node/CMakeFiles/test_node_exec.dir
+/home/slambot/ros2_ws/src/build/test_node/CMakeFiles/test_node_components.dir
+/home/slambot/ros2_ws/src/build/test_node/CMakeFiles/test_node_node.dir
 /home/slambot/ros2_ws/src/build/test_node/CMakeFiles/test.dir
 /home/slambot/ros2_ws/src/build/test_node/CMakeFiles/edit_cache.dir
 /home/slambot/ros2_ws/src/build/test_node/CMakeFiles/rebuild_cache.dir

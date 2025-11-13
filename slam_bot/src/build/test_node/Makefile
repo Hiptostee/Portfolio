@@ -198,61 +198,61 @@ test_node_uninstall/fast:
 .PHONY : test_node_uninstall/fast
 
 #=============================================================================
-# Target rules for targets named test_node
+# Target rules for targets named test_node_components
 
 # Build rule for target.
-test_node: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_node
-.PHONY : test_node
+test_node_components: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_node_components
+.PHONY : test_node_components
 
 # fast build rule for target.
-test_node/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node.dir/build.make CMakeFiles/test_node.dir/build
-.PHONY : test_node/fast
+test_node_components/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node_components.dir/build.make CMakeFiles/test_node_components.dir/build
+.PHONY : test_node_components/fast
 
 #=============================================================================
-# Target rules for targets named test_node_exec
+# Target rules for targets named test_node_node
 
 # Build rule for target.
-test_node_exec: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_node_exec
-.PHONY : test_node_exec
+test_node_node: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_node_node
+.PHONY : test_node_node
 
 # fast build rule for target.
-test_node_exec/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node_exec.dir/build.make CMakeFiles/test_node_exec.dir/build
-.PHONY : test_node_exec/fast
+test_node_node/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node_node.dir/build.make CMakeFiles/test_node_node.dir/build
+.PHONY : test_node_node/fast
 
-rclcpp_components/node_main_test_node_exec.o: rclcpp_components/node_main_test_node_exec.cpp.o
-.PHONY : rclcpp_components/node_main_test_node_exec.o
+rclcpp_components/node_main_test_node_node.o: rclcpp_components/node_main_test_node_node.cpp.o
+.PHONY : rclcpp_components/node_main_test_node_node.o
 
 # target to build an object file
-rclcpp_components/node_main_test_node_exec.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node_exec.dir/build.make CMakeFiles/test_node_exec.dir/rclcpp_components/node_main_test_node_exec.cpp.o
-.PHONY : rclcpp_components/node_main_test_node_exec.cpp.o
+rclcpp_components/node_main_test_node_node.cpp.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node_node.dir/build.make CMakeFiles/test_node_node.dir/rclcpp_components/node_main_test_node_node.cpp.o
+.PHONY : rclcpp_components/node_main_test_node_node.cpp.o
 
-rclcpp_components/node_main_test_node_exec.i: rclcpp_components/node_main_test_node_exec.cpp.i
-.PHONY : rclcpp_components/node_main_test_node_exec.i
+rclcpp_components/node_main_test_node_node.i: rclcpp_components/node_main_test_node_node.cpp.i
+.PHONY : rclcpp_components/node_main_test_node_node.i
 
 # target to preprocess a source file
-rclcpp_components/node_main_test_node_exec.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node_exec.dir/build.make CMakeFiles/test_node_exec.dir/rclcpp_components/node_main_test_node_exec.cpp.i
-.PHONY : rclcpp_components/node_main_test_node_exec.cpp.i
+rclcpp_components/node_main_test_node_node.cpp.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node_node.dir/build.make CMakeFiles/test_node_node.dir/rclcpp_components/node_main_test_node_node.cpp.i
+.PHONY : rclcpp_components/node_main_test_node_node.cpp.i
 
-rclcpp_components/node_main_test_node_exec.s: rclcpp_components/node_main_test_node_exec.cpp.s
-.PHONY : rclcpp_components/node_main_test_node_exec.s
+rclcpp_components/node_main_test_node_node.s: rclcpp_components/node_main_test_node_node.cpp.s
+.PHONY : rclcpp_components/node_main_test_node_node.s
 
 # target to generate assembly for a file
-rclcpp_components/node_main_test_node_exec.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node_exec.dir/build.make CMakeFiles/test_node_exec.dir/rclcpp_components/node_main_test_node_exec.cpp.s
-.PHONY : rclcpp_components/node_main_test_node_exec.cpp.s
+rclcpp_components/node_main_test_node_node.cpp.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node_node.dir/build.make CMakeFiles/test_node_node.dir/rclcpp_components/node_main_test_node_node.cpp.s
+.PHONY : rclcpp_components/node_main_test_node_node.cpp.s
 
 src/test_node.o: src/test_node.cpp.o
 .PHONY : src/test_node.o
 
 # target to build an object file
 src/test_node.cpp.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node.dir/build.make CMakeFiles/test_node.dir/src/test_node.cpp.o
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node_components.dir/build.make CMakeFiles/test_node_components.dir/src/test_node.cpp.o
 .PHONY : src/test_node.cpp.o
 
 src/test_node.i: src/test_node.cpp.i
@@ -260,7 +260,7 @@ src/test_node.i: src/test_node.cpp.i
 
 # target to preprocess a source file
 src/test_node.cpp.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node.dir/build.make CMakeFiles/test_node.dir/src/test_node.cpp.i
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node_components.dir/build.make CMakeFiles/test_node_components.dir/src/test_node.cpp.i
 .PHONY : src/test_node.cpp.i
 
 src/test_node.s: src/test_node.cpp.s
@@ -268,7 +268,7 @@ src/test_node.s: src/test_node.cpp.s
 
 # target to generate assembly for a file
 src/test_node.cpp.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node.dir/build.make CMakeFiles/test_node.dir/src/test_node.cpp.s
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_node_components.dir/build.make CMakeFiles/test_node_components.dir/src/test_node.cpp.s
 .PHONY : src/test_node.cpp.s
 
 # Help Target
@@ -286,11 +286,11 @@ help:
 	@echo "... test"
 	@echo "... test_node_uninstall"
 	@echo "... uninstall"
-	@echo "... test_node"
-	@echo "... test_node_exec"
-	@echo "... rclcpp_components/node_main_test_node_exec.o"
-	@echo "... rclcpp_components/node_main_test_node_exec.i"
-	@echo "... rclcpp_components/node_main_test_node_exec.s"
+	@echo "... test_node_components"
+	@echo "... test_node_node"
+	@echo "... rclcpp_components/node_main_test_node_node.o"
+	@echo "... rclcpp_components/node_main_test_node_node.i"
+	@echo "... rclcpp_components/node_main_test_node_node.s"
 	@echo "... src/test_node.o"
 	@echo "... src/test_node.i"
 	@echo "... src/test_node.s"
