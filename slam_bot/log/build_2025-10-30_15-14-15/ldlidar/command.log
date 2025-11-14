@@ -1,4 +1,0 @@
-Invoking command in '/home/slambot/ros2_ws/build/ldlidar': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --build /home/slambot/ros2_ws/build/ldlidar -- -j14 -l14
-Invoked command in '/home/slambot/ros2_ws/build/ldlidar' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --build /home/slambot/ros2_ws/build/ldlidar -- -j14 -l14
-Invoking command in '/home/slambot/ros2_ws/build/ldlidar': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --install /home/slambot/ros2_ws/build/ldlidar
-Invoked command in '/home/slambot/ros2_ws/build/ldlidar' returned '0': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --install /home/slambot/ros2_ws/build/ldlidar

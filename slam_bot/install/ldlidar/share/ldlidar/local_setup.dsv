@@ -1,2 +1,1 @@
-source;share/ldlidar/environment/ament_prefix_path.sh
-source;share/ldlidar/environment/path.sh
+/home/slambot/ros2_ws/build/ldlidar/ament_cmake_environment_hooks/local_setup.dsv

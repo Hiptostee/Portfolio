@@ -35,7 +35,7 @@ int main(int argc, char * argv[])
   rclcpp::NodeOptions options;
   options.arguments(args);
 
-  std::string library_name = "$<TARGET_FILE_NAME:test_node>";
+  std::string library_name = "$<TARGET_FILE_NAME:test_node_components>";
   std::string class_name = "rclcpp_components::NodeFactoryTemplate<test_node::TestNode>";
 
   RCLCPP_DEBUG(logger, "Load library %s", library_name.c_str());

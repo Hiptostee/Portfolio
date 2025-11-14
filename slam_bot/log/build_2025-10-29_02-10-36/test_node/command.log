@@ -1,2 +1,0 @@
-Invoking command in '/home/slambot/ros2_ws/build/test_node': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --build /home/slambot/ros2_ws/build/test_node -- -j14 -l14
-Invoked command in '/home/slambot/ros2_ws/build/test_node' returned '2': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake --build /home/slambot/ros2_ws/build/test_node -- -j14 -l14

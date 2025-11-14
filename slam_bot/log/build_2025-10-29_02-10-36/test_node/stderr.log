@@ -1,5 +1,0 @@
-[31mCMake Error at CMakeLists.txt:44 (ament_export_library_directories):
-  Unknown CMake command "ament_export_library_directories".
-
-[0m
-gmake: *** [Makefile:308: cmake_check_build_system] Error 1
