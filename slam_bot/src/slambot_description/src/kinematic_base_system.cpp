@@ -113,19 +113,15 @@ public:
     ang_cmd.Y() = 0.0;
     ang_cmd.Z() = std::clamp(ang_cmd.Z(), -max_angular_, max_angular_);
 
-    // Transform body-frame linear cmd to world using current model orientation
-    // Get pose (world)
-    auto poseComp = _ecm.Component<components::Pose>(this->model_.Entity());
-    math::Pose3d pose = poseComp ? poseComp->Data() : math::Pose3d::Zero;
-    math::Vector3d world_lin = pose.Rot().RotateVector(lin_cmd);
-
     // Write command components on the model entity
     auto ent = this->model_.Entity();
     auto linCmdComp = _ecm.Component<components::LinearVelocityCmd>(ent);
+    // LinearVelocityCmd is interpreted in the model (body) frame by Gazebo Sim.
+    // So we do NOT rotate to world; we pass body-frame velocities directly.
     if (!linCmdComp)
-      _ecm.CreateComponent(ent, components::LinearVelocityCmd(world_lin));
+      _ecm.CreateComponent(ent, components::LinearVelocityCmd(lin_cmd));
     else
-      linCmdComp->Data() = world_lin;
+      linCmdComp->Data() = lin_cmd;
 
     auto angCmdComp = _ecm.Component<components::AngularVelocityCmd>(ent);
     if (!angCmdComp)

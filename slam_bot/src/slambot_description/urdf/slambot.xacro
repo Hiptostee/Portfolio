@@ -3,6 +3,8 @@
 
   <!-- Simulation flavor: true = Gazebo Sim (Ignition) via gz_ros2_control, false = Gazebo Classic -->
   <xacro:arg name="use_gz" default="true"/>
+  <!-- If true in Gazebo Sim, move base kinematically from /cmd_vel (disables wheel physics effect) -->
+  <xacro:arg name="kinematic" default="true"/>
 
  
   <!-- Base link with simple box visual and collision -->
@@ -300,11 +302,13 @@
       </plugin>
 
       <!-- Kinematic base controller: apply /cmd_vel directly to model velocity (Gazebo Sim) -->
-      <plugin name="slambot_kinematic_base" filename="libslambot_kinematic_base.so">
-        <topic>/cmd_vel</topic>
-        <max_linear>1.5</max_linear>
-        <max_angular>3.0</max_angular>
-      </plugin>
+      <xacro:if value="$(arg kinematic)">
+        <plugin name="slambot_kinematic_base" filename="libslambot_kinematic_base.so">
+          <topic>/cmd_vel</topic>
+          <max_linear>1.5</max_linear>
+          <max_angular>3.0</max_angular>
+        </plugin>
+      </xacro:if>
     </gazebo>
   </xacro:if>
 

@@ -3,7 +3,8 @@ from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, Exec
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
-from launch.substitutions import Command, FindExecutable
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration
+from launch.conditions import IfCondition, UnlessCondition
 from ament_index_python.packages import get_package_share_directory
 import os
 
@@ -12,9 +13,19 @@ def generate_launch_description():
     pkg_path = get_package_share_directory('slambot_description')
     xacro_file = os.path.join(pkg_path, 'urdf', 'slambot.xacro')
     
+    # Kinematic toggle (use kinematic base plugin in Gazebo Sim)
+    kinematic = LaunchConfiguration('kinematic')
+    declare_kinematic = DeclareLaunchArgument(
+        'kinematic', default_value='true', description='Use kinematic base plugin in Gazebo Sim'
+    )
+
     # Expand XACRO → URDF (ros2_control params default is set in the xacro)
     robot_description = ParameterValue(
-        Command([FindExecutable(name='xacro'), ' ', xacro_file, ' ', 'use_gz:=true']),
+        Command([
+            FindExecutable(name='xacro'), ' ', xacro_file, ' ',
+            'use_gz:=true', ' ',
+            'kinematic:=', kinematic
+        ]),
         value_type=str
     )
 
@@ -48,7 +59,11 @@ def generate_launch_description():
         executable='create',
         arguments=[
             '-name', 'slambot',
-            '-string', Command([FindExecutable(name='xacro'), ' ', xacro_file])
+            '-string', Command([
+                FindExecutable(name='xacro'), ' ', xacro_file, ' ',
+                'use_gz:=true', ' ',
+                'kinematic:=', kinematic
+            ])
         ],
         output='screen'
     )
@@ -68,7 +83,8 @@ def generate_launch_description():
             "wheel_controller",
             "-c", "/controller_manager"
         ],
-        output='screen'
+        output='screen',
+        condition=UnlessCondition(kinematic)
     )
 
     # Delay controller loading until robot is spawned
@@ -83,6 +99,7 @@ def generate_launch_description():
         executable='mecanum_drive_controller_node',
         name='mecanum_drive_controller',
         output='screen',
+        condition=UnlessCondition(kinematic),
         parameters=[{
             'wheel_radius': 0.0485,
             'base_length': 0.297,
@@ -92,6 +109,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        declare_kinematic,
         gazebo,
         rsp,
         spawn_robot,
