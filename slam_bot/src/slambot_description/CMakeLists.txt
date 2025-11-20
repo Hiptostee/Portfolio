@@ -9,6 +9,8 @@ endif()
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 # Try to locate Gazebo Sim (gz-sim) and friends (version-agnostic)
 set(GZ_SIM_CANDIDATES gz-sim8 gz-sim7)
@@ -43,7 +45,7 @@ if(GZ_SIM_TARGET AND GZ_PLUGIN_TARGET AND GZ_MATH_TARGET)
   add_library(slambot_kinematic_base SHARED
     src/kinematic_base_system.cpp)
   target_compile_features(slambot_kinematic_base PUBLIC cxx_std_17)
-  ament_target_dependencies(slambot_kinematic_base rclcpp geometry_msgs)
+  ament_target_dependencies(slambot_kinematic_base rclcpp geometry_msgs nav_msgs sensor_msgs)
   target_link_libraries(slambot_kinematic_base
     ${GZ_SIM_TARGET}::${GZ_SIM_TARGET}
     ${GZ_PLUGIN_TARGET}::${GZ_PLUGIN_TARGET}
