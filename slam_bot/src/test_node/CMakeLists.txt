@@ -4,6 +4,8 @@ project(test_node)
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(geometry_msgs REQUIRED)
+
 
 
 add_library(${PROJECT_NAME}_components SHARED src/test_node.cpp)
@@ -11,6 +13,7 @@ ament_target_dependencies(
         ${PROJECT_NAME}_components
         "rclcpp"
         "rclcpp_components"
+        "geometry_msgs"
 )
 rclcpp_components_register_node(
         ${PROJECT_NAME}_components

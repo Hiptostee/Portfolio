@@ -275,7 +275,7 @@ SITE:STRING=11589599656d
 TinyXML2_DIR:PATH=/usr/lib/aarch64-linux-gnu/cmake/tinyxml2
 
 //Path to a library.
-_lib:FILEPATH=/opt/ros/jazzy/lib/libcomposition_interfaces__rosidl_typesupport_fastrtps_cpp.so
+_lib:FILEPATH=/opt/ros/jazzy/lib/libgeometry_msgs__rosidl_typesupport_fastrtps_cpp.so
 
 //The directory containing a CMake configuration file for ament_cmake.
 ament_cmake_DIR:PATH=/opt/ros/jazzy/share/ament_cmake/cmake
@@ -400,6 +400,9 @@ fastrtps_cmake_module_DIR:PATH=/opt/ros/jazzy/share/fastrtps_cmake_module/cmake
 //The directory containing a CMake configuration file for foonathan_memory.
 foonathan_memory_DIR:PATH=/opt/ros/jazzy/lib/foonathan_memory/cmake
 
+//The directory containing a CMake configuration file for geometry_msgs.
+geometry_msgs_DIR:PATH=/opt/ros/jazzy/share/geometry_msgs/cmake
+
 //The directory containing a CMake configuration file for libstatistics_collector.
 libstatistics_collector_DIR:PATH=/opt/ros/jazzy/share/libstatistics_collector/cmake
 
@@ -505,6 +508,9 @@ service_msgs_DIR:PATH=/opt/ros/jazzy/share/service_msgs/cmake
 //The directory containing a CMake configuration file for statistics_msgs.
 statistics_msgs_DIR:PATH=/opt/ros/jazzy/share/statistics_msgs/cmake
 
+//The directory containing a CMake configuration file for std_msgs.
+std_msgs_DIR:PATH=/opt/ros/jazzy/share/std_msgs/cmake
+
 //Value Computed by CMake
 test_node_BINARY_DIR:STATIC=/home/slambot/ros2_ws/build/test_node
 
@@ -515,7 +521,7 @@ test_node_IS_TOP_LEVEL:STATIC=ON
 test_node_SOURCE_DIR:STATIC=/home/slambot/ros2_ws/src/test_node
 
 //Dependencies for the target
-test_node_components_LIB_DEPENDS:STATIC=general;rclcpp::rclcpp;general;rclcpp_components::component_manager;
+test_node_components_LIB_DEPENDS:STATIC=general;rclcpp::rclcpp;general;rclcpp_components::component_manager;general;geometry_msgs::geometry_msgs__rosidl_generator_c;general;geometry_msgs::geometry_msgs__rosidl_typesupport_fastrtps_c;general;geometry_msgs::geometry_msgs__rosidl_typesupport_introspection_c;general;geometry_msgs::geometry_msgs__rosidl_typesupport_c;general;geometry_msgs::geometry_msgs__rosidl_typesupport_fastrtps_cpp;general;geometry_msgs::geometry_msgs__rosidl_typesupport_introspection_cpp;general;geometry_msgs::geometry_msgs__rosidl_typesupport_cpp;general;geometry_msgs::geometry_msgs__rosidl_generator_py;
 
 //The directory containing a CMake configuration file for tracetools.
 tracetools_DIR:PATH=/opt/ros/jazzy/share/tracetools/cmake
