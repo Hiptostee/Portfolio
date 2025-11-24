@@ -6,7 +6,8 @@
   <!-- If true in Gazebo Sim, move base kinematically from /cmd_vel (disables wheel physics effect) -->
   <xacro:arg name="kinematic" default="true"/>
 
- 
+  <!-- Main robot macro so other files (e.g., .urdf wrapper) can include/instantiate -->
+  <xacro:macro name="slambot" params="">
   <!-- Base link with simple box visual and collision -->
   <link name="base_link">
     <inertial>
@@ -318,7 +319,7 @@
           <pose_cov_diag>0.0001 0.0001 1000000 1000000 1000000 0.001</pose_cov_diag>
           <twist_cov_diag>0.001 0.001 1000000 1000000 1000000 0.01</twist_cov_diag>
           <!-- Encoders (off by default to avoid conflicts) -->
-          <publish_encoders>false</publish_encoders>
+          <publish_encoders>true</publish_encoders>
           <ticks_topic>/wheel_ticks</ticks_topic>
           <joint_state_topic>/encoder_joint_states</joint_state_topic>
           <ticks_per_rev>2048</ticks_per_rev>
@@ -366,6 +367,9 @@
       <fdir1>-1 1 0</fdir1>
     </gazebo>
   </xacro:unless>
+  </xacro:macro>
 
+  <!-- Instantiate macro by default so this file remains directly usable with xacro -->
+  <xacro:slambot />
 
 </robot>
