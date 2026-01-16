@@ -15,12 +15,10 @@
 #include <vector>
 
 #define MOTOR_I2C_ADDR 0x12
-
-#define REG_MOTOR_SPEEDS 51 // write 4x int8: FL,FR,BL,BR (canonical)
-#define REG_ENCODERS 60     // read 16 bytes: 4x int32 LE: FL,FR,BL,BR (physical)
-#define REG_PID_GAINS 70    // write 12 bytes: kp_i16,ki_i16,kd_i16 (LE)
-#define REG_TARGET_POS 72
-#define REG_TELEM_FL 73
+#define REG_MOTOR_SPEEDS 51 // write 4x int8: FL,FR,BL,BR
+#define REG_ENCODERS 60     // read 16 bytes: 4x int32 LE: FL,FR,BL,BR
+#define REG_PID_GAINS 70    // write 12 bytes: kp,ki,kd,kp_hold,ki_hold,kd_hold (LE int16)
+#define REG_TELEM_FL 73     // read 16 bytes: 4x int32: tpos,pos,err,pwm
 
 namespace mecanum_drive_controller
 {
@@ -31,11 +29,6 @@ namespace mecanum_drive_controller
     if (v < -32768)
       return -32768;
     return (int16_t)v;
-  }
-
-  static inline int16_t le_i16(const uint8_t *p)
-  {
-    return (int16_t)((uint16_t)p[0] | ((uint16_t)p[1] << 8));
   }
 
   static inline int32_t le_i32(const uint8_t *p)
@@ -49,10 +42,6 @@ namespace mecanum_drive_controller
   MecanumDriveController::MecanumDriveController(const rclcpp::NodeOptions &options)
       : rclcpp::Node("mecanum_drive_controller", options)
   {
-    // wheel_radius_ = declare_parameter<double>("wheel_radius", 0.0485);
-    // base_length_ = declare_parameter<double>("base_length", 0.297);
-    // base_width_ = declare_parameter<double>("base_width", 0.256);
-
     kp_ = declare_parameter<double>("kp", 0.20);
     ki_ = declare_parameter<double>("ki", 0.00005);
     kd_ = declare_parameter<double>("kd", 0.0);
@@ -75,7 +64,7 @@ namespace mecanum_drive_controller
         std::bind(&MecanumDriveController::readTelemFL, this));
 
     encoder_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(10),
+        std::chrono::milliseconds(50),
         std::bind(&MecanumDriveController::readEncoders, this));
 
     cmd_vel_sub_ = create_subscription<geometry_msgs::msg::Twist>(
@@ -100,6 +89,53 @@ namespace mecanum_drive_controller
     return true;
   }
 
+  bool MecanumDriveController::i2cWriteI8(uint8_t reg, const int8_t *data, size_t len)
+  {
+    std::vector<uint8_t> buf(len + 1);
+    buf[0] = reg;
+    std::memcpy(&buf[1], data, len);
+    return (write(i2c_file_, buf.data(), buf.size()) == (ssize_t)buf.size());
+  }
+
+  bool MecanumDriveController::i2cWriteU8(uint8_t reg, const uint8_t *data, size_t len)
+  {
+    std::vector<uint8_t> buf(len + 1);
+    buf[0] = reg;
+    std::memcpy(&buf[1], data, len);
+    return (write(i2c_file_, buf.data(), buf.size()) == (ssize_t)buf.size());
+  }
+
+  void MecanumDriveController::sendPidToPico()
+  {
+    int16_t kp_q = clamp_i16((int)std::lround(kp_ * 1000.0));
+    int16_t ki_q = clamp_i16((int)std::lround(ki_ * 100000.0));
+    int16_t kd_q = clamp_i16((int)std::lround(kd_ * 10.0));
+    int16_t kp_q_hold = clamp_i16((int)std::lround(kp_hold_ * 1000.0));
+    int16_t ki_q_hold = clamp_i16((int)std::lround(ki_hold_ * 100000.0));
+    int16_t kd_q_hold = clamp_i16((int)std::lround(kd_hold_ * 10.0));
+
+    uint8_t gains[12];
+    auto pack16 = [&](int idx, int16_t v)
+    {
+      gains[idx + 0] = (uint8_t)(v & 0xFF);
+      gains[idx + 1] = (uint8_t)((v >> 8) & 0xFF);
+    };
+
+    pack16(0, kp_q);
+    pack16(2, ki_q);
+    pack16(4, kd_q);
+    pack16(6, kp_q_hold);
+    pack16(8, ki_q_hold);
+    pack16(10, kd_q_hold);
+
+    if (!i2cWriteU8(REG_PID_GAINS, gains, 12))
+      RCLCPP_ERROR(get_logger(), "Failed to write PID gains");
+
+    RCLCPP_WARN(get_logger(),
+                "Sent PID to Pico: kp=%.6f ki=%.8f kd=%.6f | kp_hold=%.6f ki_hold=%.8f kd_hold=%.6f",
+                kp_, ki_, kd_, kp_hold_, ki_hold_, kd_hold_);
+  }
+
   void MecanumDriveController::readTelemFL()
   {
     uint8_t raw[16];
@@ -120,72 +156,6 @@ namespace mecanum_drive_controller
         tpos, pos, err, pwm);
   }
 
-  bool MecanumDriveController::i2cWriteI8(uint8_t reg, const int8_t *data, size_t len)
-  {
-    std::vector<uint8_t> buf(len + 1);
-    buf[0] = reg;
-    std::memcpy(&buf[1], data, len);
-    return (write(i2c_file_, buf.data(), buf.size()) == (ssize_t)buf.size());
-  }
-
-  bool MecanumDriveController::i2cWriteU8(uint8_t reg, const uint8_t *data, size_t len)
-  {
-    std::vector<uint8_t> buf(len + 1);
-    buf[0] = reg;
-    std::memcpy(&buf[1], data, len);
-    return (write(i2c_file_, buf.data(), buf.size()) == (ssize_t)buf.size());
-  }
-
-  void MecanumDriveController::sendPidToPico()
-  {
-
-    int16_t kp_q = clamp_i16((int)std::lround(kp_ * 1000.0));
-    int16_t ki_q = clamp_i16((int)std::lround(ki_ * 100000.0));
-    int16_t kd_q = clamp_i16((int)std::lround(kd_ * 10.0));
-    int16_t kp_q_hold = clamp_i16((int)std::lround(kp_hold_ * 1000.0));
-    int16_t ki_q_hold = clamp_i16((int)std::lround(ki_hold_ * 100000.0));
-    int16_t kd_q_hold = clamp_i16((int)std::lround(kd_hold_ * 10.0));
-
-    uint8_t gains[12];
-    auto pack16 = [&](int idx, int16_t v)
-    {
-      gains[idx + 0] = (uint8_t)(v & 0xFF);
-      gains[idx + 1] = (uint8_t)((v >> 8) & 0xFF);
-    };
-    pack16(0, kp_q);
-    pack16(2, ki_q);
-    pack16(4, kd_q);
-    pack16(6, kp_q_hold);
-    pack16(8, ki_q_hold);
-    pack16(10, kd_q_hold);
-
-    if (!i2cWriteU8(REG_PID_GAINS, gains, 12))
-      RCLCPP_ERROR(get_logger(), "Failed to write PID gains");
-
-    RCLCPP_WARN(get_logger(),
-                "Sent PID to Pico: kp=%.6f ki=%.8f kd=%.6f | kp_hold=%.6f ki_hold=%.8f kd_hold=%.6f "
-                "(q_vel: %d %d %d | q_hold: %d %d %d)",
-                kp_, ki_, kd_, kp_hold_, ki_hold_, kd_hold_,
-                (int)kp_q, (int)ki_q, (int)kd_q,
-                (int)kp_q_hold, (int)ki_q_hold, (int)kd_q_hold);
-  }
-
-  void MecanumDriveController::sendTargetPosToPico()
-  {
-    uint8_t buf[1 + 16];
-    buf[0] = REG_TARGET_POS;
-    int32_t vals[4] = {encFL, encFR, encBL, encBR};
-    for (int i = 0; i < 4; i++)
-    {
-      buf[1 + i * 4 + 0] = (uint8_t)(vals[i] & 0xFF);
-      buf[1 + i * 4 + 1] = (uint8_t)((vals[i] >> 8) & 0xFF);
-      buf[1 + i * 4 + 2] = (uint8_t)((vals[i] >> 16) & 0xFF);
-      buf[1 + i * 4 + 3] = (uint8_t)((vals[i] >> 24) & 0xFF);
-    }
-    if (write(i2c_file_, buf, sizeof(buf)) != (ssize_t)sizeof(buf))
-      RCLCPP_ERROR(get_logger(), "Failed to write target positions");
-  }
-
   void MecanumDriveController::readEncoders()
   {
     uint8_t raw[16];
@@ -194,6 +164,7 @@ namespace mecanum_drive_controller
       RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "Encoder read failed");
       return;
     }
+
     encFL = le_i32(&raw[0]);
     encFR = le_i32(&raw[4]);
     encBL = le_i32(&raw[8]);
@@ -202,15 +173,10 @@ namespace mecanum_drive_controller
     std_msgs::msg::Int32MultiArray msg;
     msg.data = {encFL, encFR, encBL, encBR};
     pub_->publish(msg);
-
-    // RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 500,
-    //                      "Encoders: FL=%d FR=%d BL=%d BR=%d",
-    //                      encFL, encFR, encBL, encBR);
   }
 
   void MecanumDriveController::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
   {
-
     double y = msg->linear.x;
     double x = msg->linear.y;
     double rx = msg->angular.z;
@@ -238,11 +204,6 @@ namespace mecanum_drive_controller
 
     if (!i2cWriteI8(REG_MOTOR_SPEEDS, speeds, 4))
       RCLCPP_ERROR(get_logger(), "I2C motor write failed");
-
-    if (speeds[0] == 0 && speeds[1] == 0 && speeds[2] == 0 && speeds[3] == 0)
-    {
-      sendTargetPosToPico();
-    }
   }
 
 } // namespace mecanum_drive_controller
