@@ -35,6 +35,8 @@ namespace mecanum_drive_controller
     void sendTargetPosToPico();
 
     double kp_{0.0}, ki_{0.0}, kd_{0.0};
+    double kp_hold_{0.0}, ki_hold_{0.0}, kd_hold_{0.0};
+
     int32_t encFL = 0, encFR = 0, encBL = 0, encBR = 0;
 
     // Members
@@ -42,6 +44,7 @@ namespace mecanum_drive_controller
     rclcpp::Publisher<std_msgs::msg::Int32MultiArray>::SharedPtr pub_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
     rclcpp::TimerBase::SharedPtr telem_timer_;
+    rclcpp::TimerBase::SharedPtr encoder_timer_;
 
     double wheel_radius_{};
     double base_length_{};
