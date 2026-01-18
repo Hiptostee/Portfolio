@@ -1,2 +1,0 @@
-Invoking command in '/home/slambot/ros2_ws/src/build/test_node': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake /home/slambot/ros2_ws/src/test_node -DCMAKE_INSTALL_PREFIX=/home/slambot/ros2_ws/src/install/test_node
-Invoked command in '/home/slambot/ros2_ws/src/build/test_node' returned '1': CMAKE_PREFIX_PATH=${CMAKE_PREFIX_PATH}:/opt/ros/jazzy /usr/bin/cmake /home/slambot/ros2_ws/src/test_node -DCMAKE_INSTALL_PREFIX=/home/slambot/ros2_ws/src/install/test_node

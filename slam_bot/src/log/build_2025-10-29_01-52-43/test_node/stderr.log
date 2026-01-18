@@ -1,4 +1,0 @@
-[31mCMake Error at CMakeLists.txt:30 (rclcpp_components_register_libraries):
-  Unknown CMake command "rclcpp_components_register_libraries".
-
-[0m

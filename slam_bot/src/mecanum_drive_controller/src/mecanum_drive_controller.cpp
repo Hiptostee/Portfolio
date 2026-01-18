@@ -42,12 +42,12 @@ namespace mecanum_drive_controller
   MecanumDriveController::MecanumDriveController(const rclcpp::NodeOptions &options)
       : rclcpp::Node("mecanum_drive_controller", options)
   {
-    kp_ = declare_parameter<double>("kp", 0.20);
-    ki_ = declare_parameter<double>("ki", 0.00005);
+    kp_ = declare_parameter<double>("kp", 0.5);
+    ki_ = declare_parameter<double>("ki", 0.00001);
     kd_ = declare_parameter<double>("kd", 0.0);
 
-    kp_hold_ = declare_parameter<double>("kp_hold", 0.20);
-    ki_hold_ = declare_parameter<double>("ki_hold", 0.00005);
+    kp_hold_ = declare_parameter<double>("kp_hold", 5.0);
+    ki_hold_ = declare_parameter<double>("ki_hold", 0.0);
     kd_hold_ = declare_parameter<double>("kd_hold", 0.0);
 
     i2c_file_ = open("/dev/i2c-1", O_RDWR);
@@ -181,10 +181,10 @@ namespace mecanum_drive_controller
     double x = msg->linear.y;
     double rx = msg->angular.z;
 
-    double fl = y + x + rx;
-    double fr = y - x - rx;
-    double bl = y - x + rx;
-    double br = y + x - rx;
+    double fl = y + x - rx;
+    double fr = y - x + rx;
+    double bl = y - x - rx;
+    double br = y + x +  rx;
 
     double maxVal = std::max({std::abs(fl), std::abs(fr), std::abs(bl), std::abs(br), 1.0});
     fl /= maxVal;
