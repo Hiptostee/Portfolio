@@ -29,6 +29,12 @@ def generate_launch_description():
         'mecanum_drive_controller.launch.py'
     )
 
+    odom_node_launch = os.path.join(
+        get_package_share_directory('odom_node'),
+        'launch',
+        'odom_node.launch.py'
+    )
+
     robot_description_file = os.path.join(
         get_package_share_directory('slambot_description'),
         'urdf',
@@ -66,6 +72,10 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(mecanum_drive_launch)
     )
 
+    odom_node_launch_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(odom_node_launch)
+    )
+
     # -------------------------------------------------------------------------
     # Return everything
     # -------------------------------------------------------------------------
@@ -73,5 +83,6 @@ def generate_launch_description():
         robot_state_publisher,
         imu_node,
         lidar_node,
-        mecanum_drive_launch_node
+        mecanum_drive_launch_node,
+        odom_node_launch_node
     ])

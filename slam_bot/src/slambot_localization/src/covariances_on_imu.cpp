@@ -11,7 +11,7 @@ CovariancesOnImu::CovariancesOnImu(const rclcpp::NodeOptions &options)
     : rclcpp::Node("covariances_on_imu", options)
 {
   const auto imu_input_topic = declare_parameter<std::string>("imu_input_topic", "/imu");
-  const auto imu_output_topic = declare_parameter<std::string>("imu_output_topic", "/imu/fused");
+  const auto imu_output_topic = declare_parameter<std::string>("imu_output_topic", "/imu_with_covariances");
 
   imu_publisher_ = create_publisher<sensor_msgs::msg::Imu>(
       imu_output_topic,
