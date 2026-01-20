@@ -19,6 +19,12 @@ def generate_launch_description():
         'kinematic', default_value='true', description='Use kinematic base plugin in Gazebo Sim'
     )
 
+    odom_node_launch = os.path.join(
+        get_package_share_directory('odom_node'),
+        'launch',
+        'odom_node.launch.py'
+    )
+
     # Expand XACRO → URDF (ros2_control params default is set in the xacro)
     robot_description = ParameterValue(
         Command([
@@ -73,6 +79,7 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=["joint_state_broadcaster", "-c", "/controller_manager"],
+        parameters=[{'use_sim_time': True}],
         output='screen'
     )
 
@@ -83,6 +90,7 @@ def generate_launch_description():
             "wheel_controller",
             "-c", "/controller_manager"
         ],
+        parameters=[{'use_sim_time': True}],
         output='screen',
         condition=UnlessCondition(kinematic)
     )
@@ -93,26 +101,34 @@ def generate_launch_description():
         actions=[jsb_spawner, wheel_spawner]
     )
 
-    # Mecanum controller node (translates /cmd_vel to joint velocities)
-    mecanum_controller = Node(
-        package='mecanum_drive_controller',
-        executable='mecanum_drive_controller_node',
-        name='mecanum_drive_controller',
-        output='screen',
-        condition=UnlessCondition(kinematic),
-        parameters=[{
-            'wheel_radius': 0.0485,
-            'base_length': 0.297,
-            'base_width': 0.256,
-            'use_sim_time': True
-        }]
+    odom_node_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(odom_node_launch)
     )
+
+
+    bridge_yaml = DeclareLaunchArgument(
+        "bridge_yaml",
+        default_value=os.path.join(pkg_path, "config", "bridge.yaml"),
+        description="bridge YAML config",
+    )
+
+    bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="ros_gz_bridge",
+        output="screen",
+        parameters=[{"config_file": LaunchConfiguration("bridge_yaml")}],
+    )
+
+
 
     return LaunchDescription([
         declare_kinematic,
+        bridge_yaml,
         gazebo,
         rsp,
         spawn_robot,
         delay,
-        mecanum_controller,
+        odom_node_launch,
+        bridge,
     ])

@@ -149,11 +149,6 @@ namespace mecanum_drive_controller
     int32_t pos = le_i32(&raw[4]);
     int32_t err = le_i32(&raw[8]);
     int32_t pwm = le_i32(&raw[12]);
-
-    RCLCPP_INFO_THROTTLE(
-        get_logger(), *get_clock(), 200,
-        "[FL_TELEM] tpos=%d pos=%d err=%d pwm=%d",
-        tpos, pos, err, pwm);
   }
 
   void MecanumDriveController::readEncoders()

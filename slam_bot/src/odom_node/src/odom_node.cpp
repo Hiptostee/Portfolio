@@ -11,8 +11,8 @@ OdomNode::OdomNode(const rclcpp::NodeOptions &options)
     RCLCPP_INFO(get_logger(), "Odom Node Started");
 
     double wheel_radius = declare_parameter<double>("wheel_radius", 0.0485);
-    double base_length = declare_parameter<double>("base_length", 0.19);
-    double base_width = declare_parameter<double>("base_width", 0.21);
+    double base_length = declare_parameter<double>("base_length", 0.21);  
+    double base_width = declare_parameter<double>("base_width", 0.200);    
 
     L = base_length / 2;
     W = base_width / 2;
@@ -29,7 +29,6 @@ OdomNode::OdomNode(const rclcpp::NodeOptions &options)
   OdomNode::~OdomNode(){}
   void OdomNode::odomCallback(const std_msgs::msg::Int32MultiArray::SharedPtr msg)
   {
-    RCLCPP_INFO(get_logger(), "Odom Callback Received");
     int32_t encFL = msg->data[0];
     int32_t encFR = msg->data[1];
     int32_t encBL = msg->data[2];
@@ -111,8 +110,6 @@ OdomNode::OdomNode(const rclcpp::NodeOptions &options)
     odom_msg.twist.covariance[35] = 0.02;
 
     odom_pub_->publish(odom_msg);
-    
-    RCLCPP_INFO(get_logger(), "vx: %.3f m/s, vy: %.3f m/s, omega: %.3f rad/s", vx, vy, omega);
   }
 }
 

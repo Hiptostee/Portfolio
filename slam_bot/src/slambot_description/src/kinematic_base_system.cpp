@@ -23,7 +23,6 @@
 
 #include "rclcpp/rclcpp.hpp"
 #include "geometry_msgs/msg/twist.hpp"
-#include "nav_msgs/msg/odometry.hpp"
 #include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/int32_multi_array.hpp"
 
@@ -68,14 +67,6 @@ public:
       this->publish_period_ = std::chrono::duration_cast<std::chrono::steady_clock::duration>(
           std::chrono::duration<double>(1.0 / hz));
     }
-    if (_sdf && _sdf->HasElement("publish_odom"))
-      this->publish_odom_ = _sdf->Get<bool>("publish_odom");
-    if (_sdf && _sdf->HasElement("odom_topic"))
-      this->odom_topic_ = _sdf->Get<std::string>("odom_topic");
-    if (_sdf && _sdf->HasElement("odom_frame"))
-      this->odom_frame_ = _sdf->Get<std::string>("odom_frame");
-    if (_sdf && _sdf->HasElement("base_frame"))
-      this->base_frame_ = _sdf->Get<std::string>("base_frame");
 
     if (_sdf && _sdf->HasElement("publish_encoders"))
       this->publish_encoders_ = _sdf->Get<bool>("publish_encoders");
@@ -100,18 +91,6 @@ public:
     if (_sdf && _sdf->HasElement("back_right_joint"))
       this->br_joint_name_ = _sdf->Get<std::string>("back_right_joint");
 
-    // Optional covariance diagonals (6 values: x y z roll pitch yaw)
-    if (_sdf && _sdf->HasElement("pose_cov_diag"))
-    {
-      auto s = _sdf->Get<std::string>("pose_cov_diag");
-      ParseDiag6(s, pose_cov_diag_);
-    }
-    if (_sdf && _sdf->HasElement("twist_cov_diag"))
-    {
-      auto s = _sdf->Get<std::string>("twist_cov_diag");
-      ParseDiag6(s, twist_cov_diag_);
-    }
-
     // ROS 2 node for cmd_vel
     rclcpp::InitOptions opts;
     if (!rclcpp::ok())
@@ -132,10 +111,6 @@ public:
       }
     );
 
-    if (publish_odom_)
-    {
-      odom_pub_ = node_->create_publisher<nav_msgs::msg::Odometry>(odom_topic_, rclcpp::QoS(10));
-    }
     if (publish_encoders_)
     {
       if (!ticks_topic_.empty())
@@ -197,18 +172,18 @@ public:
     else
       angCmdComp->Data() = ang_cmd;
 
-    // Publish odometry and encoder data at the configured rate
+    // Publish encoder data at the configured rate
     const auto now = _info.simTime;
     if (now - last_pub_time_ >= publish_period_)
     {
       last_pub_time_ = now;
 
-      // Read current pose
+      // Read current pose for encoder calculations
       auto poseComp = _ecm.Component<components::Pose>(ent);
       math::Pose3d pose = poseComp ? poseComp->Data() : math::Pose3d::Zero;
 
       // Compute body-frame twist from pose delta
-      double dt = std::chrono::duration<double>(now - last_odom_time_).count();
+      double dt = std::chrono::duration<double>(now - last_update_time_).count();
       if (dt <= 0.0)
         dt = std::chrono::duration<double>(publish_period_).count();
 
@@ -229,37 +204,7 @@ public:
       }
       prev_pose_ = pose;
       has_prev_pose_ = true;
-      last_odom_time_ = now;
-
-      // Odometry publishing
-      if (publish_odom_ && odom_pub_)
-      {
-        nav_msgs::msg::Odometry odom;
-        odom.header.stamp = ToRosTime(now);
-        odom.header.frame_id = odom_frame_;
-        odom.child_frame_id = base_frame_;
-        odom.pose.pose.position.x = pose.Pos().X();
-        odom.pose.pose.position.y = pose.Pos().Y();
-        odom.pose.pose.position.z = pose.Pos().Z();
-        odom.pose.pose.orientation.x = pose.Rot().X();
-        odom.pose.pose.orientation.y = pose.Rot().Y();
-        odom.pose.pose.orientation.z = pose.Rot().Z();
-        odom.pose.pose.orientation.w = pose.Rot().W();
-
-        // Velocities in base frame
-        odom.twist.twist.linear.x = body_lin.X();
-        odom.twist.twist.linear.y = body_lin.Y();
-        odom.twist.twist.linear.z = 0.0;
-        odom.twist.twist.angular.z = body_yaw_rate;
-        odom.twist.twist.angular.x = 0.0;
-        odom.twist.twist.angular.y = 0.0;
-
-        // Set covariances from configured diagonals
-        FillCovariance(pose_cov_diag_, odom.pose.covariance);
-        FillCovariance(twist_cov_diag_, odom.twist.covariance);
-
-        odom_pub_->publish(odom);
-      }
+      last_update_time_ = now;
 
       // Encoder emulation (ticks and/or joint states)
       if (publish_encoders_ && (ticks_pub_ || joint_state_pub_))
@@ -267,7 +212,7 @@ public:
         // Wheel angular velocities from mecanum IK using body-frame twist
         const double L = base_length_ / 2.0;
         const double W = base_width_  / 2.0;
-        const double R = wheel_radius_ > 0.0 ? wheel_radius_ : 0.05;
+        const double R = wheel_radius_;
         const double vx = body_lin.X();
         const double vy = body_lin.Y();
         const double wz = body_yaw_rate;
@@ -322,7 +267,6 @@ private:
 
   std::shared_ptr<rclcpp::Node> node_;
   rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr sub_;
-  rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
   rclcpp::Publisher<sensor_msgs::msg::JointState>::SharedPtr joint_state_pub_;
   rclcpp::Publisher<std_msgs::msg::Int32MultiArray>::SharedPtr ticks_pub_;
   std::thread spin_thread_;
@@ -331,12 +275,7 @@ private:
   math::Vector3d cmd_lin_{0, 0, 0};
   math::Vector3d cmd_ang_{0, 0, 0};
 
-  // Odom / encoder options
-  bool publish_odom_{true};
-  std::string odom_topic_{"/odom"};
-  std::string odom_frame_{"odom"};
-  std::string base_frame_{"base_link"};
-
+  // Encoder options
   bool publish_encoders_{false};
   std::string joint_state_topic_{"/encoder_joint_states"};
   std::string ticks_topic_{"/wheel_ticks"};
@@ -349,10 +288,6 @@ private:
   std::string bl_joint_name_{"back_left_wheel_joint"};
   std::string br_joint_name_{"back_right_wheel_joint"};
 
-  // Covariance diagonals [x y z roll pitch yaw]
-  double pose_cov_diag_[6]{1e-4, 1e-4, 1e6, 1e6, 1e6, 1e-3};
-  double twist_cov_diag_[6]{1e-3, 1e-3, 1e6, 1e6, 1e6, 1e-2};
-
   // Encoder state
   double wheel_pos_[4]{0.0,0.0,0.0,0.0};
   long long wheel_ticks_[4]{0,0,0,0};
@@ -361,8 +296,8 @@ private:
   std::chrono::steady_clock::duration publish_period_{std::chrono::milliseconds(20)}; // 50 Hz
   std::chrono::steady_clock::duration last_pub_time_{};
 
-  // Odom derivation helpers
-  std::chrono::steady_clock::duration last_odom_time_{};
+  // Pose tracking for encoder calculations
+  std::chrono::steady_clock::duration last_update_time_{};
   math::Pose3d prev_pose_{};
   bool has_prev_pose_{false};
 
@@ -375,26 +310,6 @@ private:
     stamp.sec = static_cast<int32_t>(ns / 1000000000LL);
     stamp.nanosec = static_cast<uint32_t>(ns % 1000000000LL);
     return stamp;
-  }
-
-  static void FillCovariance(const double diag[6], std::array<double, 36> &cov)
-  {
-    cov.fill(0.0);
-    // Row-major 6x6: indices (0..5) along x y z r p y
-    for (int i = 0; i < 6; ++i)
-    {
-      cov[i * 6 + i] = diag[i];
-    }
-  }
-
-  static void ParseDiag6(const std::string &s, double out[6])
-  {
-    std::stringstream ss(s);
-    for (int i = 0; i < 6; ++i)
-    {
-      if (!(ss >> out[i]))
-        break;
-    }
   }
 };
 }  // namespace slambot
