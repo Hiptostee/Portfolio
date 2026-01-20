@@ -74,7 +74,13 @@ OdomNode::OdomNode(const rclcpp::NodeOptions &options)
     double vy = (-mFL + mFR + mBL - mBR)  / 4.0;
     double omega = (-mFL + mFR - mBL + mBR) / (4.0 * (L + W));
 
-    //integarde velocities to get position - simple euler integration
+    //transform to world frame
+    double cos_theta = cos(theta);
+    double sin_theta = sin(theta);
+    double body_vx = vx * cos_theta - vy * sin_theta;
+    double body_vy = vx * sin_theta + vy * cos_theta;
+    vx = body_vx;
+    vy = body_vy;
 
     x += vx * dt;
     y += vy * dt;
