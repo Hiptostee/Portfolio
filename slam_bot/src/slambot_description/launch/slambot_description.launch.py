@@ -25,6 +25,12 @@ def generate_launch_description():
         'odom_node.launch.py'
     )
 
+    covariances_on_imu_launch = os.path.join(
+        get_package_share_directory('slambot_localization'),
+        'launch',
+        'slambot_localization.launch.py'
+    )
+
     # Expand XACRO → URDF (ros2_control params default is set in the xacro)
     robot_description = ParameterValue(
         Command([
@@ -60,18 +66,25 @@ def generate_launch_description():
     )
 
     # Spawn robot in Gazebo (same xacro)
-    spawn_robot = Node(
-        package='ros_gz_sim',
-        executable='create',
-        arguments=[
-            '-name', 'slambot',
-            '-string', Command([
-                FindExecutable(name='xacro'), ' ', xacro_file, ' ',
-                'use_gz:=true', ' ',
-                'kinematic:=', kinematic
-            ])
-        ],
-        output='screen'
+    # Wrap in TimerAction to wait for Gazebo Sim to be ready
+    spawn_robot_delayed = TimerAction(
+        period=5.0,
+        actions=[
+            Node(
+                package='ros_gz_sim',
+                executable='create',
+                arguments=[
+                    '-world', 'mecanum_ode',
+                    '-name', 'slambot',
+                    '-string', Command([
+                        FindExecutable(name='xacro'), ' ', xacro_file, ' ',
+                        'use_gz:=true', ' ',
+                        'kinematic:=', kinematic
+                    ])
+                ],
+                output='screen'
+            )
+        ]
     )
 
     # Spawners talk to Gazebo's controller manager (/controller_manager)
@@ -95,14 +108,18 @@ def generate_launch_description():
         condition=UnlessCondition(kinematic)
     )
 
-    # Delay controller loading until robot is spawned
+    # Delay controller loading until robot is spawned (after spawn delay + buffer)
     delay = TimerAction(
-        period=5.0,
+        period=8.0,
         actions=[jsb_spawner, wheel_spawner]
     )
 
     odom_node_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(odom_node_launch)
+    )
+
+    covariances_on_imu_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(covariances_on_imu_launch)
     )
 
 
@@ -120,15 +137,14 @@ def generate_launch_description():
         parameters=[{"config_file": LaunchConfiguration("bridge_yaml")}],
     )
 
-
-
     return LaunchDescription([
         declare_kinematic,
         bridge_yaml,
         gazebo,
         rsp,
-        spawn_robot,
+        spawn_robot_delayed,
         delay,
         odom_node_launch,
+        covariances_on_imu_launch,
         bridge,
     ])

@@ -1,0 +1,52 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Transmissions for wheel joints -->
+  <xacro:macro name="slambot_transmissions" params="">
+    <transmission name="front_left_transmission">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="front_left_wheel_joint">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+      </joint>
+      <actuator name="front_left_motor">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="front_right_transmission">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="front_right_wheel_joint">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+      </joint>
+      <actuator name="front_right_motor">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="back_left_transmission">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="back_left_wheel_joint">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+      </joint>
+      <actuator name="back_left_motor">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="back_right_transmission">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="back_right_wheel_joint">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+      </joint>
+      <actuator name="back_right_motor">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+  </xacro:macro>
+
+</robot>
+

@@ -1,0 +1,55 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <!-- Macro for a single wheel link + joint -->
+  <xacro:macro name="slambot_wheel" params="wheel_name joint_name origin_x origin_y origin_z fdir1">
+    <link name="${wheel_name}">
+      <inertial>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <mass value="0.2"/>
+        <inertia ixx="0.0001317" ixy="0.0" ixz="0.0" iyy="0.00025" iyz="0.0" izz="0.0001317"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+        </geometry>
+        <material name="wheel_black">
+          <color rgba="0.05 0.05 0.05 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="${joint_name}" type="continuous">
+      <parent link="base_link"/>
+      <child link="${wheel_name}"/>
+      <origin xyz="${origin_x} ${origin_y} ${origin_z}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+
+    <!-- Approximate mecanum behavior via anisotropic friction (Gazebo Classic ODE only) -->
+    <xacro:unless value="$(arg use_gz)">
+      <gazebo reference="${wheel_name}">
+        <mu1>1.0</mu1>
+        <mu2>0.05</mu2>
+        <fdir1>${fdir1}</fdir1>
+      </gazebo>
+    </xacro:unless>
+  </xacro:macro>
+
+  <!-- Macro to instantiate all 4 wheels -->
+  <xacro:macro name="slambot_wheels" params="">
+    <xacro:slambot_wheel wheel_name="front_left_wheel"  joint_name="front_left_wheel_joint"  origin_x="${wheel_x}"  origin_y="${wheel_y}"  origin_z="${wheel_radius}" fdir1="1 1 0"/>
+    <xacro:slambot_wheel wheel_name="front_right_wheel" joint_name="front_right_wheel_joint" origin_x="${wheel_x}"  origin_y="${-wheel_y}" origin_z="${wheel_radius}" fdir1="1 -1 0"/>
+    <xacro:slambot_wheel wheel_name="back_left_wheel"   joint_name="back_left_wheel_joint"   origin_x="${-wheel_x}" origin_y="${wheel_y}"  origin_z="${wheel_radius}" fdir1="-1 -1 0"/>
+    <xacro:slambot_wheel wheel_name="back_right_wheel"  joint_name="back_right_wheel_joint"  origin_x="${-wheel_x}" origin_y="${-wheel_y}" origin_z="${wheel_radius}" fdir1="-1 1 0"/>
+  </xacro:macro>
+
+</robot>
+
