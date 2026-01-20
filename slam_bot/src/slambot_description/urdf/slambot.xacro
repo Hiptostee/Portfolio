@@ -9,402 +9,424 @@
   <!-- Main robot macro so other files (e.g., .urdf wrapper) can include/instantiate -->
   <xacro:macro name="slambot" params="">
 
-  <xacro:property name="robot_length" value="0.297"/>  <!-- m -->
-  <xacro:property name="robot_width" value="0.256"/>   <!-- m -->
-  <xacro:property name="wheel_radius" value="0.0485"/>   <!-- m -->
-  <xacro:property name="robot_height" value="0.08"/>    <!-- m -->
-  <xacro:property name="battery_depth" value="0.051"/>  <!-- m, 2 inches out -->
-  <xacro:property name="battery_width" value="0.281"/>  <!-- m, robot_width + 1 inch (0.5in on each side) -->
-  <!-- Base link with simple box visual and collision -->
-  <link name="base_link">
-    <inertial>
-      <!-- Raise base so its bottom touches wheel top (0.097 m) -->
-      <origin xyz="0 0 0.05" rpy="0 0 0"/>
-      <mass value="2.0"/>
-      <inertia ixx="0.011483" ixy="0.0" ixz="0.0" iyy="0.021483" iyz="0.0" izz="0.030833"/>
-    </inertial>
-    <visual>
-      <origin xyz="0 0 0.05" rpy="0 0 0"/>
-      <geometry>
-        <box size="${robot_length} ${robot_width} ${robot_height}"/>
-      </geometry>
-      <material name="gray">
-        <color rgba="0.6 0.6 0.6 1.0"/>
-      </material>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0.05" rpy="0 0 0"/>
-      <geometry>
-        <box size="${robot_length} ${robot_width} ${robot_height}"/>
-      </geometry>
-    </collision>
-  </link>
+    <!-- =========================
+         VISUAL / BODY DIMENSIONS
+         (These are "what it looks like")
+         ========================= -->
+    <xacro:property name="robot_length" value="0.297"/>  <!-- m (overall body box you chose) -->
+    <xacro:property name="robot_width"  value="0.152"/>  <!-- m (overall width you chose) -->
+    <xacro:property name="robot_height" value="0.08"/>   <!-- m -->
 
-  <!-- Battery Pack -->
-  <link name="battery_link">
-    <inertial>
-      <origin xyz="0 0 0.06" rpy="0 0 0"/>
-      <mass value="0.5"/>
-      <inertia ixx="0.000417" ixy="0.0" ixz="0.0" iyy="0.000417" iyz="0.0" izz="0.000278"/>
-    </inertial>
-    <visual>
-      <origin xyz="0 0 0.06" rpy="0 0 0"/>
-      <geometry>
-        <box size="${battery_depth} ${battery_width} 0.04"/>
-      </geometry>
-      <material name="red">
-        <color rgba="0.9 0.1 0.1 1.0"/>
-      </material>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0.06" rpy="0 0 0"/>
-      <geometry>
-        <box size="${battery_depth} ${battery_width} 0.04"/>
-      </geometry>
-    </collision>
-  </link>
-  <joint name="battery_mount" type="fixed">
-    <parent link="base_link"/>
-    <child link="battery_link"/>
-    <origin xyz="-0.174 0 0" rpy="0 0 0"/>
-  </joint>
+    <!-- Wheel geometry -->
+    <xacro:property name="wheel_radius" value="0.0485"/> <!-- m -->
+    <xacro:property name="wheel_thickness" value="0.048"/> <!-- m (cylinder length) -->
 
-  <!-- IMU -->
-  <link name="imu_link">
-    <inertial>
-      <origin xyz="0 0 0.1" rpy="0 0 0"/>
-      <mass value="0.02"/>
-      <inertia ixx="3.333e-06" ixy="0.0" ixz="0.0" iyy="3.333e-06" iyz="0.0" izz="5.333e-06"/>
-    </inertial>
-    <visual>
-      <origin xyz="0 0 0.1" rpy="0 0 0"/>
-      <geometry>
-        <box size="0.02 0.02 0.01"/>
-      </geometry>
-      <material name="blue">
-        <color rgba="0.2 0.4 0.9 1.0"/>
-      </material>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0.1" rpy="0 0 0"/>
-      <geometry>
-        <box size="0.02 0.02 0.01"/>
-      </geometry>
-    </collision>
-  </link>
-  <joint name="imu_mount" type="fixed">
-    <parent link="base_link"/>
-    <child link="imu_link"/>
-    <origin xyz="-0.048 0 0" rpy="0 0 3.1415926535"/>
-  </joint>
+    <!-- =========================
+         REAL-LIFE WHEEL-CENTER GEOMETRY
+         (This is what controls motion accuracy)
+         These MUST match what worked IRL.
+         ========================= -->
+    <xacro:property name="base_length" value="0.21"/>  <!-- m: wheel center-to-center front↔back -->
+    <xacro:property name="base_width"  value="0.200"/> <!-- m: wheel center-to-center left↔right -->
 
-  <!-- LiDAR -->
-  <link name="laser_link">
-    <inertial>
-      <origin xyz="0 0 -0.137" rpy="0 0 0"/>
-      <mass value="0.1"/>
-      <inertia ixx="4.396e-05" ixy="0.0" ixz="0.0" iyy="4.396e-05" iyz="0.0" izz="6.125e-05"/>
-    </inertial>
-    <visual>
-      <origin xyz="0 0 -0.137" rpy="0 0 0"/>
-      <geometry>
-        <cylinder radius="0.035" length="0.04"/>
-      </geometry>
-      <material name="black">
-        <color rgba="0.1 0.1 0.1 1.0"/>
-      </material>
-    </visual>
-    <collision>
-      <origin xyz="0 0 -0.137" rpy="0 0 0"/>
-      <geometry>
-        <cylinder radius="0.035" length="0.04"/>
-      </geometry>
-    </collision>
-  </link>
-  <joint name="laser_mount" type="fixed">
-    <parent link="base_link"/>
-    <child link="laser_link"/>
-    <origin xyz="0.10 0 0.247" rpy="0 0 0"/>
-  </joint>
+    <!-- Convenience: half distances -->
+    <xacro:property name="wheel_x" value="${base_length/2.0}"/>
+    <xacro:property name="wheel_y" value="${base_width/2.0}"/>
 
-  <!-- Wheel parameters: radius=0.0485m, width=0.048m
-       Track width (y): +/-0.152m, Wheelbase (x): +/-0.097m (0.194m total, 7.625 inches)
-       Wheel cylinders are rotated so axis aligns with joint axis (y). -->
+    <!-- Battery -->
+    <xacro:property name="battery_depth" value="0.051"/>  <!-- m -->
+    <xacro:property name="battery_width" value="0.177"/>  <!-- m -->
 
-  <link name="front_left_wheel">
-    <inertial>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-      <mass value="0.2"/>
-      <inertia ixx="0.0001317" ixy="0.0" ixz="0.0" iyy="0.00025" iyz="0.0" izz="0.0001317"/>
-    </inertial>
-    <visual>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-      <geometry>
-        <cylinder radius="${wheel_radius}" length="0.048"/>
-      </geometry>
-      <material name="wheel_black">
-        <color rgba="0.05 0.05 0.05 1.0"/>
-      </material>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-      <geometry>
-        <cylinder radius="${wheel_radius}" length="0.048"/>
-      </geometry>
-    </collision>
-  </link>
-  <joint name="front_left_wheel_joint" type="continuous">
-    <parent link="base_link"/>
-    <child link="front_left_wheel"/>
-    <origin xyz="0.097 0.152 ${wheel_radius}" rpy="0 0 0"/>
-    <axis xyz="0 1 0"/>
-  </joint>
+    <!-- Base link with simple box visual and collision -->
+    <link name="base_link">
+      <inertial>
+        <origin xyz="0 0 0.05" rpy="0 0 0"/>
+        <mass value="2.0"/>
+        <inertia ixx="0.011483" ixy="0.0" ixz="0.0" iyy="0.021483" iyz="0.0" izz="0.030833"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0.05" rpy="0 0 0"/>
+        <geometry>
+          <box size="${robot_length} ${robot_width} ${robot_height}"/>
+        </geometry>
+        <material name="gray">
+          <color rgba="0.6 0.6 0.6 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0.05" rpy="0 0 0"/>
+        <geometry>
+          <box size="${robot_length} ${robot_width} ${robot_height}"/>
+        </geometry>
+      </collision>
+    </link>
 
-  <link name="front_right_wheel">
-    <inertial>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-      <mass value="0.2"/>
-      <inertia ixx="0.0001317" ixy="0.0" ixz="0.0" iyy="0.00025" iyz="0.0" izz="0.0001317"/>
-    </inertial>
-    <visual>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-      <geometry>
-        <cylinder radius="${wheel_radius}" length="0.048"/>
-      </geometry>
-      <material name="wheel_black"/>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-      <geometry>
-        <cylinder radius="${wheel_radius}" length="0.048"/>
-      </geometry>
-    </collision>
-  </link>
-  <joint name="front_right_wheel_joint" type="continuous">
-    <parent link="base_link"/>
-    <child link="front_right_wheel"/>
-    <origin xyz="0.097 -0.152 ${wheel_radius}" rpy="0 0 0"/>
-    <axis xyz="0 1 0"/>
-  </joint>
-
-  <link name="back_left_wheel">
-    <inertial>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-      <mass value="0.2"/>
-      <inertia ixx="0.0001317" ixy="0.0" ixz="0.0" iyy="0.00025" iyz="0.0" izz="0.0001317"/>
-    </inertial>
-    <visual>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-      <geometry>
-        <cylinder radius="${wheel_radius}" length="0.048"/>
-      </geometry>
-      <material name="wheel_black"/>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-      <geometry>
-        <cylinder radius="${wheel_radius}" length="0.048"/>
-      </geometry>
-    </collision>
-  </link>
-  <joint name="back_left_wheel_joint" type="continuous">
-    <parent link="base_link"/>
-    <child link="back_left_wheel"/>
-    <origin xyz="-0.097 0.152 ${wheel_radius}" rpy="0 0 0"/>
-    <axis xyz="0 1 0"/>
-  </joint>
-
-  <link name="back_right_wheel">
-    <inertial>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-      <mass value="0.2"/>
-      <inertia ixx="0.0001317" ixy="0.0" ixz="0.0" iyy="0.00025" iyz="0.0" izz="0.0001317"/>
-    </inertial>
-    <visual>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-      <geometry>
-        <cylinder radius="${wheel_radius}" length="0.048"/>
-      </geometry>
-      <material name="wheel_black"/>
-    </visual>
-    <collision>
-      <origin xyz="0 0 0" rpy="1.5708 0 0"/>
-      <geometry>
-        <cylinder radius="${wheel_radius}" length="0.048"/>
-      </geometry>
-    </collision>
-  </link>
-  <joint name="back_right_wheel_joint" type="continuous">
-    <parent link="base_link"/>
-    <child link="back_right_wheel"/>
-    <origin xyz="-0.097 -0.152 ${wheel_radius}" rpy="0 0 0"/>
-    <axis xyz="0 1 0"/>
-  </joint>
-
-  <transmission name="front_left_transmission">
-    <type>transmission_interface/SimpleTransmission</type>
-    <joint name="front_left_wheel_joint">
-      <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+    <!-- Battery Pack -->
+    <link name="battery_link">
+      <inertial>
+        <origin xyz="0 0 0.06" rpy="0 0 0"/>
+        <mass value="0.5"/>
+        <inertia ixx="0.000417" ixy="0.0" ixz="0.0" iyy="0.000417" iyz="0.0" izz="0.000278"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0.06" rpy="0 0 0"/>
+        <geometry>
+          <box size="${battery_depth} ${battery_width} 0.04"/>
+        </geometry>
+        <material name="red">
+          <color rgba="0.9 0.1 0.1 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0.06" rpy="0 0 0"/>
+        <geometry>
+          <box size="${battery_depth} ${battery_width} 0.04"/>
+        </geometry>
+      </collision>
+    </link>
+    <joint name="battery_mount" type="fixed">
+      <parent link="base_link"/>
+      <child link="battery_link"/>
+      <origin xyz="-0.174 0 0" rpy="0 0 0"/>
     </joint>
-    <actuator name="front_left_motor">
-      <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
-      <mechanicalReduction>1</mechanicalReduction>
-    </actuator>
-  </transmission>
 
-  <transmission name="front_right_transmission">
-    <type>transmission_interface/SimpleTransmission</type>
-    <joint name="front_right_wheel_joint">
-      <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+    <!-- IMU -->
+    <link name="imu_link">
+      <inertial>
+        <origin xyz="0 0 0.1" rpy="0 0 0"/>
+        <mass value="0.02"/>
+        <inertia ixx="3.333e-06" ixy="0.0" ixz="0.0" iyy="3.333e-06" iyz="0.0" izz="5.333e-06"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0.1" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.02 0.02 0.01"/>
+        </geometry>
+        <material name="blue">
+          <color rgba="0.2 0.4 0.9 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0.1" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.02 0.02 0.01"/>
+        </geometry>
+      </collision>
+    </link>
+    <joint name="imu_mount" type="fixed">
+      <parent link="base_link"/>
+      <child link="imu_link"/>
+      <origin xyz="-0.048 0 0" rpy="0 0 3.1415926535"/>
     </joint>
-    <actuator name="front_right_motor">
-      <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
-      <mechanicalReduction>1</mechanicalReduction>
-    </actuator>
-  </transmission>
 
-  <transmission name="back_left_transmission">
-    <type>transmission_interface/SimpleTransmission</type>
-    <joint name="back_left_wheel_joint">
-      <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+    <!-- LiDAR -->
+    <link name="laser_link">
+      <inertial>
+        <origin xyz="0 0 -0.137" rpy="0 0 0"/>
+        <mass value="0.1"/>
+        <inertia ixx="4.396e-05" ixy="0.0" ixz="0.0" iyy="4.396e-05" iyz="0.0" izz="6.125e-05"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 -0.137" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.035" length="0.04"/>
+        </geometry>
+        <material name="black">
+          <color rgba="0.1 0.1 0.1 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 -0.137" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.035" length="0.04"/>
+        </geometry>
+      </collision>
+    </link>
+    <joint name="laser_mount" type="fixed">
+      <parent link="base_link"/>
+      <child link="laser_link"/>
+      <origin xyz="0.10 0 0.247" rpy="0 0 0"/>
     </joint>
-    <actuator name="back_left_motor">
-      <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
-      <mechanicalReduction>1</mechanicalReduction>
-    </actuator>
-  </transmission>
 
-  <transmission name="back_right_transmission">
-    <type>transmission_interface/SimpleTransmission</type>
-    <joint name="back_right_wheel_joint">
-      <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+    <!-- =========================
+         WHEELS (UPDATED POSITIONS)
+         wheel_x = base_length/2
+         wheel_y = base_width/2
+         ========================= -->
+
+    <link name="front_left_wheel">
+      <inertial>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <mass value="0.2"/>
+        <inertia ixx="0.0001317" ixy="0.0" ixz="0.0" iyy="0.00025" iyz="0.0" izz="0.0001317"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+        </geometry>
+        <material name="wheel_black">
+          <color rgba="0.05 0.05 0.05 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+        </geometry>
+      </collision>
+    </link>
+    <joint name="front_left_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="front_left_wheel"/>
+      <origin xyz="${wheel_x} ${wheel_y} ${wheel_radius}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
     </joint>
-    <actuator name="back_right_motor">
-      <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
-      <mechanicalReduction>1</mechanicalReduction>
-    </actuator>
-  </transmission>
 
-  <!-- ros2_control interfaces; hardware plugin varies by sim flavor -->
-  <ros2_control name="slambot_system" type="system">
+    <link name="front_right_wheel">
+      <inertial>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <mass value="0.2"/>
+        <inertia ixx="0.0001317" ixy="0.0" ixz="0.0" iyy="0.00025" iyz="0.0" izz="0.0001317"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+        </geometry>
+        <material name="wheel_black"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+        </geometry>
+      </collision>
+    </link>
+    <joint name="front_right_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="front_right_wheel"/>
+      <origin xyz="${wheel_x} ${-wheel_y} ${wheel_radius}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+
+    <link name="back_left_wheel">
+      <inertial>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <mass value="0.2"/>
+        <inertia ixx="0.0001317" ixy="0.0" ixz="0.0" iyy="0.00025" iyz="0.0" izz="0.0001317"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+        </geometry>
+        <material name="wheel_black"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+        </geometry>
+      </collision>
+    </link>
+    <joint name="back_left_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="back_left_wheel"/>
+      <origin xyz="${-wheel_x} ${wheel_y} ${wheel_radius}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+
+    <link name="back_right_wheel">
+      <inertial>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <mass value="0.2"/>
+        <inertia ixx="0.0001317" ixy="0.0" ixz="0.0" iyy="0.00025" iyz="0.0" izz="0.0001317"/>
+      </inertial>
+      <visual>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+        </geometry>
+        <material name="wheel_black"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <geometry>
+          <cylinder radius="${wheel_radius}" length="${wheel_thickness}"/>
+        </geometry>
+      </collision>
+    </link>
+    <joint name="back_right_wheel_joint" type="continuous">
+      <parent link="base_link"/>
+      <child link="back_right_wheel"/>
+      <origin xyz="${-wheel_x} ${-wheel_y} ${wheel_radius}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+
+    <!-- Transmissions (unchanged) -->
+    <transmission name="front_left_transmission">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="front_left_wheel_joint">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+      </joint>
+      <actuator name="front_left_motor">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="front_right_transmission">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="front_right_wheel_joint">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+      </joint>
+      <actuator name="front_right_motor">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="back_left_transmission">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="back_left_wheel_joint">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+      </joint>
+      <actuator name="back_left_motor">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <transmission name="back_right_transmission">
+      <type>transmission_interface/SimpleTransmission</type>
+      <joint name="back_right_wheel_joint">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+      </joint>
+      <actuator name="back_right_motor">
+        <hardwareInterface>hardware_interface/VelocityCommandInterface</hardwareInterface>
+        <mechanicalReduction>1</mechanicalReduction>
+      </actuator>
+    </transmission>
+
+    <!-- ros2_control interfaces; hardware plugin varies by sim flavor -->
+    <ros2_control name="slambot_system" type="system">
+      <xacro:if value="$(arg use_gz)">
+        <hardware>
+          <plugin>gz_ros2_control/GazeboSimSystem</plugin>
+        </hardware>
+      </xacro:if>
+      <xacro:unless value="$(arg use_gz)">
+        <hardware>
+          <plugin>gazebo_ros2_control/GazeboSystem</plugin>
+        </hardware>
+      </xacro:unless>
+
+      <joint name="front_left_wheel_joint">
+        <command_interface name="velocity"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+
+      <joint name="front_right_wheel_joint">
+        <command_interface name="velocity"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+
+      <joint name="back_left_wheel_joint">
+        <command_interface name="velocity"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+
+      <joint name="back_right_wheel_joint">
+        <command_interface name="velocity"/>
+        <state_interface name="position"/>
+        <state_interface name="velocity"/>
+      </joint>
+    </ros2_control>
+
     <xacro:if value="$(arg use_gz)">
-      <hardware>
-        <plugin>gz_ros2_control/GazeboSimSystem</plugin>
-      </hardware>
+      <gazebo>
+        <plugin
+            name="gz_ros2_control::GazeboSimROS2ControlPlugin"
+            filename="libgz_ros2_control-system.so">
+
+          <ros2_control>
+            slambot_system
+          </ros2_control>
+
+          <parameters>$(find slambot_description)/config/mecanum_controller.yaml</parameters>
+        </plugin>
+
+        <xacro:if value="$(arg kinematic)">
+          <plugin name="slambot_kinematic_base" filename="libslambot_kinematic_base.so">
+            <topic>/cmd_vel</topic>
+            <max_linear>1.5</max_linear>
+            <max_angular>3.0</max_angular>
+            <publish_rate>50.0</publish_rate>
+
+            <publish_odom>true</publish_odom>
+            <odom_topic>/odom</odom_topic>
+            <odom_frame>odom</odom_frame>
+            <base_frame>base_link</base_frame>
+
+            <pose_cov_diag>0.0001 0.0001 1000000 1000000 1000000 0.001</pose_cov_diag>
+            <twist_cov_diag>0.001 0.001 1000000 1000000 1000000 0.01</twist_cov_diag>
+
+            <publish_encoders>true</publish_encoders>
+            <ticks_topic>/wheel_encoders</ticks_topic>
+            <joint_state_topic>/encoder_joint_states</joint_state_topic>
+
+            <ticks_per_rev>2880</ticks_per_rev>
+            <wheel_radius>${wheel_radius}</wheel_radius>
+
+            <!-- IMPORTANT: These now match your IRL tuned values -->
+            <base_length>${base_length}</base_length>
+            <base_width>${base_width}</base_width>
+
+            <front_left_joint>front_left_wheel_joint</front_left_joint>
+            <front_right_joint>front_right_wheel_joint</front_right_joint>
+            <back_left_joint>back_left_wheel_joint</back_left_joint>
+            <back_right_joint>back_right_wheel_joint</back_right_joint>
+          </plugin>
+        </xacro:if>
+      </gazebo>
     </xacro:if>
+
     <xacro:unless value="$(arg use_gz)">
-      <hardware>
-        <plugin>gazebo_ros2_control/GazeboSystem</plugin>
-      </hardware>
+      <gazebo>
+        <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
+          <parameters>$(find slambot_description)/config/mecanum_controller.yaml</parameters>
+        </plugin>
+      </gazebo>
     </xacro:unless>
 
-    <joint name="front_left_wheel_joint">
-      <command_interface name="velocity"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
+    <!-- Approximate mecanum behavior via anisotropic friction directions (Gazebo Classic ODE only) -->
+    <xacro:unless value="$(arg use_gz)">
+      <gazebo reference="front_left_wheel">
+        <mu1>1.0</mu1>
+        <mu2>0.05</mu2>
+        <fdir1>1 1 0</fdir1>
+      </gazebo>
+      <gazebo reference="front_right_wheel">
+        <mu1>1.0</mu1>
+        <mu2>0.05</mu2>
+        <fdir1>1 -1 0</fdir1>
+      </gazebo>
+      <gazebo reference="back_left_wheel">
+        <mu1>1.0</mu1>
+        <mu2>0.05</mu2>
+        <fdir1>-1 -1 0</fdir1>
+      </gazebo>
+      <gazebo reference="back_right_wheel">
+        <mu1>1.0</mu1>
+        <mu2>0.05</mu2>
+        <fdir1>-1 1 0</fdir1>
+      </gazebo>
+    </xacro:unless>
 
-    <joint name="front_right_wheel_joint">
-      <command_interface name="velocity"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-
-    <joint name="back_left_wheel_joint">
-      <command_interface name="velocity"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-
-    <joint name="back_right_wheel_joint">
-      <command_interface name="velocity"/>
-      <state_interface name="position"/>
-      <state_interface name="velocity"/>
-    </joint>
-  </ros2_control>
-
-  <xacro:if value="$(arg use_gz)">
-    <gazebo>
-      <plugin
-          name="gz_ros2_control::GazeboSimROS2ControlPlugin"
-          filename="libgz_ros2_control-system.so">
-
-        <ros2_control>
-          slambot_system
-        </ros2_control>
-
-        <!-- Path to controller manager parameters YAML -->
-        <parameters>$(find slambot_description)/config/mecanum_controller.yaml</parameters>
-
-      </plugin>
-
-      <!-- Kinematic base controller: apply /cmd_vel directly to model velocity (Gazebo Sim) -->
-      <xacro:if value="$(arg kinematic)">
-        <plugin name="slambot_kinematic_base" filename="libslambot_kinematic_base.so">
-          <topic>/cmd_vel</topic>
-          <max_linear>1.5</max_linear>
-          <max_angular>3.0</max_angular>
-          <!-- Publication rate for odom/encoders (Hz) -->
-          <publish_rate>50.0</publish_rate>
-          <!-- Odometry options -->
-          <publish_odom>true</publish_odom>
-          <odom_topic>/odom</odom_topic>
-          <odom_frame>odom</odom_frame>
-          <base_frame>base_link</base_frame>
-          <!-- Covariance diagonals: x y z roll pitch yaw -->
-          <pose_cov_diag>0.0001 0.0001 1000000 1000000 1000000 0.001</pose_cov_diag>
-          <twist_cov_diag>0.001 0.001 1000000 1000000 1000000 0.01</twist_cov_diag>
-          <!-- Encoders (off by default to avoid conflicts) -->
-          <publish_encoders>true</publish_encoders>
-          <ticks_topic>/wheel_encoders</ticks_topic>
-          <joint_state_topic>/encoder_joint_states</joint_state_topic>
-          <ticks_per_rev>2880</ticks_per_rev>
-          <wheel_radius>${wheel_radius}</wheel_radius>
-          <!-- base_length and base_width for mecanum kinematics must be wheel-to-wheel distances, NOT robot dimensions -->
-          <!-- Measured: 210mm length (front-to-back), 195mm width (left-to-right) -->
-          <base_length>0.21</base_length>
-          <base_width>0.1925</base_width>
-          <front_left_joint>front_left_wheel_joint</front_left_joint>
-          <front_right_joint>front_right_wheel_joint</front_right_joint>
-          <back_left_joint>back_left_wheel_joint</back_left_joint>
-          <back_right_joint>back_right_wheel_joint</back_right_joint>
-        </plugin>
-      </xacro:if>
-    </gazebo>
-  </xacro:if>
-
-  <xacro:unless value="$(arg use_gz)">
-    <gazebo>
-      <plugin name="gazebo_ros2_control" filename="libgazebo_ros2_control.so">
-        <!-- Path to controller manager parameters YAML -->
-        <parameters>$(find slambot_description)/config/mecanum_controller.yaml</parameters>
-      </plugin>
-    </gazebo>
-  </xacro:unless>
-
-  <!-- Approximate mecanum behavior via anisotropic friction directions (Gazebo Classic ODE only) -->
-  <xacro:unless value="$(arg use_gz)">
-    <gazebo reference="front_left_wheel">
-      <mu1>1.0</mu1>
-      <mu2>0.05</mu2>
-      <fdir1>1 1 0</fdir1>
-    </gazebo>
-    <gazebo reference="front_right_wheel">
-      <mu1>1.0</mu1>
-      <mu2>0.05</mu2>
-      <fdir1>1 -1 0</fdir1>
-    </gazebo>
-    <gazebo reference="back_left_wheel">
-      <mu1>1.0</mu1>
-      <mu2>0.05</mu2>
-      <fdir1>-1 -1 0</fdir1>
-    </gazebo>
-    <gazebo reference="back_right_wheel">
-      <mu1>1.0</mu1>
-      <mu2>0.05</mu2>
-      <fdir1>-1 1 0</fdir1>
-    </gazebo>
-  </xacro:unless>
   </xacro:macro>
 
   <!-- Instantiate macro by default so this file remains directly usable with xacro -->
