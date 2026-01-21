@@ -70,22 +70,22 @@ OdomNode::OdomNode(const rclcpp::NodeOptions &options)
     double mBR = vBR * distance_per_tick;
 
     //vx, vy, omega
-    double vx = (mFL + mFR + mBL + mBR)  / 4.0;
-    double vy = (-mFL + mFR + mBL - mBR)  / 4.0;
-    double omega = (-mFL + mFR - mBL + mBR) / (4.0 * (L + W));
+    double vx_body = (mFL + mFR + mBL + mBR) / 4.0;
+    double vy_body = (-mFL + mFR + mBL - mBR) / 4.0;
+    double omega   = (-mFL + mFR - mBL + mBR) / (4.0 * (L + W));
 
-    //transform to world frame
-    double cos_theta = cos(theta);
-    double sin_theta = sin(theta);
-    double body_vx = vx * cos_theta - vy * sin_theta;
-    double body_vy = vx * sin_theta + vy * cos_theta;
-    vx = body_vx;
-    vy = body_vy;
+    // integrate pose in odom/world
+    double cos_t = std::cos(theta);
+    double sin_t = std::sin(theta);
 
-    x += vx * dt;
-    y += vy * dt;
+    double vx_world = vx_body * cos_t - vy_body * sin_t;
+    double vy_world = vx_body * sin_t + vy_body * cos_t;
+
+    x     += vx_world * dt;
+    y     += vy_world * dt;
     theta += omega * dt;
 
+    
     //populate odom message
 
     nav_msgs::msg::Odometry odom_msg;
@@ -103,17 +103,29 @@ OdomNode::OdomNode(const rclcpp::NodeOptions &options)
     odom_msg.pose.pose.orientation.z = sin(theta / 2.0);
     odom_msg.pose.pose.orientation.w = cos(theta / 2.0);
 
-    odom_msg.twist.twist.linear.x = vx;
-    odom_msg.twist.twist.linear.y = vy;
+    // publish twist in base_link frame (child_frame_id)
+    odom_msg.twist.twist.linear.x  = vx_body;
+    odom_msg.twist.twist.linear.y  = vy_body;
     odom_msg.twist.twist.angular.z = omega;
 
-    odom_msg.pose.covariance[0] = 0.01;
-    odom_msg.pose.covariance[7] = 0.01;
-    odom_msg.pose.covariance[35] = 0.02;
 
-    odom_msg.twist.covariance[0] = 0.01;
-    odom_msg.twist.covariance[7] = 0.01;
-    odom_msg.twist.covariance[35] = 0.02;
+    // Pose covariance (36): row-major 6x6 [x y z roll pitch yaw]
+    for (double &c : odom_msg.pose.covariance) c = 0.0;
+    odom_msg.pose.covariance[0]  = 0.15 * 0.15;   // x  (15 cm 1σ)
+    odom_msg.pose.covariance[7]  = 0.20 * 0.20;   // y  (20 cm 1σ)
+    odom_msg.pose.covariance[14] = 1e6;           // z unused
+    odom_msg.pose.covariance[21] = 1e6;           // roll unused
+    odom_msg.pose.covariance[28] = 1e6;           // pitch unused
+    odom_msg.pose.covariance[35] = 0.20 * 0.20;   // yaw (0.2 rad ~ 11°)
+
+    // Twist covariance (36): [vx vy vz vroll vpitch vyaw]
+    for (double &c : odom_msg.twist.covariance) c = 0.0;
+    odom_msg.twist.covariance[0]  = 0.10 * 0.10;  // vx
+    odom_msg.twist.covariance[7]  = 0.12 * 0.12;  // vy
+    odom_msg.twist.covariance[14] = 1e6;
+    odom_msg.twist.covariance[21] = 1e6;
+    odom_msg.twist.covariance[28] = 1e6;
+    odom_msg.twist.covariance[35] = 0.10 * 0.10;  // wz
 
     odom_pub_->publish(odom_msg);
   }

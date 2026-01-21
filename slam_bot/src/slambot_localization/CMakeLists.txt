@@ -41,6 +41,7 @@ install(DIRECTORY
   launch
   include
   src
+  config
   DESTINATION share/${PROJECT_NAME}
 )
 

@@ -176,10 +176,10 @@ namespace mecanum_drive_controller
     double x = msg->linear.y;
     double rx = msg->angular.z;
 
-    double fl = y + x - rx;
-    double fr = y - x + rx;
-    double bl = y - x - rx;
-    double br = y + x +  rx;
+    double fl = y - x - rx;
+    double fr = y + x + rx;
+    double bl = y + x - rx;
+    double br = y - x +  rx;
 
     double maxVal = std::max({std::abs(fl), std::abs(fr), std::abs(bl), std::abs(br), 1.0});
     fl /= maxVal;

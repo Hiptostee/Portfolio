@@ -25,7 +25,7 @@ def generate_launch_description():
         'odom_node.launch.py'
     )
 
-    covariances_on_imu_launch = os.path.join(
+    ekf_launch = os.path.join(
         get_package_share_directory('slambot_localization'),
         'launch',
         'slambot_localization.launch.py'
@@ -118,8 +118,8 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(odom_node_launch)
     )
 
-    covariances_on_imu_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(covariances_on_imu_launch)
+    ekf_node_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(ekf_launch)
     )
 
 
@@ -145,6 +145,6 @@ def generate_launch_description():
         spawn_robot_delayed,
         delay,
         odom_node_launch,
-        covariances_on_imu_launch,
+        ekf_node_launch,
         bridge,
     ])

@@ -120,7 +120,7 @@ void BNO08xROS::init_comms() {
  * 
  */
 void BNO08xROS::init_parameters() {
-    this->declare_parameter<std::string>("frame_id", "bno085");
+    this->declare_parameter<std::string>("frame_id", "imu_link");
 
     this->declare_parameter<bool>("publish.magnetic_field.enabled", true);
     this->declare_parameter<int>("publish.magnetic_field.rate", 100);
