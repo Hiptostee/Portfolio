@@ -20,43 +20,43 @@ ekf_filter_node:
     odom0_config: [
         true,
         true,
+        false, # x, y, z
         false,
         false,
-        false,
-        false, # <-- yaw OFF
+        false, # roll, pitch, yaw  (leave yaw false)
         true,
         true,
+        false, # vx, vy, vz
         false,
         false,
-        false,
-        false, # <-- vyaw OFF
+        false, # vroll, vpitch, vyaw
         false,
         false,
         false,
       ]
+
     odom0_queue_size: 10
     odom0_differential: false
     odom0_relative: false
 
     # ---- IMU INPUT ----
     imu0: /imu_with_covariances
-    imu0_config:
-      [
+    imu0_config: [
         false,
         false,
+        false, # x, y, z
         false,
         false,
-        false,
-        true,
-        false,
+        true, # roll, pitch, yaw (yaw used)
         false,
         false,
+        false, # vx, vy, vz
         false,
         false,
+        true, # vroll, vpitch, vyaw (gyro z)
         false,
         false,
-        false,
-        false,
+        false, # ax, ay, az
       ]
     imu0_queue_size: 50
     imu0_differential: false

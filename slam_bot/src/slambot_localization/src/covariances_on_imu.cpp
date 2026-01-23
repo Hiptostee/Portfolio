@@ -42,12 +42,14 @@ void CovariancesOnImu::handleImu(const sensor_msgs::msg::Imu::SharedPtr msg)
 
   // Yaw: don't make it too tiny if you don't have a magnetometer (drift is real).
   // Start around ~3-5 degrees stddev.
-  constexpr double yaw_std = 0.07;                // rad (~4 degrees)
+  constexpr double yaw_std = 0.05;                // rad (~4 degrees)
   constexpr double var_yaw = yaw_std * yaw_std;   // ~0.0049
 
   // Gyro z: typical indoor bot; start around 0.02 rad/s stddev
   constexpr double gyroz_std = 0.02;                 // rad/s
   constexpr double var_gyroz = gyroz_std * gyroz_std; // 0.0004
+
+  out.header.frame_id = "imu_link"; // preserve frame_id
 
   // -----------------------------
   // ORIENTATION covariance (roll, pitch ignored; yaw used)

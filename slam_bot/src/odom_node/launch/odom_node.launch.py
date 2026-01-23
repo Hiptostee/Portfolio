@@ -8,5 +8,6 @@ def generate_launch_description():
             package='odom_node',
             executable='odom_node_exec',
             name='odom_node',
+            parameters=[{'use_sim_time': True}],
         ),
     ])

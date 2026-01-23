@@ -119,7 +119,8 @@ def generate_launch_description():
     )
 
     ekf_node_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(ekf_launch)
+        PythonLaunchDescriptionSource(ekf_launch),
+        launch_arguments={'sim': 'true'}.items()
     )
 
 
