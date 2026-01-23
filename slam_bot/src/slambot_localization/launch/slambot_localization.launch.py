@@ -7,49 +7,63 @@ from launch.conditions import IfCondition, UnlessCondition
 import os
 
 def generate_launch_description():
-    # Resolve ekf.yaml from the installed package share directory (portable)
     ekf_param_file = os.path.join(
         get_package_share_directory('slambot_localization'),
         'config',
         'ekf.yaml',
     )
-    ekf_param_file_sim = os.path.join(
-        get_package_share_directory('slambot_localization'),
-        'config',
-        'ekf.yaml',
-    )
 
-    # Allow overriding IMU input topic (e.g., /imu vs /imu/data)
     imu_input_arg = DeclareLaunchArgument(
         'imu_input_topic',
         default_value='/imu',
         description='Raw IMU topic to read from',
     )
-
-    imu_input_topic = LaunchConfiguration('imu_input_topic')
-
     sim_arg = DeclareLaunchArgument(
         'sim',
         default_value='false',
-        description='Use sim-specific EKF params (disable gyro yaw, adjust timeouts)'
+        description='true for sim time (/clock), false for hardware time'
     )
+
+    imu_input_topic = LaunchConfiguration('imu_input_topic')
     sim = LaunchConfiguration('sim')
 
     return LaunchDescription([
         imu_input_arg,
         sim_arg,
-        # IMU covariance shaping node
+
+        # -------------------------
+        # IMU covariance node (HW)
+        # -------------------------
         Node(
             package='slambot_localization',
             executable='slambot_localization_CovariancesOnImu',
-            name='slambot_localization',
+            name='imu_covariances',
+            parameters=[{
+                'imu_input_topic': imu_input_topic,
+                'imu_output_topic': '/imu_with_covariances',
+                'use_sim_time': False,
+            }],
+            condition=UnlessCondition(sim),
+        ),
+
+        # -------------------------
+        # IMU covariance node (SIM)
+        # -------------------------
+        Node(
+            package='slambot_localization',
+            executable='slambot_localization_CovariancesOnImu',
+            name='imu_covariances',
             parameters=[{
                 'imu_input_topic': imu_input_topic,
                 'imu_output_topic': '/imu_with_covariances',
                 'use_sim_time': True,
             }],
+            condition=IfCondition(sim),
         ),
-        # EKF fuser (hardware/default)
+
+        # ---------------
+        # EKF (HW)
+        # ---------------
         Node(
             package='robot_localization',
             executable='ekf_node',
@@ -57,19 +71,22 @@ def generate_launch_description():
             output='screen',
             parameters=[
                 ekf_param_file,
-                {'use_sim_time': True},
+                {'use_sim_time': False},
             ],
             remappings=[('odometry/filtered', '/odom/filtered')],
             condition=UnlessCondition(sim),
         ),
-        # EKF fuser (sim-specific)
+
+        # ---------------
+        # EKF (SIM)
+        # ---------------
         Node(
             package='robot_localization',
             executable='ekf_node',
             name='ekf_filter_node',
             output='screen',
             parameters=[
-                ekf_param_file_sim,
+                ekf_param_file,
                 {'use_sim_time': True},
             ],
             remappings=[('odometry/filtered', '/odom/filtered')],

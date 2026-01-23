@@ -120,39 +120,51 @@ void OdomNode::odomCallback(const std_msgs::msg::Int32MultiArray::SharedPtr msg)
   odom_msg.twist.twist.linear.y  = vy_body;
   odom_msg.twist.twist.angular.z = omega;
 
+  // ============================================================
+  // SIMPLE, STABLE COVARIANCES (light motion-accumulated)
+  // Base: 2cm (x), 5cm (y). Inflates slowly with recent motion.
+  // ============================================================
   const double vxf = std::abs(vx_body);
   const double vyf = std::abs(vy_body);
   const double wzf = std::abs(omega);
 
-  const double tau   = 2.0;
+  // "Recent motion" memory with exponential decay
+  // Larger tau = longer memory but smoother; 4–8s feels good.
+  const double tau   = 6.0;                    // seconds
   const double decay = std::exp(-dt / tau);
 
-  const double dtrans = std::hypot(vx_body, vy_body) * dt; // meters
-  const double drot   = wzf * dt;                          // radians
+  const double dtrans = std::hypot(vx_body, vy_body) * dt; // meters traveled this step
+  const double drot   = wzf * dt;                          // radians rotated this step
 
   accum_trans = decay * accum_trans + dtrans;
   accum_rot   = decay * accum_rot   + drot;
 
-  const double sx_floor   = 0.08; // 8 cm
-  const double sy_floor   = 0.07; // 7 cm (strafe worse)
-  const double syaw_floor = 0.06; // rad (~3.4°) - wheels; IMU owns yaw anyway
+  // --------- BASE FLOORS (your request) ----------
+  const double sx_floor = 0.02;  // 2 cm
+  const double sy_floor = 0.05;  // 5 cm
+  const double syaw_floor = 0.03; // rad (~2.9 deg) -- wheels' yaw uncertainty
 
+  // --------- VERY LIGHT INFLATION (tunable) ------
+  // distance term: small growth with recent distance
+  // rotation term: small growth with recent turning (mecanum scrub)
+  // strafe term: small instantaneous penalty on y only
   double sx = sx_floor
-            + 0.18 * accum_trans
-            + 0.22 * accum_rot
-            + 0.10 * vyf;
+            + 0.015 * accum_trans   // ~+1.5 cm per 1 m of *recent* travel
+            + 0.010 * accum_rot;    // ~+1.0 cm per 1 rad of *recent* rotation
 
   double sy = sy_floor
-            + 0.30 * accum_trans
-            + 0.32 * accum_rot
-            + 0.22 * vyf;
+            + 0.030 * accum_trans   // y grows ~2x x (strafe worse)
+            + 0.020 * accum_rot
+            + 0.020 * vyf;          // instantaneous strafe penalty (m/s -> m)
 
+  // yaw from wheels should be bounded (IMU owns yaw in your EKF)
   double syaw = syaw_floor
-              + 0.35 * accum_rot;
+              + 0.025 * accum_rot;  // grows with turning, lightly
 
-  sx   = std::clamp(sx,   0.02, 0.40); // x sigma <= 40 cm
-  sy   = std::clamp(sy,   0.04, 0.60); // y sigma <= 60 cm
-  syaw = std::clamp(syaw, 0.03, 0.80); // keep wheels yaw bounded; IMU corrects anyway
+  // --------- CLAMPS (keep it sane) ---------------
+  sx   = std::clamp(sx,   0.02, 0.12);  // x σ max 12 cm
+  sy   = std::clamp(sy,   0.05, 0.20);  // y σ max 20 cm
+  syaw = std::clamp(syaw, 0.05, 0.40);  // yaw σ max ~34 deg (wheel yaw)
 
   // Unused axes huge
   const double IGN = 1e6;
@@ -166,14 +178,15 @@ void OdomNode::odomCallback(const std_msgs::msg::Int32MultiArray::SharedPtr msg)
   odom_msg.pose.covariance[28] = IGN;
   odom_msg.pose.covariance[35] = syaw*syaw;
 
-  // Twist covariance: keep “not too confident”
-  double svx = 0.06 + 0.30*vxf + 0.20*vyf + 0.08*wzf;
-  double svy = 0.08 + 0.45*vyf + 0.12*wzf;
-  double swz = 0.05 + 0.18*wzf;
+  // --------- Twist covariance (simple + stable) --
+  // Keep moderate, not crazy small, so EKF doesn't get overconfident
+  double svx = 0.05 + 0.10 * vxf + 0.10 * vyf;
+  double svy = 0.07 + 0.13 * vyf;
+  double swz = 0.04 + 0.075* wzf;
 
-  svx = std::clamp(svx, 0.05, 1.20);
-  svy = std::clamp(svy, 0.06, 1.80);
-  swz = std::clamp(swz, 0.03, 2.00);
+  svx = std::clamp(svx, 0.05, 0.80);
+  svy = std::clamp(svy, 0.07, 1.20);
+  swz = std::clamp(swz, 0.04, 1.50);
 
   for (double &c : odom_msg.twist.covariance) c = 0.0;
   odom_msg.twist.covariance[0]  = svx*svx;
