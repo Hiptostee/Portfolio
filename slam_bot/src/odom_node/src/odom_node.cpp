@@ -28,7 +28,9 @@ OdomNode::OdomNode(const rclcpp::NodeOptions &options)
       "/wheel_encoders", 10,
       std::bind(&OdomNode::odomCallback, this, std::placeholders::_1));
 
-  odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("odom", 50);
+  // Publish raw wheel odometry on a dedicated topic to avoid conflicts
+  // with other odom sources (e.g., sim plugins) on /odom.
+  odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("wheel_odom", 50);
 }
 
 OdomNode::~OdomNode(){}

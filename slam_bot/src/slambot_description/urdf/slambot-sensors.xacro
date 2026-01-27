@@ -86,7 +86,193 @@
       </gazebo>
     </xacro:if>
 
+    <!--
+      LIDAR platform and GPU lidar mounted above the IMU.
+      - Four visual pegs/standoffs lift a small plate ~2 inches (0.0508 m) above the IMU frame.
+      - A lidar link is mounted on the plate and equipped with a GPU lidar sensor.
+    -->
+
+    <!-- Lidar mounting plate, positioned above the IMU -->
+    <link name="lidar_plate_link">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.05"/>
+        <inertia ixx="1e-4" ixy="0" ixz="0" iyy="1e-4" iyz="0" izz="1e-4"/>
+      </inertial>
+
+      <!-- Thin plate -->
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.10 0.10 0.003"/>
+        </geometry>
+        <material name="dark_gray">
+          <color rgba="0.3 0.3 0.3 1.0"/>
+        </material>
+      </visual>
+
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.10 0.10 0.003"/>
+        </geometry>
+      </collision>
+
+      <!-- Four standoffs/pegs (visual only) placed at the corners, extending down to chassis top -->
+      <visual>
+        <!-- L = 0.0658, origin.z = -0.0344 so top meets plate underside, bottom meets chassis top -->
+        <origin xyz=" 0.045  0.045 -0.0344" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.004" length="0.0658"/>
+        </geometry>
+        <material name="black">
+          <color rgba="0.1 0.1 0.1 1.0"/>
+        </material>
+      </visual>
+      <visual>
+        <origin xyz=" 0.045 -0.045 -0.0344" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.004" length="0.0658"/>
+        </geometry>
+        <material name="black"/>
+      </visual>
+      <visual>
+        <origin xyz="-0.045  0.045 -0.0344" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.004" length="0.0658"/>
+        </geometry>
+        <material name="black"/>
+      </visual>
+      <visual>
+        <origin xyz="-0.045 -0.045 -0.0344" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.004" length="0.0658"/>
+        </geometry>
+        <material name="black"/>
+      </visual>
+    </link>
+
+    <joint name="lidar_plate_joint" type="fixed">
+      <parent link="base_link"/>
+      <!-- Place plate ~2 in above IMU top; pegs rest on chassis top.
+           base top z=0.09, imu top z≈0.105 → plate underside ≈ 0.105+0.0508=0.1558
+           plate center = underside + 0.0015 = 0.1573 -->
+      <child link="lidar_plate_link"/>
+      <origin xyz="0 0 0.1573" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Lidar body/link mounted on top of the plate -->
+    <link name="gpu_lidar_link">
+      <inertial>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <mass value="0.15"/>
+        <inertia ixx="2e-4" ixy="0" ixz="0" iyy="2e-4" iyz="0" izz="2e-4"/>
+      </inertial>
+      <visual>
+        <!-- Small puck-style lidar -->
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.035" length="0.025"/>
+        </geometry>
+        <material name="blue">
+          <color rgba="0.2 0.4 0.9 1.0"/>
+        </material>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <cylinder radius="0.035" length="0.025"/>
+        </geometry>
+      </collision>
+    </link>
+
+    <joint name="gpu_lidar_mount" type="fixed">
+      <parent link="lidar_plate_link"/>
+      <child link="gpu_lidar_link"/>
+      <!-- Sit the lidar on plate top: z = plate half-thickness + lidar half-length = 0.0015 + 0.0125 -->
+      <origin xyz="0 0 0.014" rpy="0 0 0"/>
+    </joint>
+
+    <!-- Gazebo Classic GPU lidar (only when NOT using Gazebo Sim) -->
+    <xacro:unless value="$(arg use_gz)">
+      <gazebo reference="gpu_lidar_link">
+        <sensor name="gpu_lidar" type="gpu_ray">
+          <always_on>1</always_on>
+          <update_rate>20</update_rate>
+          <visualize>true</visualize>
+          <ray>
+            <scan>
+              <horizontal>
+                <samples>720</samples>
+                <resolution>1</resolution>
+                <min_angle>-3.14159</min_angle>
+                <max_angle>3.14159</max_angle>
+              </horizontal>
+              <vertical>
+                <samples>1</samples>
+                <resolution>1</resolution>
+                <min_angle>0.0</min_angle>
+                <max_angle>0.0</max_angle>
+              </vertical>
+            </scan>
+            <range>
+              <min>0.12</min>
+              <max>12.0</max>
+              <resolution>0.01</resolution>
+            </range>
+          </ray>
+
+          <plugin name="gazebo_ros_gpu_laser" filename="libgazebo_ros_gpu_laser.so">
+            <topicName>/scan</topicName>
+            <frameName>gpu_lidar_link</frameName>
+          </plugin>
+        </sensor>
+      </gazebo>
+    </xacro:unless>
+
+    <!-- Gazebo Sim GPU lidar (only when using Gazebo Sim) -->
+    <xacro:if value="$(arg use_gz)">
+      <gazebo reference="gpu_lidar_link">
+        <sensor name="gpu_lidar" type="gpu_lidar">
+          <always_on>true</always_on>
+          <update_rate>20</update_rate>
+          <visualize>true</visualize>
+          <topic>/scan</topic>
+
+          <!-- SDF for GPU lidar uses a <lidar> block; ensure near clip > 0 -->
+          <lidar>
+            <scan>
+              <horizontal>
+                <samples>720</samples>
+                <resolution>1</resolution>
+                <min_angle>-3.14159</min_angle>
+                <max_angle>3.14159</max_angle>
+              </horizontal>
+              <vertical>
+                <samples>1</samples>
+                <resolution>1</resolution>
+                <min_angle>0.0</min_angle>
+                <max_angle>0.0</max_angle>
+              </vertical>
+            </scan>
+            <range>
+              <min>0.12</min>
+              <max>12.0</max>
+              <resolution>0.01</resolution>
+            </range>
+          </lidar>
+
+          <!-- Explicit clip distances for GPU-based sensor rendering -->
+          <camera>
+            <clip>
+              <near>0.01</near>
+              <far>100.0</far>
+            </clip>
+          </camera>
+        </sensor>
+      </gazebo>
+    </xacro:if>
+
   </xacro:macro>
 
 </robot>
-

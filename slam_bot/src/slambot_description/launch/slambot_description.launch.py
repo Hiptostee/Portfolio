@@ -1,10 +1,9 @@
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, ExecuteProcess, TimerAction
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from launch.substitutions import Command, FindExecutable, LaunchConfiguration
-from launch.conditions import IfCondition, UnlessCondition
 from ament_index_python.packages import get_package_share_directory
 import os
 
@@ -13,11 +12,7 @@ def generate_launch_description():
     pkg_path = get_package_share_directory('slambot_description')
     xacro_file = os.path.join(pkg_path, 'urdf', 'slambot.xacro')
     
-    # Kinematic toggle (use kinematic base plugin in Gazebo Sim)
-    kinematic = LaunchConfiguration('kinematic')
-    declare_kinematic = DeclareLaunchArgument(
-        'kinematic', default_value='true', description='Use kinematic base plugin in Gazebo Sim'
-    )
+    # Always use kinematic base in Gazebo Sim; no ros2_control
 
     odom_node_launch = os.path.join(
         get_package_share_directory('odom_node'),
@@ -31,12 +26,11 @@ def generate_launch_description():
         'slambot_localization.launch.py'
     )
 
-    # Expand XACRO → URDF (ros2_control params default is set in the xacro)
+    # Expand XACRO → URDF
     robot_description = ParameterValue(
         Command([
             FindExecutable(name='xacro'), ' ', xacro_file, ' ',
-            'use_gz:=true', ' ',
-            'kinematic:=', kinematic
+            'use_gz:=true'
         ]),
         value_type=str
     )
@@ -78,8 +72,7 @@ def generate_launch_description():
                     '-name', 'slambot',
                     '-string', Command([
                         FindExecutable(name='xacro'), ' ', xacro_file, ' ',
-                        'use_gz:=true', ' ',
-                        'kinematic:=', kinematic
+                        'use_gz:=true'
                     ])
                 ],
                 output='screen'
@@ -87,35 +80,23 @@ def generate_launch_description():
         ]
     )
 
-    # Spawners talk to Gazebo's controller manager (/controller_manager)
-    jsb_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=["joint_state_broadcaster", "-c", "/controller_manager"],
+    # Static TF alias for Gazebo Sim laser frame → URDF frame
+    # Gazebo Sim LaserScan often uses model/link/sensor naming for frame_id.
+    # Create an identity alias so transforms to base_link work.
+    lidar_frame_alias = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments=['0', '0', '0', '0', '0', '0', 'gpu_lidar_link', 'slambot/base_link/gpu_lidar'],
         parameters=[{'use_sim_time': True}],
         output='screen'
     )
 
-    wheel_spawner = Node(
-        package="controller_manager",
-        executable="spawner",
-        arguments=[
-            "wheel_controller",
-            "-c", "/controller_manager"
-        ],
-        parameters=[{'use_sim_time': True}],
-        output='screen',
-        condition=UnlessCondition(kinematic)
-    )
+    # No ros2_control spawners needed in kinematic mode
 
-    # Delay controller loading until robot is spawned (after spawn delay + buffer)
-    delay = TimerAction(
-        period=8.0,
-        actions=[jsb_spawner, wheel_spawner]
-    )
-
+    # Ensure odom node uses sim time when running in Gazebo
     odom_node_launch = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(odom_node_launch)
+        PythonLaunchDescriptionSource(odom_node_launch),
+        launch_arguments={'sim': 'true'}.items()
     )
 
     ekf_node_launch = IncludeLaunchDescription(
@@ -139,12 +120,11 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        declare_kinematic,
         bridge_yaml,
         gazebo,
         rsp,
         spawn_robot_delayed,
-        delay,
+        lidar_frame_alias,
         odom_node_launch,
         ekf_node_launch,
         bridge,
