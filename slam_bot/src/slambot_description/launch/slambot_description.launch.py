@@ -12,8 +12,6 @@ def generate_launch_description():
     pkg_path = get_package_share_directory('slambot_description')
     xacro_file = os.path.join(pkg_path, 'urdf', 'slambot.xacro')
     
-    # Always use kinematic base in Gazebo Sim; no ros2_control
-
     odom_node_launch = os.path.join(
         get_package_share_directory('odom_node'),
         'launch',
@@ -26,6 +24,12 @@ def generate_launch_description():
         'slambot_localization.launch.py'
     )
 
+    slam_toolbox_launch = os.path.join(
+        get_package_share_directory('slambot_slam_toolbox'),
+        'launch',
+        'slambot_slam_toolbox.launch.py'
+    )
+
     # Expand XACRO → URDF
     robot_description = ParameterValue(
         Command([
@@ -34,6 +38,8 @@ def generate_launch_description():
         ]),
         value_type=str
     )
+
+
 
     # Start Gazebo with ODE world for mecanum friction modeling
     world_file = os.path.join(pkg_path, 'worlds', 'mecanum_ode.sdf')
@@ -86,7 +92,8 @@ def generate_launch_description():
     lidar_frame_alias = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        arguments=['0', '0', '0', '0', '0', '0', 'gpu_lidar_link', 'slambot/base_link/gpu_lidar'],
+        # Alias to bridge Gazebo Sim scan frame naming to URDF frame naming
+        arguments=['0', '0', '0', '0', '0', '0', 'base_laser', 'slambot/base_link/base_laser'],
         parameters=[{'use_sim_time': True}],
         output='screen'
     )
@@ -103,6 +110,11 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(ekf_launch),
         launch_arguments={'sim': 'true'}.items()
     )
+    slam_toolbox_launch_ = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(slam_toolbox_launch),
+        launch_arguments={'sim': 'true'}.items()
+    )
+
 
 
     bridge_yaml = DeclareLaunchArgument(
@@ -127,5 +139,6 @@ def generate_launch_description():
         lidar_frame_alias,
         odom_node_launch,
         ekf_node_launch,
+        slam_toolbox_launch_,
         bridge,
     ])
