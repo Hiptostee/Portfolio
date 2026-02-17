@@ -86,14 +86,10 @@ def generate_launch_description():
         ]
     )
 
-    # Static TF alias for Gazebo Sim laser frame → URDF frame
-    # Gazebo Sim LaserScan often uses model/link/sensor naming for frame_id.
-    # Create an identity alias so transforms to base_link work.
-    lidar_frame_alias = Node(
+    lidar_frame_alias_gpu_lidar = Node(
         package='tf2_ros',
         executable='static_transform_publisher',
-        # Alias to bridge Gazebo Sim scan frame naming to URDF frame naming
-        arguments=['0', '0', '0', '0', '0', '0', 'base_laser', 'slambot/base_link/base_laser'],
+        arguments=['0', '0', '0', '0', '0', '0', 'base_laser', 'slambot/base_link/gpu_lidar'],
         parameters=[{'use_sim_time': True}],
         output='screen'
     )
@@ -136,7 +132,7 @@ def generate_launch_description():
         gazebo,
         rsp,
         spawn_robot_delayed,
-        lidar_frame_alias,
+        lidar_frame_alias_gpu_lidar,
         odom_node_launch,
         ekf_node_launch,
         slam_toolbox_launch_,

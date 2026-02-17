@@ -16,7 +16,7 @@ ekf_filter_node:
     # Wheel odom
     # -------------------------
     # Fuse raw wheel odometry from odom_node
-    odom0: /wheel_odom
+    odom0: /odom
     odom0_queue_size: 10
     odom0_differential: false
     odom0_relative: false

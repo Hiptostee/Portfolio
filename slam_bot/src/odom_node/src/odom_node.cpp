@@ -3,8 +3,7 @@
 #include "std_msgs/msg/int32_multi_array.hpp"
 #include "nav_msgs/msg/odometry.hpp"
 
-#include <cmath>      // std::sin, std::cos, std::abs, std::hypot, std::isfinite
-#include <algorithm>  // std::clamp
+#include <cmath>      // std::sin, std::cos, std::isfinite
 
 namespace odom_node
 {
@@ -28,9 +27,9 @@ OdomNode::OdomNode(const rclcpp::NodeOptions &options)
       "/wheel_encoders", 10,
       std::bind(&OdomNode::odomCallback, this, std::placeholders::_1));
 
-  // Publish raw wheel odometry on a dedicated topic to avoid conflicts
-  // with other odom sources (e.g., sim plugins) on /odom.
-  odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("wheel_odom", 50);
+  // Publish raw wheel odometry on /odom so localization uses the same
+  // topic name in both simulation and hardware.
+  odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("/odom", 50);
 }
 
 OdomNode::~OdomNode(){}
@@ -46,10 +45,6 @@ void OdomNode::odomCallback(const std_msgs::msg::Int32MultiArray::SharedPtr msg)
   static int32_t lastFL=0,lastFR=0,lastBL=0,lastBR=0;
   static auto last_time = now();
   static double x=0.0, y=0.0, theta=0.0;
-
-  // Motion accumulation for covariance shaping
-  static double accum_trans = 0.0; // meters traveled (recent history)
-  static double accum_rot   = 0.0; // radians rotated (recent history)
 
   if (!init){
     lastFL=encFL; lastFR=encFR; lastBL=encBL; lastBR=encBR;
@@ -122,53 +117,16 @@ void OdomNode::odomCallback(const std_msgs::msg::Int32MultiArray::SharedPtr msg)
   odom_msg.twist.twist.linear.y  = vy_body;
   odom_msg.twist.twist.angular.z = omega;
 
-  // ============================================================
-  // SIMPLE, STABLE COVARIANCES (light motion-accumulated)
-  // Base: 2cm (x), 5cm (y). Inflates slowly with recent motion.
-  // ============================================================
-  const double vxf = std::abs(vx_body);
-  const double vyf = std::abs(vy_body);
-  const double wzf = std::abs(omega);
+  // Fixed covariances tuned for mecanum on medium-slip flooring.
+  // Lateral and yaw are less certain than forward due to scrub/slip.
+  const double sx   = 0.06;  // pose x sigma [m]
+  const double sy   = 0.10;  // pose y sigma [m]
+  const double syaw = 0.12;  // pose yaw sigma [rad]
+  const double svx  = 0.12;  // twist vx sigma [m/s]
+  const double svy  = 0.18;  // twist vy sigma [m/s]
+  const double swz  = 0.20;  // twist wz sigma [rad/s]
 
-  // "Recent motion" memory with exponential decay
-  // Larger tau = longer memory but smoother; 4–8s feels good.
-  const double tau   = 6.0;                    // seconds
-  const double decay = std::exp(-dt / tau);
-
-  const double dtrans = std::hypot(vx_body, vy_body) * dt; // meters traveled this step
-  const double drot   = wzf * dt;                          // radians rotated this step
-
-  accum_trans = decay * accum_trans + dtrans;
-  accum_rot   = decay * accum_rot   + drot;
-
-  // --------- BASE FLOORS (your request) ----------
-  const double sx_floor = 0.02;  // 2 cm
-  const double sy_floor = 0.05;  // 5 cm
-  const double syaw_floor = 0.03; // rad (~2.9 deg) -- wheels' yaw uncertainty
-
-  // --------- VERY LIGHT INFLATION (tunable) ------
-  // distance term: small growth with recent distance
-  // rotation term: small growth with recent turning (mecanum scrub)
-  // strafe term: small instantaneous penalty on y only
-  double sx = sx_floor
-            + 0.015 * accum_trans   // ~+1.5 cm per 1 m of *recent* travel
-            + 0.010 * accum_rot;    // ~+1.0 cm per 1 rad of *recent* rotation
-
-  double sy = sy_floor
-            + 0.030 * accum_trans   // y grows ~2x x (strafe worse)
-            + 0.020 * accum_rot
-            + 0.020 * vyf;          // instantaneous strafe penalty (m/s -> m)
-
-  // yaw from wheels should be bounded (IMU owns yaw in your EKF)
-  double syaw = syaw_floor
-              + 0.025 * accum_rot;  // grows with turning, lightly
-
-  // --------- CLAMPS (keep it sane) ---------------
-  sx   = std::clamp(sx,   0.02, 0.12);  // x σ max 12 cm
-  sy   = std::clamp(sy,   0.05, 0.20);  // y σ max 20 cm
-  syaw = std::clamp(syaw, 0.05, 0.40);  // yaw σ max ~34 deg (wheel yaw)
-
-  // Unused axes huge
+  // Unused axes: very large variance so EKF ignores them.
   const double IGN = 1e6;
 
   // Pose covariance (6x6 row-major: x y z roll pitch yaw)
@@ -179,16 +137,6 @@ void OdomNode::odomCallback(const std_msgs::msg::Int32MultiArray::SharedPtr msg)
   odom_msg.pose.covariance[21] = IGN;
   odom_msg.pose.covariance[28] = IGN;
   odom_msg.pose.covariance[35] = syaw*syaw;
-
-  // --------- Twist covariance (simple + stable) --
-  // Keep moderate, not crazy small, so EKF doesn't get overconfident
-  double svx = 0.05 + 0.10 * vxf + 0.10 * vyf;
-  double svy = 0.07 + 0.13 * vyf;
-  double swz = 0.04 + 0.075* wzf;
-
-  svx = std::clamp(svx, 0.05, 0.80);
-  svy = std::clamp(svy, 0.07, 1.20);
-  swz = std::clamp(swz, 0.04, 1.50);
 
   for (double &c : odom_msg.twist.covariance) c = 0.0;
   odom_msg.twist.covariance[0]  = svx*svx;

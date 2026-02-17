@@ -1,1 +1,0 @@
-/home/slambot/ros2_ws/build/test_node/ament_cmake_core/test_nodeConfig.cmake
