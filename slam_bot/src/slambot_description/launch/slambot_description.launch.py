@@ -24,10 +24,10 @@ def generate_launch_description():
         'slambot_localization.launch.py'
     )
 
-    slam_toolbox_launch = os.path.join(
-        get_package_share_directory('slambot_slam_toolbox'),
+    mapping_launch = os.path.join(
+        get_package_share_directory('slambot_mapping'),
         'launch',
-        'slambot_slam_toolbox.launch.py'
+        'mapping.launch.py'
     )
 
     # Expand XACRO → URDF
@@ -106,8 +106,8 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(ekf_launch),
         launch_arguments={'sim': 'true'}.items()
     )
-    slam_toolbox_launch_ = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(slam_toolbox_launch),
+    mapping_node_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(mapping_launch),
         launch_arguments={'sim': 'true'}.items()
     )
 
@@ -135,6 +135,6 @@ def generate_launch_description():
         lidar_frame_alias_gpu_lidar,
         odom_node_launch,
         ekf_node_launch,
-        slam_toolbox_launch_,
+        mapping_node_launch,
         bridge,
     ])
