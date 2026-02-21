@@ -2,6 +2,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
 from launch.conditions import IfCondition, UnlessCondition
 import os
@@ -23,13 +24,34 @@ def generate_launch_description():
         default_value='false',
         description='true for sim time (/clock), false for hardware time'
     )
+    localization_mode_arg = DeclareLaunchArgument(
+        'localization_mode',
+        default_value='false',
+        description='true enables particle filter node'
+    )
+    map_yaml_arg = DeclareLaunchArgument(
+        'map_yaml',
+        default_value='/home/slambot/ros2_ws/maps/my_map.yaml',
+        description='Initial map yaml for nav2 map_server',
+    )
+    autoload_map_on_startup_arg = DeclareLaunchArgument(
+        'autoload_map_on_startup',
+        default_value='false',
+        description='true to call /slambot/load_map automatically on startup',
+    )
 
     imu_input_topic = LaunchConfiguration('imu_input_topic')
     sim = LaunchConfiguration('sim')
+    localization_mode = LaunchConfiguration('localization_mode')
+    map_yaml = LaunchConfiguration('map_yaml')
+    autoload_map_on_startup = LaunchConfiguration('autoload_map_on_startup')
 
     return LaunchDescription([
         imu_input_arg,
         sim_arg,
+        localization_mode_arg,
+        map_yaml_arg,
+        autoload_map_on_startup_arg,
 
         # -------------------------
         # IMU covariance node (HW)
@@ -75,6 +97,67 @@ def generate_launch_description():
             ],
             remappings=[('odometry/filtered', '/odom/filtered')],
             condition=UnlessCondition(sim),
+        ),
+
+        # -------------------------
+        # Particle filter (HW)
+        # -------------------------
+        Node(
+            package='slambot_localization',
+            executable='slambot_localization_ParticleFilter',
+            name='particle_filter',
+            output='screen',
+            parameters=[{
+                'use_sim_time': ParameterValue(sim, value_type=bool),
+            }],
+            condition=IfCondition(localization_mode),
+        ),
+
+    
+        # -------------------------
+        # Map loader bridge service
+        # -------------------------
+        Node(
+            package='slambot_localization',
+            executable='slambot_localization_MapLoaderService',
+            name='map_loader_service',
+            output='screen',
+            parameters=[{
+                'use_sim_time': ParameterValue(sim, value_type=bool),
+                'map_server_load_service': '/map_server/load_map',
+                'load_map_service': '/slambot/load_map',
+                'map_topic': '/map',
+                'autoload_on_startup': ParameterValue(autoload_map_on_startup, value_type=bool),
+                'autoload_map_url': map_yaml,
+                'autoload_retries': 15,
+            }],
+        ),
+
+        # -------------------------
+        # Nav2 map server (for /map_server/load_map)
+        # -------------------------
+        Node(
+            package='nav2_map_server',
+            executable='map_server',
+            name='map_server',
+            output='screen',
+            parameters=[{
+                'use_sim_time': ParameterValue(sim, value_type=bool),
+                'yaml_filename': map_yaml,
+            }],
+            condition=IfCondition(localization_mode),
+        ),
+        Node(
+            package='nav2_lifecycle_manager',
+            executable='lifecycle_manager',
+            name='lifecycle_manager_map_server',
+            output='screen',
+            parameters=[{
+                'use_sim_time': ParameterValue(sim, value_type=bool),
+                'autostart': True,
+                'node_names': ['map_server'],
+            }],
+            condition=IfCondition(localization_mode),
         ),
 
         # ---------------

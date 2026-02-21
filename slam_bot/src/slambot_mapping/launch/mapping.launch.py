@@ -8,7 +8,7 @@ import os
 def generate_launch_description():
 
     slam_params = os.path.join(
-        get_package_share_directory('slambot_slam_toolbox'),
+        get_package_share_directory('slambot_mapping'),
         'config',
         'slam_toolbox.yaml'
     )

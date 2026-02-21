@@ -1,5 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction
+from launch.conditions import UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -23,7 +24,6 @@ def generate_launch_description():
         'launch',
         'slambot_localization.launch.py'
     )
-
     mapping_launch = os.path.join(
         get_package_share_directory('slambot_mapping'),
         'launch',
@@ -38,6 +38,13 @@ def generate_launch_description():
         ]),
         value_type=str
     )
+
+    localization_mode_arg = DeclareLaunchArgument(
+        'localization_mode',
+        default_value='false',
+        description='true: run particle filter; false: run slam_toolbox'
+    )
+    localization_mode = LaunchConfiguration('localization_mode')
 
 
 
@@ -104,11 +111,15 @@ def generate_launch_description():
 
     ekf_node_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(ekf_launch),
-        launch_arguments={'sim': 'true'}.items()
+        launch_arguments={
+            'sim': 'true',
+            'localization_mode': localization_mode,
+        }.items()
     )
     mapping_node_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(mapping_launch),
-        launch_arguments={'sim': 'true'}.items()
+        launch_arguments={'sim': 'true'}.items(),
+        condition=UnlessCondition(localization_mode),
     )
 
 
@@ -128,6 +139,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        localization_mode_arg,
         bridge_yaml,
         gazebo,
         rsp,
