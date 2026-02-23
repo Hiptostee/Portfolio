@@ -38,7 +38,9 @@ namespace slambot_localization
     double wrapAngle(double a);
     bool lookupOdomToBase(double &x, double &y, double &yaw);
     bool lookupBaseToLidar(double &x, double &y, double &yaw);
-    void computeEndpointUnderPandScore(const sensor_msgs::msg::LaserScan::SharedPtr msg);
+    void score(const sensor_msgs::msg::LaserScan::SharedPtr msg);
+    void rebuildDistanceField();
+    double distanceToNearestObstacle(double map_x, double map_y) const;
     void broadCastMapToOdomTf(const rclcpp::Time &stamp);
     void systematicResample();
     void roughen();
@@ -52,12 +54,14 @@ namespace slambot_localization
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
     nav_msgs::msg::OccupancyGrid map_;
+    std::vector<float> distance_field_m_;
     rclcpp::Time last_odom_time_;
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     std::mt19937 rng_;
     bool have_map_ = false;
+    bool have_distance_field_ = false;
     bool have_measurement_ = false;
 
     
@@ -72,10 +76,14 @@ namespace slambot_localization
     double last_odom_x_ = 0.0;
     double last_odom_y_ = 0.0;
     double last_odom_yaw_ = 0.0;
+    int beam_stride_ = 3;
     double init_x_;
     double init_y_;
     double init_yaw_;
     double alpha_; 
+    double sigma_hit_;
+    double z_hit_;
+    double z_rand_;
     std::string base_frame_{"base_link"};
     std::string lidar_frame_{"base_laser"};
   };

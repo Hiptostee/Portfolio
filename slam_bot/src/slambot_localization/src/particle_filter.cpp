@@ -62,6 +62,7 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
       "/map", rclcpp::SystemDefaultsQoS(),
       [this](const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
         map_ = *msg;
+        rebuildDistanceField();
         have_map_ = true;
         RCLCPP_INFO(get_logger(),
                     "Map received in particle filter: size %d x %d, resolution %.3f",
@@ -164,7 +165,7 @@ void ParticleFilter::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 void ParticleFilter::scanCallback(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 {
   // 1) measurement update
-  computeEndpointUnderPandScore(msg);
+  score(msg);
 
   // 2) publish map->odom using current particle estimate
   broadCastMapToOdomTf(rclcpp::Time(msg->header.stamp));
