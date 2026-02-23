@@ -24,12 +24,10 @@ private:
       std::shared_ptr<LoadMap::Response> response);
 
   std::string map_server_service_name_;
-  std::string autoload_map_url_;
-  int autoload_retries_left_{0};
 
   rclcpp::Service<LoadMap>::SharedPtr load_map_service_;
+  rclcpp::Service<LoadMap>::SharedPtr load_map_private_service_;
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_publisher_;
-  rclcpp::TimerBase::SharedPtr startup_load_timer_;
 };
 
 } // namespace slambot_localization

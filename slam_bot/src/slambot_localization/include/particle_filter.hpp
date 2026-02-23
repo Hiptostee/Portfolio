@@ -58,6 +58,7 @@ namespace slambot_localization
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     std::mt19937 rng_;
     bool have_map_ = false;
+    bool have_measurement_ = false;
 
     
     int num_particles_;
@@ -71,9 +72,12 @@ namespace slambot_localization
     double last_odom_x_ = 0.0;
     double last_odom_y_ = 0.0;
     double last_odom_yaw_ = 0.0;
+    double init_x_;
+    double init_y_;
+    double init_yaw_;
+    double alpha_; 
     std::string base_frame_{"base_link"};
     std::string lidar_frame_{"base_laser"};
-    bool particles_are_lidar_pose_{true};
   };
 }
 

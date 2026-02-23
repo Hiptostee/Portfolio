@@ -27,6 +27,10 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
   x_noise_ = declare_parameter<double>("x_noise", 0.05);
   y_noise_ = declare_parameter<double>("y_noise", 0.075);
   theta_noise_ = declare_parameter<double>("theta_noise", 0.05);
+  init_x_ = declare_parameter<double>("init_x", 0.0);
+  init_y_ = declare_parameter<double>("init_y", 0.0);
+  init_yaw_ = declare_parameter<double>("init_yaw", 0.0);
+  alpha_ = declare_parameter<double>("alpha", 0.2); // scan score -> weight: weight = exp(alpha * score)
 
   // Frames
   base_frame_ = declare_parameter<std::string>("base_frame", "base_link");
@@ -113,8 +117,8 @@ bool ParticleFilter::lookupBaseToLidar(double &x, double &y, double &yaw)
   if (!tf_buffer_) return false;
 
   try {
-    // target=lidar, source=base => base->lidar
-    const auto tf = tf_buffer_->lookupTransform(lidar_frame_, base_frame_, tf2::TimePointZero);
+    // target=base, source=lidar => base->lidar (lidar origin in base frame)
+    const auto tf = tf_buffer_->lookupTransform(base_frame_, lidar_frame_, tf2::TimePointZero);
     x = tf.transform.translation.x;
     y = tf.transform.translation.y;
     tf2::Quaternion q(tf.transform.rotation.x, tf.transform.rotation.y,
@@ -155,7 +159,7 @@ void ParticleFilter::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 {
   const auto current_time = rclcpp::Time(msg->header.stamp);
 
-  // Start from msg pose, but prefer TF odom->base if available
+  // Use /odom/filtered as base source; override with TF odom->base if available.
   double odom_x = msg->pose.pose.position.x;
   double odom_y = msg->pose.pose.position.y;
   tf2::Quaternion odom_q(msg->pose.pose.orientation.x,
@@ -163,14 +167,13 @@ void ParticleFilter::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
                          msg->pose.pose.orientation.z,
                          msg->pose.pose.orientation.w);
   double odom_yaw = tf2::getYaw(odom_q);
-
   (void)lookupOdomToBase(odom_x, odom_y, odom_yaw);
 
   if (!initialized_particles_) {
     for (auto &p : particles_) {
-      p.x = odom_x + randomUniform(-particles_x_initial_, particles_x_initial_);
-      p.y = odom_y + randomUniform(-particles_y_initial_, particles_y_initial_);
-      p.theta = wrapAngle(odom_yaw + randomUniform(-particles_theta_initial_, particles_theta_initial_));
+      p.x = init_x_ + randomUniform(-particles_x_initial_, particles_x_initial_);
+      p.y = init_y_ + randomUniform(-particles_y_initial_, particles_y_initial_);
+      p.theta = wrapAngle(init_yaw_ + randomUniform(-particles_theta_initial_, particles_theta_initial_));
       p.weight = 1.0 / static_cast<double>(num_particles_);
     }
     initialized_particles_ = true;
@@ -195,21 +198,22 @@ void ParticleFilter::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
     const double trans = std::hypot(dx, dy);
     const double rot = std::abs(dyaw);
 
-    const double min_sigma_xy = 0.001;
-    const double min_sigma_th = 0.001;
+    // Deadband: if odom barely moved, do not diffuse particles.
+    const bool moved = !(trans < 1e-4 && rot < 1e-4);
+    if (moved) {
+      const double sigma_x = x_noise_ * trans;
+      const double sigma_y = y_noise_ * trans;
+      const double sigma_theta = theta_noise_ * rot;
 
-    const double sigma_x = std::max(x_noise_ * trans, min_sigma_xy);
-    const double sigma_y = std::max(y_noise_ * trans, min_sigma_xy);
-    const double sigma_theta = std::max(theta_noise_ * rot, min_sigma_th);
+      for (auto &p : particles_) {
+        const double cp = std::cos(p.theta);
+        const double sp = std::sin(p.theta);
 
-    for (auto &p : particles_) {
-      const double cp = std::cos(p.theta);
-      const double sp = std::sin(p.theta);
-
-      // apply body-frame delta in each particle's heading
-      p.x += cp * dx_body - sp * dy_body + gaussianNoise(sigma_x);
-      p.y += sp * dx_body + cp * dy_body + gaussianNoise(sigma_y);
-      p.theta = wrapAngle(p.theta + dyaw + gaussianNoise(sigma_theta));
+        // apply body-frame delta in each particle's heading
+        p.x += cp * dx_body - sp * dy_body + gaussianNoise(sigma_x);
+        p.y += sp * dx_body + cp * dy_body + gaussianNoise(sigma_y);
+        p.theta = wrapAngle(p.theta + dyaw + gaussianNoise(sigma_theta));
+      }
     }
 
     last_odom_x_ = odom_x;
@@ -290,10 +294,11 @@ void ParticleFilter::computeEndpointUnderPandScore(const sensor_msgs::msg::Laser
       const int8_t occ = map_.data[idx];
 
       if (occ == -1) continue;      // unknown -> ignore
-      if (occ >= 50) score += 1.0;  // endpoint in obstacle
+      if (occ >= 50) score += 1.0; // occupied -> good
+      else score -= 1.0;           // free -> bad
     }
 
-    p.weight = score + 1.0; // keep >0
+    p.weight = std::exp(alpha_ * score); // keep >0
     weight_sum += p.weight;
   }
 
@@ -333,15 +338,11 @@ void ParticleFilter::systematicResample()
 void ParticleFilter::broadCastMapToOdomTf(const rclcpp::Time &stamp)
 {
   if (!tf_broadcaster_) return;
+  if (!initialized_particles_) return;
 
-  // odom->base from TF (preferred), or fallback to last odom sample
-  double odom_x = 0.0, odom_y = 0.0, odom_yaw = 0.0;
-  if (!lookupOdomToBase(odom_x, odom_y, odom_yaw)) {
-    if (!initialized_particles_) return;
-    odom_x = last_odom_x_;
-    odom_y = last_odom_y_;
-    odom_yaw = last_odom_yaw_;
-  }
+  const double odom_x = last_odom_x_;
+  const double odom_y = last_odom_y_;
+  const double odom_yaw = last_odom_yaw_;
 
   // map->base estimated from particles (weighted mean)
   double est_x = 0.0, est_y = 0.0;
@@ -392,14 +393,7 @@ void ParticleFilter::scanCallback(const sensor_msgs::msg::LaserScan::SharedPtr m
   // 2) publish map->odom using current particle estimate
   broadCastMapToOdomTf(rclcpp::Time(msg->header.stamp));
 
-  // 3) resample only when needed
-  const double neff = effectiveSampleSize();
-  if (neff < 0.5 * particles_.size()) {
-    systematicResample();
-    roughen();
-  }
-
-  // 4) publish estimated pose (map->base) as weighted mean
+  // 3) publish estimated pose (map->base) as weighted mean
   geometry_msgs::msg::PoseStamped est_pose;
   est_pose.header = msg->header;
   est_pose.header.frame_id = "map";
@@ -426,6 +420,13 @@ void ParticleFilter::scanCallback(const sensor_msgs::msg::LaserScan::SharedPtr m
   est_pose.pose.orientation.w = q.w();
 
   pose_pub_->publish(est_pose);
+
+  // 4) resample only when needed (for next cycle)
+  const double neff = effectiveSampleSize();
+  if (neff < 0.5 * particles_.size()) {
+    systematicResample();
+    roughen();
+  }
 }
 
 } // namespace slambot_localization

@@ -34,24 +34,16 @@ def generate_launch_description():
         default_value='/home/slambot/ros2_ws/maps/my_map.yaml',
         description='Initial map yaml for nav2 map_server',
     )
-    autoload_map_on_startup_arg = DeclareLaunchArgument(
-        'autoload_map_on_startup',
-        default_value='false',
-        description='true to call /slambot/load_map automatically on startup',
-    )
-
     imu_input_topic = LaunchConfiguration('imu_input_topic')
     sim = LaunchConfiguration('sim')
     localization_mode = LaunchConfiguration('localization_mode')
     map_yaml = LaunchConfiguration('map_yaml')
-    autoload_map_on_startup = LaunchConfiguration('autoload_map_on_startup')
 
     return LaunchDescription([
         imu_input_arg,
         sim_arg,
         localization_mode_arg,
         map_yaml_arg,
-        autoload_map_on_startup_arg,
 
         # -------------------------
         # IMU covariance node (HW)
@@ -125,11 +117,9 @@ def generate_launch_description():
             parameters=[{
                 'use_sim_time': ParameterValue(sim, value_type=bool),
                 'map_server_load_service': '/map_server/load_map',
+                'global_load_map_service': '/slambot/load_map',
                 'load_map_service': '/slambot/load_map',
                 'map_topic': '/map',
-                'autoload_on_startup': ParameterValue(autoload_map_on_startup, value_type=bool),
-                'autoload_map_url': map_yaml,
-                'autoload_retries': 15,
             }],
         ),
 

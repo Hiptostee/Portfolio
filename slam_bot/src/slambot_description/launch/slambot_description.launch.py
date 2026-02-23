@@ -44,7 +44,13 @@ def generate_launch_description():
         default_value='false',
         description='true: run particle filter; false: run slam_toolbox'
     )
+    map_yaml_arg = DeclareLaunchArgument(
+        'map_yaml',
+        default_value='/home/slambot/ros2_ws/maps/my_map.yaml',
+        description='Map yaml path used by localization map server/load service',
+    )
     localization_mode = LaunchConfiguration('localization_mode')
+    map_yaml = LaunchConfiguration('map_yaml')
 
 
 
@@ -114,6 +120,7 @@ def generate_launch_description():
         launch_arguments={
             'sim': 'true',
             'localization_mode': localization_mode,
+            'map_yaml': map_yaml,
         }.items()
     )
     mapping_node_launch = IncludeLaunchDescription(
@@ -140,6 +147,7 @@ def generate_launch_description():
 
     return LaunchDescription([
         localization_mode_arg,
+        map_yaml_arg,
         bridge_yaml,
         gazebo,
         rsp,
