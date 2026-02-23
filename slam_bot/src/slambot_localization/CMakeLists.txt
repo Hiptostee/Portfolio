@@ -15,6 +15,10 @@ find_package(tf2_ros REQUIRED)
 add_library(${PROJECT_NAME}_components SHARED
   src/covariances_on_imu.cpp
   src/particle_filter.cpp
+  src/pf_compute_score.cpp
+  src/pf_resample.cpp
+  src/pf_tf_helpers.cpp
+  src/pf_random_helpers.cpp
   src/load_map.cpp
 )
 target_include_directories(${PROJECT_NAME}_components PUBLIC include)
