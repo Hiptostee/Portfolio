@@ -1,10 +1,11 @@
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
-from launch.substitutions import Command, LaunchConfiguration
+from launch.substitutions import Command, LaunchConfiguration, PythonExpression
 import os
 
 def generate_launch_description():
@@ -41,6 +42,12 @@ def generate_launch_description():
         'slambot_localization.launch.py'
     )
 
+    mapping_launch = os.path.join(
+        get_package_share_directory('slambot_mapping'),
+        'launch',
+        'mapping.launch.py'
+    )
+
     robot_description_file = os.path.join(
         get_package_share_directory('slambot_description'),
         'urdf',
@@ -53,7 +60,30 @@ def generate_launch_description():
         default_value='/imu',
         description='Raw IMU topic (e.g., /imu or /imu/data)'
     )
+    sim_arg = DeclareLaunchArgument(
+        'sim',
+        default_value='false',
+        description='true for sim time (/clock), false for hardware time'
+    )
+    localization_mode_arg = DeclareLaunchArgument(
+        'localization_mode',
+        default_value='false',
+        description='false: mapping with slam_toolbox, true: localization with particle filter'
+    )
+    map_yaml_default = PythonExpression([
+        "'/home/slambot/ros2_ws/maps/my_map.yaml' if '",
+        LaunchConfiguration('sim'),
+        "' in ['true', 'True', '1'] else '/home/slambot/ros2_ws_pi/maps/my_map.yaml'"
+    ])
+    map_yaml_arg = DeclareLaunchArgument(
+        'map_yaml',
+        default_value=map_yaml_default,
+        description='Map yaml used by localization mode'
+    )
     imu_input_topic = LaunchConfiguration('imu_input_topic')
+    sim = LaunchConfiguration('sim')
+    localization_mode = LaunchConfiguration('localization_mode')
+    map_yaml = LaunchConfiguration('map_yaml')
 
     # -------------------------------------------------------------------------
     # robot_state_publisher (URDF)
@@ -92,7 +122,18 @@ def generate_launch_description():
 
     localization_node_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(localization_node_launch),
-        launch_arguments={'imu_input_topic': imu_input_topic}.items()
+        launch_arguments={
+            'imu_input_topic': imu_input_topic,
+            'sim': sim,
+            'localization_mode': localization_mode,
+            'map_yaml': map_yaml,
+        }.items(),
+    )
+
+    mapping_launch_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(mapping_launch),
+        launch_arguments={'sim': sim}.items(),
+        condition=UnlessCondition(localization_mode)
     )
 
     # -------------------------------------------------------------------------
@@ -101,9 +142,13 @@ def generate_launch_description():
     return LaunchDescription([
         robot_state_publisher,
         imu_input_arg,
+        sim_arg,
+        localization_mode_arg,
+        map_yaml_arg,
         imu_node,
         lidar_node,
         mecanum_drive_launch_node,
         odom_node_launch_node,
+        mapping_launch_node,
         localization_node_launch_node,
     ])

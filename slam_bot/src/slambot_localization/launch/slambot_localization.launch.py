@@ -1,10 +1,10 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
-from launch.conditions import IfCondition, UnlessCondition
+from launch.conditions import IfCondition
 import os
 
 def generate_launch_description():
@@ -29,9 +29,14 @@ def generate_launch_description():
         default_value='false',
         description='true enables particle filter node'
     )
+    map_yaml_default = PythonExpression([
+        "'/home/slambot/ros2_ws/maps/my_map.yaml' if '",
+        LaunchConfiguration('sim'),
+        "' in ['true', 'True', '1'] else '/home/slambot/ros2_ws_pi/maps/my_map.yaml'"
+    ])
     map_yaml_arg = DeclareLaunchArgument(
         'map_yaml',
-        default_value='/home/slambot/ros2_ws/maps/my_map.yaml',
+        default_value=map_yaml_default,
         description='Initial map yaml for nav2 map_server',
     )
     imu_input_topic = LaunchConfiguration('imu_input_topic')
@@ -46,7 +51,7 @@ def generate_launch_description():
         map_yaml_arg,
 
         # -------------------------
-        # IMU covariance node (HW)
+        # IMU covariance node
         # -------------------------
         Node(
             package='slambot_localization',
@@ -55,28 +60,12 @@ def generate_launch_description():
             parameters=[{
                 'imu_input_topic': imu_input_topic,
                 'imu_output_topic': '/imu_with_covariances',
-                'use_sim_time': False,
+                'use_sim_time': ParameterValue(sim, value_type=bool),
             }],
-            condition=UnlessCondition(sim),
-        ),
-
-        # -------------------------
-        # IMU covariance node (SIM)
-        # -------------------------
-        Node(
-            package='slambot_localization',
-            executable='slambot_localization_CovariancesOnImu',
-            name='imu_covariances',
-            parameters=[{
-                'imu_input_topic': imu_input_topic,
-                'imu_output_topic': '/imu_with_covariances',
-                'use_sim_time': True,
-            }],
-            condition=IfCondition(sim),
         ),
 
         # ---------------
-        # EKF (HW)
+        # EKF
         # ---------------
         Node(
             package='robot_localization',
@@ -85,10 +74,9 @@ def generate_launch_description():
             output='screen',
             parameters=[
                 ekf_param_file,
-                {'use_sim_time': False},
+                {'use_sim_time': ParameterValue(sim, value_type=bool)},
             ],
             remappings=[('odometry/filtered', '/odom/filtered')],
-            condition=UnlessCondition(sim),
         ),
 
         # -------------------------
@@ -148,21 +136,5 @@ def generate_launch_description():
                 'node_names': ['map_server'],
             }],
             condition=IfCondition(localization_mode),
-        ),
-
-        # ---------------
-        # EKF (SIM)
-        # ---------------
-        Node(
-            package='robot_localization',
-            executable='ekf_node',
-            name='ekf_filter_node',
-            output='screen',
-            parameters=[
-                ekf_param_file,
-                {'use_sim_time': True},
-            ],
-            remappings=[('odometry/filtered', '/odom/filtered')],
-            condition=IfCondition(sim),
         ),
     ])

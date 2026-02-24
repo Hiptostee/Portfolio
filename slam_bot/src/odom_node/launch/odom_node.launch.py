@@ -1,8 +1,8 @@
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration
-from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -16,22 +16,10 @@ def generate_launch_description():
 
     return LaunchDescription([
         sim_arg,
-
-        # Hardware time
         Node(
             package='odom_node',
             executable='odom_node_exec',
             name='odom_node',
-            parameters=[{'use_sim_time': False}],
-            condition=UnlessCondition(sim),
-        ),
-
-        # Simulation time
-        Node(
-            package='odom_node',
-            executable='odom_node_exec',
-            name='odom_node',
-            parameters=[{'use_sim_time': True}],
-            condition=IfCondition(sim),
+            parameters=[{'use_sim_time': ParameterValue(sim, value_type=bool)}],
         ),
     ])
