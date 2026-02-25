@@ -207,7 +207,8 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
       if (range < msg->range_min) continue;
       if (range >= rmax * 0.99) continue;
 
-      const auto endpoint = computeEndpoint(p, i, msg, b2l_x, b2l_y, b2l_yaw, have_extrinsic);
+      const auto endpoint =
+          computeEndpoint(p, i, msg, b2l_x, b2l_y, b2l_yaw, have_extrinsic);
       const double d = distanceToNearestObstacle(endpoint.first, endpoint.second);
 
       // log p_hit = log(z_hit * N(d;0,sigma))

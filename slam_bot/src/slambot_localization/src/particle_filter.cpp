@@ -16,17 +16,19 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
       last_odom_time_(0, 0, RCL_ROS_TIME),
       rng_(std::random_device{}())
 {
-  num_particles_ = std::max<int>(1, declare_parameter<int>("num_particles", 400));
+  num_particles_ = std::max<int>(1, declare_parameter<int>("num_particles", 250));
   particles_x_initial_ = declare_parameter<double>("particles_x_initial", 0.25);
   particles_y_initial_ = declare_parameter<double>("particles_y_initial", 0.25);
-  particles_random_x_initial_ = declare_parameter<double>("particles_random_x_initial", 3.00);
-  particles_random_y_initial_ = declare_parameter<double>("particles_random_y_initial", 3.00);
+  particles_random_x_initial_ = declare_parameter<double>("particles_random_x_initial", 2.00);
+  particles_random_y_initial_ = declare_parameter<double>("particles_random_y_initial", 2.00);
   particles_random_theta_initial_ = declare_parameter<double>("particles_random_theta_initial", M_PI);
   particles_theta_initial_ = declare_parameter<double>("particles_theta_initial", 0.15);
-  num_random_ = std::clamp(static_cast<int>(declare_parameter<int>("num_random", 5)), 0, 100); // base random particle percent
+  num_random_ = std::clamp(static_cast<int>(declare_parameter<int>("num_random", 1)), 0, 100); // base random particle percent
   num_random_max_ = std::clamp(static_cast<int>(declare_parameter<int>("num_random_max", 50)), 0, 100);
   if (num_random_max_ < num_random_) num_random_max_ = num_random_;
   random_adapt_gain_ = std::max(0.0, declare_parameter<double>("random_adapt_gain", 1.0));
+  adaptive_yaw_rate_threshold_ =
+      std::max(0.0, declare_parameter<double>("adaptive_yaw_rate_threshold", 0.1));
   x_noise_ = declare_parameter<double>("x_noise", 0.05);
   y_noise_ = declare_parameter<double>("y_noise", 0.075);
   theta_noise_ = declare_parameter<double>("theta_noise", 0.05);
@@ -34,9 +36,9 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
   init_y_ = declare_parameter<double>("init_y", 0.0);
   init_yaw_ = declare_parameter<double>("init_yaw", 0.0);
   beam_stride_ = std::max<int>(1, declare_parameter<int>("beam_stride", 3));
-  sigma_hit_ = std::max(1e-6, declare_parameter<double>("sigma_hit", 0.10));
-  z_hit_ = declare_parameter<double>("z_hit", 0.9);
-  z_rand_ = declare_parameter<double>("z_rand", 0.1);
+  sigma_hit_ = std::max(1e-6, declare_parameter<double>("sigma_hit", 0.25));
+  z_hit_ = declare_parameter<double>("z_hit", 0.7);
+  z_rand_ = declare_parameter<double>("z_rand", 0.3);
   alpha_fast_ = std::clamp(declare_parameter<double>("alpha_fast", 0.1), 0.0, 1.0);
   alpha_slow_ = std::clamp(declare_parameter<double>("alpha_slow", 0.01), 0.0, 1.0);
 
@@ -148,8 +150,11 @@ void ParticleFilter::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
         p.theta = wrapAngle(p.theta + noisy_dyaw);
       }
 
+      const double yaw_rate_abs = rot / std::max(dt, 1e-6);
+      const bool allow_adaptive_random = yaw_rate_abs <= adaptive_yaw_rate_threshold_;
+
       double random_percent = static_cast<double>(num_random_);
-      if (weight_averages_initialized_) {
+      if (allow_adaptive_random && weight_averages_initialized_) {
         const double ratio = w_fast_ / std::max(w_slow_, 1e-12);
         const double p_adapt = std::clamp(1.0 - ratio, 0.0, 1.0);
         const double blend = std::clamp(random_adapt_gain_ * p_adapt, 0.0, 1.0);

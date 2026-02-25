@@ -91,6 +91,7 @@ namespace slambot_localization
     int num_random_;
     int num_random_max_;
     double random_adapt_gain_;
+    double adaptive_yaw_rate_threshold_;
     double particles_random_x_initial_;
     double particles_random_y_initial_;
     double particles_random_theta_initial_;
