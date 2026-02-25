@@ -15,10 +15,6 @@ namespace
 constexpr int8_t kOccupiedThreshold = 50;
 constexpr double kMaxObstacleLookupDistanceMeters = 1.0;
 constexpr double kHugeSquaredDistanceCells = 1e12;
-double sigma_hit_ = 0.10; // meters
-double z_hit_ = 0.9;
-double z_rand_ = 0.1;
-int beam_stride_ = 3;
 
 std::pair<double, double> computeEndpoint(
     const Particle &particle,
@@ -132,7 +128,7 @@ void ParticleFilter::rebuildDistanceField()
   }
 
   distance_field_m_.resize(cell_count);
-  for (size_t i = 0; i < cell_count; i += static_cast<size_t>(beam_stride_)) {
+  for (size_t i = 0; i < cell_count; i++){
     distance_field_m_[i] = static_cast<float>(std::sqrt(row_sq_dist[i]) * res);
   }
   have_distance_field_ = true;
@@ -187,6 +183,16 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
   double b2l_x = 0.0, b2l_y = 0.0, b2l_yaw = 0.0;
   const bool have_extrinsic = lookupBaseToLidar(b2l_x, b2l_y, b2l_yaw);
 
+  size_t valid_beam_count = 0;
+  for (size_t i = 0; i < msg->ranges.size(); i += static_cast<size_t>(beam_stride_)) {
+    const double range = msg->ranges[i];
+    if (!std::isfinite(range)) continue;
+    if (range < msg->range_min) continue;
+    if (range >= rmax * 0.99) continue;
+    ++valid_beam_count;
+  }
+  if (valid_beam_count == 0) return;
+
   std::vector<double> logw(particles_.size(), 0.0);
 
   for (size_t pi = 0; pi < particles_.size(); ++pi) {
@@ -222,9 +228,32 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 
   // Normalize weights with log-sum-exp (you already do the max trick)
   const double max_logw = *std::max_element(logw.begin(), logw.end());
+  double sum_exp_shifted = 0.0;
+  for (const double lw : logw) sum_exp_shifted += std::exp(lw - max_logw);
+
+  if (sum_exp_shifted > 0.0) {
+    const double logsumexp = max_logw + std::log(sum_exp_shifted);
+    const double log_mean_likelihood =
+        logsumexp - std::log(static_cast<double>(particles_.size()));
+    const double scan_quality =
+        std::exp(log_mean_likelihood / static_cast<double>(valid_beam_count));
+
+    if (std::isfinite(scan_quality)) {
+      if (!weight_averages_initialized_) {
+        w_fast_ = scan_quality;
+        w_slow_ = scan_quality;
+        weight_averages_initialized_ = true;
+      } else {
+        w_fast_ += alpha_fast_ * (scan_quality - w_fast_);
+        w_slow_ += alpha_slow_ * (scan_quality - w_slow_);
+        
+      }
+    }
+  }
+
   double total = 0.0;
   for (size_t i = 0; i < particles_.size(); ++i) {
-    particles_[i].weight = std::exp(logw[i] - max_logw);
+    particles_[i].weight *= std::exp(logw[i] - max_logw);
     total += particles_[i].weight;
   }
 
