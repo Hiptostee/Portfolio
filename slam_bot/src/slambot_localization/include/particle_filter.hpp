@@ -63,6 +63,7 @@ namespace slambot_localization
     bool have_map_ = false;
     bool have_distance_field_ = false;
     bool have_measurement_ = false;
+    bool navigating_ = false;
 
     
     int num_particles_;
@@ -92,9 +93,9 @@ namespace slambot_localization
     int num_random_max_;
     double random_adapt_gain_;
     double adaptive_yaw_rate_threshold_;
-    double particles_random_x_initial_;
-    double particles_random_y_initial_;
-    double particles_random_theta_initial_;
+    double particles_random_x_;
+    double particles_random_y_;
+    double particles_random_theta_;
     std::string base_frame_{"base_link"};
     std::string lidar_frame_{"base_laser"};
   };

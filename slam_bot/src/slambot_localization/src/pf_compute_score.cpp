@@ -164,17 +164,18 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 
   const double rmax = msg->range_max;
 
-  // Params you should declare:
-  // double sigma_hit_ (meters) e.g. 0.10
-  // double z_hit_     e.g. 0.9
-  // double z_rand_    e.g. 0.1
+  // sigma is the std of the gaussian in the likelihood field model.
   const double sigma = std::max(sigma_hit_, 1e-6);
+
+  // Precompute the inverse of the max range for the random endpoint model. This is used to compute the likelihood of a random 
+  // measurement, which is part of the beam model to account for unexpected obstacles or sensor noise.
   const double inv_zmax = 1.0 / std::max(rmax, 1e-6);
 
   // Precompute constants
   const double log_norm = -std::log(std::sqrt(2.0 * M_PI) * sigma);  // Gaussian normalizer
-  const double inv_2sigma2 = 1.0 / (2.0 * sigma * sigma);
+  const double inv_2sigma2 = 1.0 / (2.0 * sigma * sigma); // Inverse of 2*sigma^2 for the Gaussian exponent
 
+  // Precompute log probabilities for the hit and random components of the beam model. This allows us to compute the likelihood of each measurement more efficiently during the scoring of particles.
   const double log_z_hit  = std::log(std::max(z_hit_, 1e-12));
   const double log_z_rand = std::log(std::max(z_rand_, 1e-12));
   const double log_rand   = std::log(inv_zmax);
@@ -195,6 +196,12 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 
   std::vector<double> logw(particles_.size(), 0.0);
 
+  // For each particle, compute the likelihood of the observed laser scan given the particle's pose. 
+  // This is done by iterating over the laser scan beams, computing the expected endpoint of each beam based on the 
+  // particle's pose and the beam angle, and then looking up the distance to the nearest obstacle at that endpoint 
+  // using the precomputed distance field. The likelihood of each beam is computed using a mixture of a 
+  // Gaussian (for hits) and a uniform distribution (for random measurements), and these are combined 
+  // in log space for numerical stability.
   for (size_t pi = 0; pi < particles_.size(); ++pi) {
     const Particle &p = particles_[pi];
     double acc = 0.0;
@@ -207,20 +214,30 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
       if (range < msg->range_min) continue;
       if (range >= rmax * 0.99) continue;
 
+
+      // Compute the expected endpoint of the laser beam for this particle and beam index, 
+      // and look up the distance to the nearest obstacle at that endpoint using the distance field. 
+      // This distance is then used to compute the likelihood of the observed range measurement given the particle's pose.
       const auto endpoint =
           computeEndpoint(p, i, msg, b2l_x, b2l_y, b2l_yaw, have_extrinsic);
       const double d = distanceToNearestObstacle(endpoint.first, endpoint.second);
 
-      // log p_hit = log(z_hit * N(d;0,sigma))
+      // log p_hit = log(z_hit * N(d; 0, sigma^2)) = log(z_hit) + log(N(d; 0, sigma^2))
       const double log_p_hit = log_z_hit + log_norm - (d * d) * inv_2sigma2;
 
       // log p_rand = log(z_rand * 1/zmax)
       const double log_p_rand = log_z_rand + log_rand;
 
-      // log p = log( exp(log_p_hit) + exp(log_p_rand) )
+      // this is the log-sum-max-trick to compute log(p_hit + p_rand) in a numerically stable way
+      // log(p_hit + p_rand) = log( exp(log_p_hit) + exp(log_p_rand) ) = m + log( exp(log_p_hit - m) + exp(log_p_rand - m) ), 
+      // where m = max(log_p_hit, log_p_rand)
       const double m = std::max(log_p_hit, log_p_rand);
       const double log_p = m + std::log(std::exp(log_p_hit - m) + std::exp(log_p_rand - m));
 
+      // for each particle, we accumulate the log likelihood of all the valid beams. 
+      // This gives us the overall likelihood of the observed laser scan given the particle's pose, 
+      // which we will use to update the particle's weight. Becuase we are in log space, we sum the log probabilities instead of 
+      // multiplying the probabilities directly, which helps prevent numerical underflow when dealing with many beams.
       acc += log_p;
     }
 
