@@ -8,12 +8,14 @@
 namespace slambot_navigation
 {
 
+// Check that the cached occupancy grid has valid dimensions and data size.
 bool AStarPlanner::isMapValid() const
 {
   return map_.info.width > 0 && map_.info.height > 0 && map_.info.resolution > 0 &&
          map_.data.size() == map_.info.width * map_.info.height;
 }
 
+// Return whether a grid cell lies inside the map bounds.
 bool AStarPlanner::isInBounds(const Coordinate & cell) const
 {
   const int width = map_.info.width;
@@ -21,6 +23,7 @@ bool AStarPlanner::isInBounds(const Coordinate & cell) const
   return cell.x >= 0 && cell.y >= 0 && cell.x < width && cell.y < height;
 }
 
+// Convert a valid grid cell into the flat index used by OccupancyGrid::data.
 size_t AStarPlanner::toIndex(const Coordinate & cell) const
 {
   if (!isInBounds(cell)) {
@@ -29,6 +32,7 @@ size_t AStarPlanner::toIndex(const Coordinate & cell) const
   return cell.y * map_.info.width + cell.x;
 }
 
+// Reject cells that are occupied, unknown, or too close to nearby obstacles.
 bool AStarPlanner::isCellTraversable(const Coordinate & cell) const
 {
   if (!isInBounds(cell)) {
@@ -62,6 +66,7 @@ bool AStarPlanner::isCellTraversable(const Coordinate & cell) const
   return true;
 }
 
+// Convert a world-space position in meters into a map grid cell.
 bool AStarPlanner::worldToGrid(double wx, double wy, Coordinate & cell) const
 {
   if (!isMapValid()) {
@@ -80,6 +85,7 @@ bool AStarPlanner::worldToGrid(double wx, double wy, Coordinate & cell) const
   return isInBounds(cell);
 }
 
+// Convert a grid cell back to the center of that cell as a ROS pose.
 geometry_msgs::msg::PoseStamped AStarPlanner::gridToWorldPose(
   const Coordinate & cell,
   const std_msgs::msg::Header & header) const
@@ -100,11 +106,13 @@ geometry_msgs::msg::PoseStamped AStarPlanner::gridToWorldPose(
   return pose;
 }
 
+// Estimate straight-line distance between two grid cells for A*.
 double AStarPlanner::heuristic(const Coordinate & a, const Coordinate & b) const
 {
   return std::sqrt(std::pow(b.x - a.x, 2) + std::pow(b.y - a.y, 2));
 }
 
+// Return the legal neighbor cells, including diagonals that do not cut corners.
 std::vector<Coordinate> AStarPlanner::getNeighbors(const Coordinate & cell) const
 {
   std::vector<Coordinate> neighbors;
@@ -157,6 +165,7 @@ std::vector<Coordinate> AStarPlanner::getNeighbors(const Coordinate & cell) cons
   return neighbors;
 }
 
+// Walk backward through the parent links and rebuild the final cell path.
 std::vector<Coordinate> AStarPlanner::reconstructPath(
   const Coordinate & start,
   const Coordinate & goal,
@@ -198,6 +207,7 @@ std::vector<Coordinate> AStarPlanner::reconstructPath(
   return path;
 }
 
+// Convert the reconstructed grid path into a nav_msgs/Path in world coordinates.
 nav_msgs::msg::Path AStarPlanner::buildPathMessage(
   const std_msgs::msg::Header & header,
   const Coordinate & start,
@@ -214,6 +224,18 @@ nav_msgs::msg::Path AStarPlanner::buildPathMessage(
   }
 
   return path;
+}
+
+// Store the latest occupancy grid used for planning.
+void AStarPlanner::setMap(const nav_msgs::msg::OccupancyGrid & map)
+{
+  map_ = map;
+}
+
+// Update the obstacle inflation radius used during traversability checks.
+void AStarPlanner::setObstacleBufferMeters(double obstacle_buffer_m)
+{
+  obstacle_buffer_m_ = obstacle_buffer_m;
 }
 
 }  // namespace slambot_navigation
