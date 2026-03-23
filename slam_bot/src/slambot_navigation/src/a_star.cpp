@@ -7,7 +7,7 @@
 namespace slambot_navigation
 {
 
-//Define properties for the open_set
+// Define properties for the open_set.
 namespace
 {
 
@@ -147,16 +147,6 @@ nav_msgs::msg::Path AStarPlanner::plan(
   }
 
   return path;
-}
-
-void AStarPlanner::setMap(const nav_msgs::msg::OccupancyGrid & map)
-{
-  map_ = map;
-}
-
-void AStarPlanner::setObstacleBufferMeters(double obstacle_buffer_m)
-{
-  obstacle_buffer_m_ = obstacle_buffer_m;
 }
 
 }  // namespace slambot_navigation
