@@ -13,8 +13,8 @@ OdomNode::OdomNode(const rclcpp::NodeOptions &options)
   RCLCPP_INFO(get_logger(), "Odom Node Started");
 
   double wheel_radius = declare_parameter<double>("wheel_radius", 0.0485);
-  double base_length  = declare_parameter<double>("base_length", 0.21);
-  double base_width   = declare_parameter<double>("base_width", 0.200);
+  double base_length  = declare_parameter<double>("base_length", 0.212);
+  double base_width   = declare_parameter<double>("base_width", 0.194);
 
   L = base_length / 2;
   W = base_width / 2;
@@ -117,34 +117,27 @@ void OdomNode::odomCallback(const std_msgs::msg::Int32MultiArray::SharedPtr msg)
   odom_msg.twist.twist.linear.y  = vy_body;
   odom_msg.twist.twist.angular.z = omega;
 
-  // Fixed covariances tuned for mecanum on medium-slip flooring.
-  // Lateral and yaw are less certain than forward due to scrub/slip.
-  const double sx   = 0.06;  // pose x sigma [m]
-  const double sy   = 0.10;  // pose y sigma [m]
-  const double syaw = 0.12;  // pose yaw sigma [rad]
-  const double svx  = 0.12;  // twist vx sigma [m/s]
-  const double svy  = 0.18;  // twist vy sigma [m/s]
-  const double swz  = 0.20;  // twist wz sigma [rad/s]
-
-  // Unused axes: very large variance so EKF ignores them.
+  const double base   = 0.5;  
+  const double mag = 10.0;
+  const double pos_to_vel = 0.5;
   const double IGN = 1e6;
 
   // Pose covariance (6x6 row-major: x y z roll pitch yaw)
   for (double &c : odom_msg.pose.covariance) c = 0.0;
-  odom_msg.pose.covariance[0]  = sx*sx;
-  odom_msg.pose.covariance[7]  = sy*sy;
+  odom_msg.pose.covariance[0]  = pos_to_vel * (base * base);
+  odom_msg.pose.covariance[7]  = mag * pos_to_vel * (base * base);
   odom_msg.pose.covariance[14] = IGN;
   odom_msg.pose.covariance[21] = IGN;
   odom_msg.pose.covariance[28] = IGN;
-  odom_msg.pose.covariance[35] = syaw*syaw;
+  odom_msg.pose.covariance[35] = mag * mag * pos_to_vel * (base * base);
 
   for (double &c : odom_msg.twist.covariance) c = 0.0;
-  odom_msg.twist.covariance[0]  = svx*svx;
-  odom_msg.twist.covariance[7]  = svy*svy;
+  odom_msg.twist.covariance[0]  = (base * base);
+  odom_msg.twist.covariance[7]  = mag * (base * base);
   odom_msg.twist.covariance[14] = IGN;
   odom_msg.twist.covariance[21] = IGN;
   odom_msg.twist.covariance[28] = IGN;
-  odom_msg.twist.covariance[35] = swz*swz;
+  odom_msg.twist.covariance[35] = mag * mag * (base * base);
 
   odom_pub_->publish(odom_msg);
 }

@@ -33,6 +33,7 @@ void ParticleFilter::systematicResample()
   const size_t n = particles_.size();
   if (n == 0) return;
 
+  // initialize the cdf
   std::vector<double> cdf(n);
   double cumulative = 0.0;
   for (size_t i = 0; i < n; ++i) {

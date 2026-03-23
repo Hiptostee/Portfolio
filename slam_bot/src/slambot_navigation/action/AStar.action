@@ -1,0 +1,11 @@
+# Goal
+geometry_msgs/PoseStamped goal
+
+---
+# Result
+nav_msgs/Path path
+bool success
+
+---
+# Feedback
+string status

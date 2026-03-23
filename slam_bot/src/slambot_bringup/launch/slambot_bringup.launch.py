@@ -1,7 +1,7 @@
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.conditions import IfCondition, UnlessCondition
+from launch.conditions import UnlessCondition
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
@@ -122,7 +122,6 @@ def generate_launch_description():
             'localization_mode': localization_mode,
             'map_yaml': map_yaml,
         }.items(),
-        condition=IfCondition(localization_mode)
     )
 
     mapping_launch_node = IncludeLaunchDescription(

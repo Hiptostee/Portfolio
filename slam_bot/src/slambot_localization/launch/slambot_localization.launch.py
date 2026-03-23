@@ -109,6 +109,7 @@ def generate_launch_description():
                 'load_map_service': '/slambot/load_map',
                 'map_topic': '/map',
             }],
+            condition=IfCondition(localization_mode),
         ),
 
         # -------------------------
