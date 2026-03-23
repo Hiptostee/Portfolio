@@ -1,1 +1,0 @@
-/home/slambot/ros2_ws/src/ldlidar/launch/stl27l.launch.py

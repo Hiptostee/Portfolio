@@ -1,1 +1,0 @@
-/home/slambot/ros2_ws/src/ldlidar/launch/ld06.launch.py

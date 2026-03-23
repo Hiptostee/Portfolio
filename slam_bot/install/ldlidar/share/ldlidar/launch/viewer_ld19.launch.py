@@ -1,1 +1,0 @@
-/home/slambot/ros2_ws/src/ldlidar/launch/viewer_ld19.launch.py
