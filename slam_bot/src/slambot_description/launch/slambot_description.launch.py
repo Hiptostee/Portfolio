@@ -24,6 +24,16 @@ def generate_launch_description():
         'launch',
         'slambot_localization.launch.py'
     )
+    navigation_launch = os.path.join(
+        get_package_share_directory('slambot_navigation'),
+        'launch',
+        'a_star_action_server.launch.py'
+    )
+    traj_following_launch = os.path.join(
+        get_package_share_directory('slambot_traj_following'),
+        'launch',
+        'lqr.launch.py'
+    )
     mapping_launch = os.path.join(
         get_package_share_directory('slambot_mapping'),
         'launch',
@@ -129,12 +139,15 @@ def generate_launch_description():
         condition=UnlessCondition(localization_mode),
     )
 
-    a_star_action_server = Node(
-        package='slambot_navigation',
-        executable='a_star_action_server',
-        name='a_star_action_server',
-        parameters=[{'use_sim_time': True}],
-        output='screen',
+    navigation_launch_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(navigation_launch),
+        launch_arguments={'sim': 'true'}.items(),
+        condition=IfCondition(localization_mode),
+    )
+
+    traj_following_launch_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(traj_following_launch),
+        launch_arguments={'sim': 'true'}.items(),
         condition=IfCondition(localization_mode),
     )
 
@@ -165,6 +178,7 @@ def generate_launch_description():
         odom_node_launch,
         ekf_node_launch,
         mapping_node_launch,
-        a_star_action_server,
+        navigation_launch_node,
+        traj_following_launch_node,
         bridge,
     ])

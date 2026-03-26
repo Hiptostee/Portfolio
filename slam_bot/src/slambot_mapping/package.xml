@@ -3,16 +3,16 @@
 <package format="3">
   <name>slambot_mapping</name>
   <version>0.0.0</version>
-  <description>Launch and configuration for slam_toolbox.</description>
-  <maintainer email="joey.marra2007@gmail.com">root</maintainer>
-  <license>TODO: License declaration</license>
+  <description>Mapping launch and slam_toolbox configuration for Slambot.</description>
+  <maintainer email="joey.marra2007@gmail.com">Joey Marra</maintainer>
+  <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <!-- Runtime dependencies for launch/config -->
+  <exec_depend>ament_index_python</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
-  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>slam_toolbox</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

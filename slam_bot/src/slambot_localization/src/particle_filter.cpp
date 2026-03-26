@@ -1,4 +1,4 @@
-#include "particle_filter.hpp"
+#include "slambot_localization/particle_filter.hpp"
 
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2/utils.h>
@@ -28,9 +28,9 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
 
   // random particle injection parameters for recovery when lost; tuned based on expected size of the "lost" region in the state space and how 
   // aggressively you want to inject random particles when the robot is lost.
-  particles_random_x_ = declare_parameter<double>("particles_random_x_", 2.00); 
-  particles_random_y_ = declare_parameter<double>("particles_random_y_", 2.00); 
-  particles_random_theta_ = declare_parameter<double>("particles_random_theta_", M_PI); 
+  particles_random_x_ = declare_parameter<double>("particles_random_x", 2.00); 
+  particles_random_y_ = declare_parameter<double>("particles_random_y", 2.00); 
+  particles_random_theta_ = declare_parameter<double>("particles_random_theta", M_PI); 
 
   // base random particle percent
   num_random_ = std::clamp(static_cast<int>(declare_parameter<int>("num_random", 1)), 0, 100); 
@@ -87,28 +87,35 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
     p.weight = 1.0 / static_cast<double>(num_particles_);
   }
 
+  const std::string odom_topic = declare_parameter<std::string>("odom_topic", "/odom/filtered");
+  const std::string particle_cloud_topic = declare_parameter<std::string>("particle_cloud_topic", "/particle_cloud");
+  const std::string estimated_pose_topic = declare_parameter<std::string>("estimated_pose_topic", "/estimated_pose");
+  const std::string scan_topic = declare_parameter<std::string>("scan_topic", "/scan");
+  const std::string navigation_state_topic = declare_parameter<std::string>("navigation_state_topic", "/is_navigating");
+  const std::string map_topic = declare_parameter<std::string>("map_topic", "/map");
+
   //subscribers and publishers
   odom_sub_ = create_subscription<nav_msgs::msg::Odometry>(
-      "/odom/filtered", rclcpp::SystemDefaultsQoS(),
+      odom_topic, rclcpp::SystemDefaultsQoS(),
       std::bind(&ParticleFilter::odomCallback, this, std::placeholders::_1));
 
   particles_pub_ = create_publisher<geometry_msgs::msg::PoseArray>(
-      "/particle_cloud", rclcpp::SystemDefaultsQoS());
+      particle_cloud_topic, rclcpp::SystemDefaultsQoS());
 
   pose_pub_ = create_publisher<geometry_msgs::msg::PoseStamped>(
-      "/estimated_pose", rclcpp::SystemDefaultsQoS());
+      estimated_pose_topic, rclcpp::SystemDefaultsQoS());
 
   scan_sub_ = create_subscription<sensor_msgs::msg::LaserScan>(
-      "/scan", rclcpp::SystemDefaultsQoS(),
+      scan_topic, rclcpp::SystemDefaultsQoS(),
       std::bind(&ParticleFilter::scanCallback, this, std::placeholders::_1));
 
   nav_sub_ = this->create_subscription<std_msgs::msg::Bool>(
-    "/is_navigating", 
+    navigation_state_topic,
     10, 
     std::bind(&ParticleFilter::navCallback, this, std::placeholders::_1));
 
   map_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(
-      "/map", rclcpp::SystemDefaultsQoS(),
+      map_topic, rclcpp::SystemDefaultsQoS(),
       [this](const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
         map_ = *msg;
         rebuildDistanceField();

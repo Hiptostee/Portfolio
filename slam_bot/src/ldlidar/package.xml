@@ -3,7 +3,7 @@
 <package format="3">
   <name>ldlidar</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>ROS 2 wrapper node for LDLIDAR sensors.</description>
   <maintainer email="support@ldrobot.com">linux</maintainer>
   <license>MIT</license>
 

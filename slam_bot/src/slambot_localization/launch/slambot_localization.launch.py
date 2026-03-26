@@ -13,6 +13,11 @@ def generate_launch_description():
         'config',
         'ekf.yaml',
     )
+    localization_param_file = os.path.join(
+        get_package_share_directory('slambot_localization'),
+        'config',
+        'localization.yaml',
+    )
 
     imu_input_arg = DeclareLaunchArgument(
         'imu_input_topic',
@@ -57,11 +62,13 @@ def generate_launch_description():
             package='slambot_localization',
             executable='slambot_localization_CovariancesOnImu',
             name='imu_covariances',
-            parameters=[{
-                'imu_input_topic': imu_input_topic,
-                'imu_output_topic': '/imu_with_covariances',
-                'use_sim_time': ParameterValue(sim, value_type=bool),
-            }],
+            parameters=[
+                localization_param_file,
+                {
+                    'imu_input_topic': imu_input_topic,
+                    'use_sim_time': ParameterValue(sim, value_type=bool),
+                },
+            ],
         ),
 
         # ---------------
@@ -87,9 +94,10 @@ def generate_launch_description():
             executable='slambot_localization_ParticleFilter',
             name='particle_filter',
             output='screen',
-            parameters=[{
-                'use_sim_time': ParameterValue(sim, value_type=bool),
-            }],
+            parameters=[
+                localization_param_file,
+                {'use_sim_time': ParameterValue(sim, value_type=bool)},
+            ],
             condition=IfCondition(localization_mode),
         ),
 
@@ -102,13 +110,10 @@ def generate_launch_description():
             executable='slambot_localization_MapLoaderService',
             name='map_loader_service',
             output='screen',
-            parameters=[{
-                'use_sim_time': ParameterValue(sim, value_type=bool),
-                'map_server_load_service': '/map_server/load_map',
-                'global_load_map_service': '/slambot/load_map',
-                'load_map_service': '/slambot/load_map',
-                'map_topic': '/map',
-            }],
+            parameters=[
+                localization_param_file,
+                {'use_sim_time': ParameterValue(sim, value_type=bool)},
+            ],
             condition=IfCondition(localization_mode),
         ),
 

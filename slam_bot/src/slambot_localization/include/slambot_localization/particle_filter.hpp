@@ -66,7 +66,6 @@ namespace slambot_localization
     std::mt19937 rng_;
     bool have_map_ = false;
     bool have_distance_field_ = false;
-    bool have_measurement_ = false;
     bool is_navigating_ = false;
 
     

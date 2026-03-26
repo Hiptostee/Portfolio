@@ -1,4 +1,4 @@
-#include "particle_filter.hpp"
+#include "slambot_localization/particle_filter.hpp"
 
 #include <geometry_msgs/msg/transform_stamped.hpp>
 #include <tf2/LinearMath/Quaternion.h>

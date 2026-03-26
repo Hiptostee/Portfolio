@@ -3,19 +3,23 @@
 <package format="3">
   <name>slambot_bringup</name>
   <version>0.0.0</version>
-  <description>Launch files for SLAM robot</description>
+  <description>Top-level bringup launch files for the Slambot robot.</description>
   <maintainer email="joey.marra2007@gmail.com">Joey Marra</maintainer>
-  <license>Apache License 2.0</license>
+  <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <!-- Launch file dependencies -->
-  <exec_depend>ros2_mpu6050</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>bno08x_driver</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
   <exec_depend>ldlidar</exec_depend>
-  <exec_depend>tf_publisher</exec_depend>
-  <exec_depend>imu_filter_madgwick</exec_depend>
-  <exec_depend>tf2_ros</exec_depend>
-  <exec_depend>tf2</exec_depend>
+  <exec_depend>mecanum_drive_controller</exec_depend>
+  <exec_depend>odom_node</exec_depend>
+  <exec_depend>robot_state_publisher</exec_depend>
+  <exec_depend>slambot_localization</exec_depend>
+  <exec_depend>slambot_mapping</exec_depend>
+  <exec_depend>xacro</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

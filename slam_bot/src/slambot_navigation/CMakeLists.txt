@@ -16,6 +16,7 @@ find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
+find_package(std_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "action/AStar.action"
@@ -36,6 +37,7 @@ ament_target_dependencies(${PROJECT_NAME}_components
   rclcpp
   rclcpp_action
   rclcpp_components
+  std_msgs
 )
 
 rosidl_get_typesupport_target(cpp_typesupport_target
@@ -60,6 +62,12 @@ install(TARGETS
 
 install(DIRECTORY include/
   DESTINATION include
+)
+
+install(DIRECTORY
+  config
+  launch
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_export_dependencies(rosidl_default_runtime)

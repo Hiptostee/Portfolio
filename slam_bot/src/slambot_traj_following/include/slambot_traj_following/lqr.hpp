@@ -10,7 +10,7 @@
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
 
-#include "lqr_helpers.hpp"
+#include "slambot_traj_following/lqr_helpers.hpp"
 
 namespace lqr
 {
@@ -23,9 +23,10 @@ public:
   Matrix3d solveDare(Matrix3d A, Matrix3d B, Matrix3d Q, Matrix3d R);
   Vector3d calculateError(const Pose & current_pose, const Pose & target_pose);
   double wrapAngle(double a) const;
-  int findClosestIndex(const Pose & robot_pose, const std::vector<Pose> & path, int last_index) const;
-  Pose getCurrentEstimatedPose() const;
-  Pose getNextPathPose() const;
+  std::size_t findClosestIndex(
+    const Pose & robot_pose,
+    const std::vector<Pose> & path,
+    std::size_t last_index) const;
 
 private:
   void lqrLoop();
@@ -42,12 +43,20 @@ private:
 
   rclcpp::TimerBase::SharedPtr timer_;
   geometry_msgs::msg::PoseStamped current_estimated_pose_msg_;
-  nav_msgs::msg::Path current_path_msg_;
   std::vector<Pose> current_path_;
   std::size_t current_path_index_{0};
   bool have_estimated_pose_{false};
   bool have_path_{false};
   bool initialized_{false};
+  int control_period_ms_{20};
+  int lookahead_points_{1};
+  double max_linear_velocity_{0.6};
+  double max_angular_velocity_{0.6};
+  double path_complete_tolerance_{0.08};
+  double q_x_{50.0};
+  double q_y_{75.0};
+  double q_theta_{5.0};
+  double r_weight_{0.5};
 
 };
 

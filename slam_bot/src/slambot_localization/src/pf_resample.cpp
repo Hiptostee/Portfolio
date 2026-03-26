@@ -1,4 +1,4 @@
-#include "particle_filter.hpp"
+#include "slambot_localization/particle_filter.hpp"
 
 #include <utility>
 #include <vector>

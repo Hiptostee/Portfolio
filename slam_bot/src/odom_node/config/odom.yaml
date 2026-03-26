@@ -1,0 +1,10 @@
+odom_node:
+  ros__parameters:
+    wheel_radius: 0.0485
+    base_length: 0.212
+    base_width: 0.194
+    ticks_per_rev: 2882.0
+    encoder_topic: "/wheel_encoders"
+    odom_topic: "/odom"
+    odom_frame: "odom"
+    base_frame: "base_link"

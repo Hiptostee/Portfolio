@@ -1,0 +1,13 @@
+mecanum_drive_controller:
+  ros__parameters:
+    i2c_device: "/dev/i2c-1"
+    i2c_address: 18
+    encoder_publish_period_ms: 50
+    cmd_vel_topic: "/cmd_vel"
+    encoder_topic: "/wheel_encoders"
+    kp: 0.5
+    ki: 0.00001
+    kd: 0.0
+    kp_hold: 5.0
+    ki_hold: 0.0
+    kd_hold: 0.0

@@ -1,4 +1,4 @@
-#include "lqr.hpp"
+#include "slambot_traj_following/lqr.hpp"
 #include <algorithm>
 #include <cmath>
 #include <limits>
@@ -44,17 +44,21 @@ double LQR::wrapAngle(double a) const
   return std::atan2(std::sin(a), std::cos(a));
 }
 
-int LQR::findClosestIndex(const Pose & robot_pose, const std::vector<Pose> & path, int last_index) const
+std::size_t LQR::findClosestIndex(
+  const Pose & robot_pose,
+  const std::vector<Pose> & path,
+  std::size_t last_index) const
 {
   double min_dist = std::numeric_limits<double>::max();
-  int closest_idx = last_index;
+  std::size_t closest_idx = last_index;
 
   // Search window logic: If last_index is 0, we search the WHOLE path once.
   // Otherwise, we search 50 points ahead to stay efficient on the RPi 5.
-  int search_start = last_index;
-  int search_end = (last_index == 0) ? static_cast<int>(path.size()) : std::min(static_cast<int>(path.size()), last_index + 50);
+  const std::size_t search_start = last_index;
+  const std::size_t search_end =
+    (last_index == 0) ? path.size() : std::min(path.size(), last_index + static_cast<std::size_t>(50));
 
-  for (int i = search_start; i < search_end; i++) {
+  for (std::size_t i = search_start; i < search_end; ++i) {
     const double dist = std::pow(path[i].x - robot_pose.x, 2) + std::pow(path[i].y - robot_pose.y, 2);
     if (dist < min_dist) {
       min_dist = dist;

@@ -1,4 +1,4 @@
-#include "load_map.hpp"
+#include "slambot_localization/load_map.hpp"
 
 #include <rclcpp/executors/single_threaded_executor.hpp>
 #include <rclcpp_components/register_node_macro.hpp>

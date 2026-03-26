@@ -57,7 +57,8 @@ nav_msgs::msg::Path AStarPlanner::plan(
   if (!worldToGrid(goal.pose.position.x, goal.pose.position.y, goal_cell)) {
     return path;
   }
-  if (!isCellTraversable(start_cell) || !isCellTraversable(goal_cell)) {
+  // Allow the robot to start inside the inflated obstacle buffer, but still require the goal to be free.
+  if (!isCellTraversable(goal_cell)) {
     return path;
   }
 

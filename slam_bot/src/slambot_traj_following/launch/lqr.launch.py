@@ -9,9 +9,9 @@ import os
 
 def generate_launch_description():
     config_file = os.path.join(
-        get_package_share_directory('odom_node'),
+        get_package_share_directory('slambot_traj_following'),
         'config',
-        'odom.yaml',
+        'lqr.yaml',
     )
 
     sim_arg = DeclareLaunchArgument(
@@ -20,17 +20,16 @@ def generate_launch_description():
         description='true for sim time (/clock), false for hardware time',
     )
 
-    sim = LaunchConfiguration('sim')
-
     return LaunchDescription([
         sim_arg,
         Node(
-            package='odom_node',
-            executable='odom_node_exec',
-            name='odom_node',
+            package='slambot_traj_following',
+            executable='lqr',
+            name='lqr',
+            output='screen',
             parameters=[
                 config_file,
-                {'use_sim_time': ParameterValue(sim, value_type=bool)},
+                {'use_sim_time': ParameterValue(LaunchConfiguration('sim'), value_type=bool)},
             ],
         ),
     ])

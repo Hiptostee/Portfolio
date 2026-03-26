@@ -1,4 +1,4 @@
-#include "mecanum_drive_controller.hpp"
+#include "mecanum_drive_controller/mecanum_drive_controller.hpp"
 #include "rclcpp_components/register_node_macro.hpp"
 
 #include <linux/i2c-dev.h>
@@ -14,11 +14,9 @@
 #include <chrono>
 #include <vector>
 
-#define MOTOR_I2C_ADDR 0x12
 #define REG_MOTOR_SPEEDS 51 // write 4x int8: FL,FR,BL,BR
 #define REG_ENCODERS 60     // read 16 bytes: 4x int32 LE: FL,FR,BL,BR
 #define REG_PID_GAINS 70    // write 12 bytes: kp,ki,kd,kp_hold,ki_hold,kd_hold (LE int16)
-#define REG_TELEM_FL 73     // read 16 bytes: 4x int32: tpos,pos,err,pwm
 
 namespace mecanum_drive_controller
 {
@@ -42,6 +40,12 @@ namespace mecanum_drive_controller
   MecanumDriveController::MecanumDriveController(const rclcpp::NodeOptions &options)
       : rclcpp::Node("mecanum_drive_controller", options)
   {
+    i2c_device_ = declare_parameter<std::string>("i2c_device", "/dev/i2c-1");
+    i2c_address_ = declare_parameter<int>("i2c_address", 0x12);
+    encoder_publish_period_ms_ = declare_parameter<int>("encoder_publish_period_ms", 50);
+    cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel");
+    encoder_topic_ = declare_parameter<std::string>("encoder_topic", "/wheel_encoders");
+
     kp_ = declare_parameter<double>("kp", 0.5);
     ki_ = declare_parameter<double>("ki", 0.00001);
     kd_ = declare_parameter<double>("kd", 0.0);
@@ -50,28 +54,24 @@ namespace mecanum_drive_controller
     ki_hold_ = declare_parameter<double>("ki_hold", 0.0);
     kd_hold_ = declare_parameter<double>("kd_hold", 0.0);
 
-    i2c_file_ = open("/dev/i2c-1", O_RDWR);
+    i2c_file_ = open(i2c_device_.c_str(), O_RDWR);
     if (i2c_file_ < 0)
-      RCLCPP_FATAL(get_logger(), "Failed to open /dev/i2c-1");
+      RCLCPP_FATAL(get_logger(), "Failed to open %s", i2c_device_.c_str());
 
-    if (ioctl(i2c_file_, I2C_SLAVE, MOTOR_I2C_ADDR) < 0)
-      RCLCPP_FATAL(get_logger(), "Failed to set I2C addr 0x12");
+    if (ioctl(i2c_file_, I2C_SLAVE, i2c_address_) < 0)
+      RCLCPP_FATAL(get_logger(), "Failed to set I2C addr 0x%02x", i2c_address_);
 
     sendPidToPico();
 
-    telem_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(50),
-        std::bind(&MecanumDriveController::readTelemFL, this));
-
     encoder_timer_ = this->create_wall_timer(
-        std::chrono::milliseconds(50),
+        std::chrono::milliseconds(encoder_publish_period_ms_),
         std::bind(&MecanumDriveController::readEncoders, this));
 
     cmd_vel_sub_ = create_subscription<geometry_msgs::msg::Twist>(
-        "/cmd_vel", 10,
+        cmd_vel_topic_, 10,
         std::bind(&MecanumDriveController::cmdVelCallback, this, std::placeholders::_1));
 
-    pub_ = create_publisher<std_msgs::msg::Int32MultiArray>("/wheel_encoders", 10);
+    pub_ = create_publisher<std_msgs::msg::Int32MultiArray>(encoder_topic_, 10);
   }
 
   MecanumDriveController::~MecanumDriveController()
@@ -134,21 +134,6 @@ namespace mecanum_drive_controller
     RCLCPP_WARN(get_logger(),
                 "Sent PID to Pico: kp=%.6f ki=%.8f kd=%.6f | kp_hold=%.6f ki_hold=%.8f kd_hold=%.6f",
                 kp_, ki_, kd_, kp_hold_, ki_hold_, kd_hold_);
-  }
-
-  void MecanumDriveController::readTelemFL()
-  {
-    uint8_t raw[16];
-    if (!i2cReadArray(REG_TELEM_FL, raw, sizeof(raw)))
-    {
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "FL telemetry read failed");
-      return;
-    }
-
-    int32_t tpos = le_i32(&raw[0]);
-    int32_t pos = le_i32(&raw[4]);
-    int32_t err = le_i32(&raw[8]);
-    int32_t pwm = le_i32(&raw[12]);
   }
 
   void MecanumDriveController::readEncoders()

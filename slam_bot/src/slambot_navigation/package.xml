@@ -3,9 +3,9 @@
 <package format="3">
   <name>slambot_navigation</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
-  <maintainer email="joey.marra2007@gmail.com">root</maintainer>
-  <license>TODO: License declaration</license>
+  <description>A* path planning action server and planner components for Slambot.</description>
+  <maintainer email="joey.marra2007@gmail.com">Joey Marra</maintainer>
+  <license>MIT</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <buildtool_depend>rosidl_default_generators</buildtool_depend>
@@ -16,6 +16,11 @@
   <depend>rclcpp</depend>
   <depend>rclcpp_action</depend>
   <depend>rclcpp_components</depend>
+  <depend>std_msgs</depend>
+
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
   <exec_depend>rosidl_default_runtime</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>

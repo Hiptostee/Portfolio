@@ -1,4 +1,4 @@
-#include "particle_filter.hpp"
+#include "slambot_localization/particle_filter.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -277,7 +277,6 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 
   if (total > 1e-12) {
     for (auto &p : particles_) p.weight /= total;
-    have_measurement_ = true;
   } else {
     const double w = 1.0 / static_cast<double>(particles_.size());
     for (auto &p : particles_) p.weight = w;

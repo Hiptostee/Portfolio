@@ -12,6 +12,10 @@ AStarActionServer::AStarActionServer(const rclcpp::NodeOptions & options)
 {
   const double obstacle_buffer_m =
     declare_parameter<double>("obstacle_buffer_m", 0.3);
+  const std::string action_name =
+    declare_parameter<std::string>("action_name", "a_star");
+  const std::string map_topic =
+    declare_parameter<std::string>("map_topic", "/map");
   const std::string path_topic =
     declare_parameter<std::string>("path_topic", "/path");
   const std::string pose_topic =
@@ -20,12 +24,12 @@ AStarActionServer::AStarActionServer(const rclcpp::NodeOptions & options)
 
   action_server_ = rclcpp_action::create_server<AStarAction>(
     this,
-    "a_star",
+    action_name,
     std::bind(&AStarActionServer::handle_goal, this, std::placeholders::_1, std::placeholders::_2),
     std::bind(&AStarActionServer::handle_cancel, this, std::placeholders::_1),
     std::bind(&AStarActionServer::handle_accepted, this, std::placeholders::_1));
   map_subscriber_ = create_subscription<nav_msgs::msg::OccupancyGrid>(
-    "/map",
+    map_topic,
     rclcpp::QoS(1).transient_local().reliable(),
     std::bind(&AStarActionServer::handleMap, this, std::placeholders::_1));
   pose_subscriber_ = create_subscription<geometry_msgs::msg::PoseStamped>(

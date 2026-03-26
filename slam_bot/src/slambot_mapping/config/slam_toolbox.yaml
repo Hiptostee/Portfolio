@@ -11,24 +11,38 @@ slam_toolbox:
     # Mode
     mode: mapping
 
-    # Timing
-    transform_publish_period: 0.05
-    map_update_interval: 1.0
-
-    # Lidar model
-    minimum_travel_distance: 0.05
-    minimum_travel_heading: 0.05
-
-    # Loop closure (important)
-    do_loop_closing: true
-    loop_search_maximum_distance: 5.0
-
-    # Scan matching
+    # Scan Matching
     use_scan_matching: true
     use_scan_barycenter: true
+    minimum_angle_penalty: 0.5 # Higher = trust scan more, trust odom less
+    minimum_distance_penalty: 0.5
+    use_response_expansion: true # Helps recover if the robot turns too fast
 
-    # Performance (Pi-friendly)
-    max_laser_range: 8.0
-    throttle_scans: 1
+    # Search Parameters
+    # This defines the "area" the matcher looks in when odom is shaky
+    correlation_search_space_dimension: 0.5 # meters
+    correlation_search_space_resolution: 0.01 # meters
+    correlation_search_space_smear_deviation: 0.03
+
+    # Rotation Search
+    # If the robot rotates fast, increase this window
+    link_match_maximum_distance_ratio: 0.8
+    link_scan_maximum_distance: 1.0
+
+    # Timing & Performance
+    transform_publish_period: 0.02 # 50Hz: Matches the LQR loop for zero-lag
+    map_update_interval: 2.0 # Slowing this down saves CPU for LQR
+
+    # Loop Closure
+    do_loop_closing: true
+    loop_match_minimum_chain_size: 20
+    loop_match_maximum_variance_coarse: 0.1
+    loop_search_maximum_distance: 2.0
+    loop_search_space_dimension: 8.0
+
+    # Pi 5 Specifics
+    max_laser_range: 4.0 # Don't trust LD19 noise at long range
+    minimum_travel_distance: 0.1 # Wait for more movement before updating
+    minimum_travel_heading: 0.1 # ~5.7 degrees: Prevents "micro-jumps"
 
     publish_tf: true
