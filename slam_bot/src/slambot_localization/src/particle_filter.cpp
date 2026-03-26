@@ -102,6 +102,11 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
       "/scan", rclcpp::SystemDefaultsQoS(),
       std::bind(&ParticleFilter::scanCallback, this, std::placeholders::_1));
 
+  nav_sub_ = this->create_subscription<std_msgs::msg::Bool>(
+    "/is_navigating", 
+    10, 
+    std::bind(&ParticleFilter::navCallback, this, std::placeholders::_1));
+
   map_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(
       "/map", rclcpp::SystemDefaultsQoS(),
       [this](const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
@@ -117,6 +122,11 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
   tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
   tf_broadcaster_ = std::make_shared<tf2_ros::TransformBroadcaster>(this);
+}
+
+void ParticleFilter::navCallback(const std_msgs::msg::Bool::SharedPtr msg)
+{
+  this->is_navigating_ = msg->data;
 }
 
 void ParticleFilter::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
@@ -208,7 +218,7 @@ void ParticleFilter::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
       // to prevent scattering particles during intentional maneuvers, so we also disable adaptive random 
       // injection when navigating.
       const double yaw_rate_abs = rot / std::max(dt, 1e-6);
-      const bool allow_adaptive_random = yaw_rate_abs <= adaptive_yaw_rate_threshold_ && !navigating_; 
+      const bool allow_adaptive_random = yaw_rate_abs <= adaptive_yaw_rate_threshold_ || !is_navigating_; 
 
       double random_percent = static_cast<double>(num_random_);
       if (allow_adaptive_random && weight_averages_initialized_) {

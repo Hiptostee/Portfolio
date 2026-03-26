@@ -19,6 +19,8 @@ LQR::LQR(const rclcpp::NodeOptions &options)
 
   cmd_pub_ = create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
 
+  nav_status_pub_ = create_publisher<std_msgs::msg::Bool>("/is_navigating", 10);
+
   timer_ = this->create_wall_timer(std::chrono::milliseconds(20), std::bind(&LQR::lqrLoop, this));
   
   RCLCPP_INFO(get_logger(), "LQR Trajectory Node Initialized. Ensure /estimated_pose and /path are active.");
@@ -48,6 +50,10 @@ void LQR::lqrLoop()
     initialized_ = true;
     RCLCPP_INFO(get_logger(), "LQR Gain Matrix K calculated successfully.");
   }
+
+  auto nav_msg = std_msgs::msg::Bool();
+  nav_msg.data = have_path_ && !current_path_.empty();
+  nav_status_pub_->publish(nav_msg);
 
   const Pose current_pose = poseStampedToPose(current_estimated_pose_msg_);
   

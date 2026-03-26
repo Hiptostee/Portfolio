@@ -8,6 +8,7 @@
 #include "geometry_msgs/msg/twist.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
+#include "std_msgs/msg/bool.hpp"
 
 #include "lqr_helpers.hpp"
 
@@ -37,6 +38,8 @@ private:
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr estimated_pose_sub_;
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_pub_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr nav_status_pub_;
+
   rclcpp::TimerBase::SharedPtr timer_;
   geometry_msgs::msg::PoseStamped current_estimated_pose_msg_;
   nav_msgs::msg::Path current_path_msg_;

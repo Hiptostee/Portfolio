@@ -4,6 +4,7 @@
 #include <geometry_msgs/msg/pose_array.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <nav_msgs/msg/odometry.hpp>
+#include <std_msgs/msg/bool.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <sensor_msgs/msg/laser_scan.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
@@ -45,12 +46,15 @@ namespace slambot_localization
     void systematicResample();
     void roughen();
     double effectiveSampleSize() const;
+    void navCallback(const std_msgs::msg::Bool::SharedPtr msg);
+  
 
     
     std::vector<Particle> particles_;
     rclcpp::Subscription<nav_msgs::msg::Odometry>::SharedPtr odom_sub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseArray>::SharedPtr particles_pub_;
     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_pub_;
+    rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr nav_sub_;
     rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr scan_sub_;
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
     nav_msgs::msg::OccupancyGrid map_;
@@ -63,7 +67,7 @@ namespace slambot_localization
     bool have_map_ = false;
     bool have_distance_field_ = false;
     bool have_measurement_ = false;
-    bool navigating_ = false;
+    bool is_navigating_ = false;
 
     
     int num_particles_;
