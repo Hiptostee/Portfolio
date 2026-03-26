@@ -25,6 +25,10 @@ struct OpenSetCompare
   }
 };
 
+struct SplinePoint {
+    double x, y, vx, vy, ax, ay;
+};
+
 }  // namespace
 
 // This is the main function where A* is ran.

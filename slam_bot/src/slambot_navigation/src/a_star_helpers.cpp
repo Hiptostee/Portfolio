@@ -66,6 +66,137 @@ bool AStarPlanner::isCellTraversable(const Coordinate & cell) const
   return true;
 }
 
+// String pulling to create a path of the longest possible straight lines
+nav_msgs::msg::Path AStarPlanner::stringPull(const nav_msgs::msg::Path& path) const {
+  if (path.poses.size() <= 2) {
+    return path;
+  }
+
+  nav_msgs::msg::Path smoothed_path;
+  smoothed_path.header = path.header;
+
+  int current_idx = 0;
+  smoothed_path.poses.push_back(path.poses[current_idx]);
+
+  while (current_idx < static_cast<int>(path.poses.size()) - 1) {
+    bool found_shortcut = false;
+
+        for (int i = path.poses.size() - 1; i > current_idx; i--) {
+      
+      if (is_line_clear(path.poses[current_idx].pose, path.poses[i].pose, map_)) {
+        smoothed_path.poses.push_back(path.poses[i]);
+        current_idx = i; 
+        found_shortcut = true;
+        break; 
+      }
+    }
+
+    if (!found_shortcut) {
+      current_idx++;
+      smoothed_path.poses.push_back(path.poses[current_idx]);
+    }
+  }
+
+  return smoothed_path;
+}
+
+// Bresenham Line Algorithm + line search.
+bool AStarPlanner::is_line_clear(const geometry_msgs::msg::Pose& start, 
+                                 const geometry_msgs::msg::Pose& end, 
+                                 const nav_msgs::msg::OccupancyGrid& map) const 
+{
+    int x0 = static_cast<int>((start.position.x - map.info.origin.position.x) / map.info.resolution);
+    int y0 = static_cast<int>((start.position.y - map.info.origin.position.y) / map.info.resolution);
+    int x1 = static_cast<int>((end.position.x - map.info.origin.position.x) / map.info.resolution);
+    int y1 = static_cast<int>((end.position.y - map.info.origin.position.y) / map.info.resolution);
+
+    int dx = std::abs(x1 - x0);
+    int dy = std::abs(y1 - y0);
+    int sx = (x0 < x1) ? 1 : -1; 
+    int sy = (y0 < y1) ? 1 : -1;
+    int err = dx - dy;
+
+    int radius = 4;
+
+    while (true) {
+        for (int i = -radius; i <= radius; ++i) {
+            for (int j = -radius; j <= radius; ++j) {
+                int nx = x0 + i;
+                int ny = y0 + j;
+
+                if (nx < 0 || nx >= (int)map.info.width || ny < 0 || ny >= (int)map.info.height) {
+                    return false;
+                }
+
+                int index = ny * map.info.width + nx;
+                if (map.data[index] > 50) {
+                    return false;
+                }
+            }
+        }
+
+        if (x0 == x1 && y0 == y1) break;
+
+        int e2 = 2 * err;
+        if (e2 > -dy) {
+            err -= dy;
+            x0 += sx;
+        }
+        if (e2 < dx) {
+            err += dx;
+            y0 += sy;
+        }
+    }
+
+    return true;
+}
+
+// The equation for converting a point into a point as part of a Catmull-Rom spline.
+double AStarPlanner::catmullRom(double p0, double p1, double p2, double p3, double t) const {
+    double t2 = t * t;
+    double t3 = t2 * t;
+
+    // Standard Catmull-Rom matrix coefficients
+    return 0.5 * (
+        (2.0 * p1) +
+        (-p0 + p2) * t +
+        (2.0 * p0 - 5.0 * p1 + 4.0 * p2 - p3) * t2 +
+        (-p0 + 3.0 * p1 - 3.0 * p2 + p3) * t3
+    );
+}
+
+// Apply the spline to the path
+nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) const {
+    if (path.poses.size() < 2) return path;
+
+    nav_msgs::msg::Path smooth_path;
+    smooth_path.header = path.header;
+    double density = 0.05;
+
+    for (size_t i = 0; i < path.poses.size() - 1; ++i) {
+        auto p1 = path.poses[i].pose.position;
+        auto p2 = path.poses[i+1].pose.position;
+        auto p0 = (i == 0) ? p1 : path.poses[i-1].pose.position;
+        auto p3 = (i + 2 < path.poses.size()) ? path.poses[i+2].pose.position : p2;
+
+        double dist = std::hypot(p2.x - p1.x, p2.y - p1.y);
+        int steps = std::max(1, static_cast<int>(dist / density));
+
+        for (int s = 0; s < steps; ++s) {
+            double t = static_cast<double>(s) / steps;
+            geometry_msgs::msg::PoseStamped ps;
+            ps.header = smooth_path.header;
+
+            ps.pose.position.x = catmullRom(p0.x, p1.x, p2.x, p3.x, t);
+            ps.pose.position.y = catmullRom(p0.y, p1.y, p2.y, p3.y, t);
+            
+            smooth_path.poses.push_back(ps);
+        }
+    }
+    smooth_path.poses.push_back(path.poses.back());
+    return smooth_path;
+}
+
 // Convert a world-space position in meters into a map grid cell.
 bool AStarPlanner::worldToGrid(double wx, double wy, Coordinate & cell) const
 {
@@ -223,7 +354,7 @@ nav_msgs::msg::Path AStarPlanner::buildPathMessage(
     path.poses.push_back(gridToWorldPose(coord, header));
   }
 
-  return path;
+  return applySpline(stringPull(path));
 }
 
 // Store the latest occupancy grid used for planning.

@@ -30,6 +30,14 @@ public:
   nav_msgs::msg::Path buildPathMessage(const std_msgs::msg::Header & header, const Coordinate & start,
     const Coordinate & goal,
     const std::vector<int> & came_from) const;
+  bool is_line_clear(const geometry_msgs::msg::Pose& start, 
+                                 const geometry_msgs::msg::Pose& end, 
+                                 const nav_msgs::msg::OccupancyGrid& map) const;
+  nav_msgs::msg::Path stringPull(const nav_msgs::msg::Path& path) const;
+  nav_msgs::msg::Path applySpline(const nav_msgs::msg::Path& sparse_path) const;
+  double catmullRom(double p0, double p1, double p2, double p3, double t) const;
+  
+  
 
 private:
   nav_msgs::msg::OccupancyGrid map_;
