@@ -13,7 +13,7 @@ AStarActionServer::AStarActionServer(const rclcpp::NodeOptions & options)
   const double obstacle_buffer_m =
     declare_parameter<double>("obstacle_buffer_m", 0.3);
   const std::string path_topic =
-    declare_parameter<std::string>("path_topic", "/planned_path");
+    declare_parameter<std::string>("path_topic", "/path");
   const std::string pose_topic =
     declare_parameter<std::string>("pose_topic", "/estimated_pose");
   planner_.setObstacleBufferMeters(obstacle_buffer_m);
@@ -32,7 +32,9 @@ AStarActionServer::AStarActionServer(const rclcpp::NodeOptions & options)
     pose_topic,
     10,
     std::bind(&AStarActionServer::handlePose, this, std::placeholders::_1));
-  path_publisher_ = create_publisher<nav_msgs::msg::Path>(path_topic, 10);
+  path_publisher_ = create_publisher<nav_msgs::msg::Path>(
+    path_topic,
+    rclcpp::QoS(1).transient_local().reliable());
 }
 
 rclcpp_action::GoalResponse AStarActionServer::handle_goal(

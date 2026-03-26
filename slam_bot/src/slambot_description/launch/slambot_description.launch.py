@@ -1,6 +1,6 @@
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction
-from launch.conditions import UnlessCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
@@ -129,6 +129,15 @@ def generate_launch_description():
         condition=UnlessCondition(localization_mode),
     )
 
+    a_star_action_server = Node(
+        package='slambot_navigation',
+        executable='a_star_action_server',
+        name='a_star_action_server',
+        parameters=[{'use_sim_time': True}],
+        output='screen',
+        condition=IfCondition(localization_mode),
+    )
+
 
 
     bridge_yaml = DeclareLaunchArgument(
@@ -156,5 +165,6 @@ def generate_launch_description():
         odom_node_launch,
         ekf_node_launch,
         mapping_node_launch,
+        a_star_action_server,
         bridge,
     ])

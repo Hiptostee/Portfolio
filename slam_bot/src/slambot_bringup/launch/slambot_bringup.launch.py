@@ -1,7 +1,7 @@
 from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
-from launch.conditions import UnlessCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
@@ -124,6 +124,17 @@ def generate_launch_description():
         }.items(),
     )
 
+    a_star_action_server = Node(
+        package='slambot_navigation',
+        executable='a_star_action_server',
+        name='a_star_action_server',
+        parameters=[{
+            'use_sim_time': sim,
+        }],
+        output='screen',
+        condition=IfCondition(localization_mode),
+    )
+
     mapping_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(mapping_launch),
         launch_arguments={'sim': sim}.items(),
@@ -145,4 +156,5 @@ def generate_launch_description():
         odom_node_launch_node,
         mapping_launch_node,
         localization_node_launch_node,
+        a_star_action_server,
     ])
