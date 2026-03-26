@@ -5,6 +5,7 @@
 #include <functional>
 
 #include "rclcpp_components/register_node_macro.hpp"
+#include "tf2/utils.h"
 
 namespace lqr
 {
@@ -98,12 +99,40 @@ void LQR::lqrLoop()
 
   const Vector3d error = calculateError(current_pose, target_pose);
   const Vector3d control = K * error; // Command = Gain * Error
+  const std::size_t next_idx = std::min(target_idx + 1, current_path_.size() - 1);
+
+  double segment_dx = 0.0;
+  double segment_dy = 0.0;
+  if (next_idx > target_idx) {
+    segment_dx = current_path_[next_idx].x - current_path_[target_idx].x;
+    segment_dy = current_path_[next_idx].y - current_path_[target_idx].y;
+  } else {
+    segment_dx = target_pose.x - current_pose.x;
+    segment_dy = target_pose.y - current_pose.y;
+  }
+
+  const double segment_norm = std::hypot(segment_dx, segment_dy);
+  Vector3d feedforward = Vector3d::Zero();
+  if (segment_norm > 1e-6) {
+    const double ff_speed = std::min(0.4, max_linear_velocity_);
+    const double world_vx = ff_speed * (segment_dx / segment_norm);
+    const double world_vy = ff_speed * (segment_dy / segment_norm);
+    const double cos_th = std::cos(current_pose.theta);
+    const double sin_th = std::sin(current_pose.theta);
+    const double segment_yaw = std::atan2(segment_dy, segment_dx);
+
+    feedforward << world_vx * cos_th + world_vy * sin_th,
+                   -world_vx * sin_th + world_vy * cos_th,
+                   0.5 * wrapAngle(segment_yaw - current_pose.theta);
+  }
+
+  const Eigen::Vector3d total_control = control + feedforward;
 
   // Publish velocity targets to the Pico controller [cite: 30, 87]
   geometry_msgs::msg::Twist cmd;
-  cmd.linear.x = std::clamp(control(0), -max_linear_velocity_, max_linear_velocity_);
-  cmd.linear.y = std::clamp(control(1), -max_linear_velocity_, max_linear_velocity_);
-  cmd.angular.z = std::clamp(control(2), -max_angular_velocity_, max_angular_velocity_);
+  cmd.linear.x = std::clamp(total_control(0), -max_linear_velocity_, max_linear_velocity_);
+  cmd.linear.y = std::clamp(total_control(1), -max_linear_velocity_, max_linear_velocity_);
+  cmd.angular.z = std::clamp(total_control(2), -max_angular_velocity_, max_angular_velocity_);
 
   // Stop if at the end of the path
   const double dist_to_end = std::hypot(
