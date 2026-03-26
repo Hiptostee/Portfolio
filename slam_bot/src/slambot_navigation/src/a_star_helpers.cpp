@@ -4,9 +4,24 @@
 
 #include "slambot_navigation/a_star_helpers.hpp"
 #include "slambot_navigation/a_star.hpp"
+#include "tf2/utils.h"
+#include "tf2/LinearMath/Quaternion.h"
+#include "tf2_geometry_msgs/tf2_geometry_msgs.hpp"
 
 namespace slambot_navigation
 {
+
+namespace
+{
+
+struct InternalPoint
+{
+  double x;
+  double y;
+  double dist;
+};
+
+}  // namespace
 
 // Check that the cached occupancy grid has valid dimensions and data size.
 bool AStarPlanner::isMapValid() const
@@ -81,8 +96,7 @@ nav_msgs::msg::Path AStarPlanner::stringPull(const nav_msgs::msg::Path& path) co
   while (current_idx < static_cast<int>(path.poses.size()) - 1) {
     bool found_shortcut = false;
 
-        for (int i = path.poses.size() - 1; i > current_idx; i--) {
-      
+    for (int i = path.poses.size() - 1; i > current_idx; i--) {
       if (is_line_clear(path.poses[current_idx].pose, path.poses[i].pose, map_)) {
         smoothed_path.poses.push_back(path.poses[i]);
         current_idx = i; 
@@ -169,9 +183,10 @@ double AStarPlanner::catmullRom(double p0, double p1, double p2, double p3, doub
 nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) const {
     if (path.poses.size() < 2) return path;
 
-    nav_msgs::msg::Path smooth_path;
-    smooth_path.header = path.header;
-    double density = 0.05;
+    // --- STEP 1: Dense Sampling ---
+    // We sample the spline very heavily to "measure" its true shape.
+    std::vector<InternalPoint> dense_points;
+    double total_dist = 0.0;
 
     for (size_t i = 0; i < path.poses.size() - 1; ++i) {
         auto p1 = path.poses[i].pose.position;
@@ -179,21 +194,73 @@ nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) c
         auto p0 = (i == 0) ? p1 : path.poses[i-1].pose.position;
         auto p3 = (i + 2 < path.poses.size()) ? path.poses[i+2].pose.position : p2;
 
-        double dist = std::hypot(p2.x - p1.x, p2.y - p1.y);
-        int steps = std::max(1, static_cast<int>(dist / density));
+        const int samples_per_segment = 100; 
+        for (int s = 0; s < samples_per_segment; ++s) {
+            double t = static_cast<double>(s) / samples_per_segment;
+            double cur_x = catmullRom(p0.x, p1.x, p2.x, p3.x, t);
+            double cur_y = catmullRom(p0.y, p1.y, p2.y, p3.y, t);
 
-        for (int s = 0; s < steps; ++s) {
-            double t = static_cast<double>(s) / steps;
-            geometry_msgs::msg::PoseStamped ps;
-            ps.header = smooth_path.header;
-
-            ps.pose.position.x = catmullRom(p0.x, p1.x, p2.x, p3.x, t);
-            ps.pose.position.y = catmullRom(p0.y, p1.y, p2.y, p3.y, t);
-            
-            smooth_path.poses.push_back(ps);
+            if (!dense_points.empty()) {
+                double dx = cur_x - dense_points.back().x;
+                double dy = cur_y - dense_points.back().y;
+                total_dist += std::hypot(dx, dy);
+            }
+            dense_points.push_back({cur_x, cur_y, total_dist});
         }
     }
+    // Add the final goal point explicitly
+    double dx_final = path.poses.back().pose.position.x - dense_points.back().x;
+    double dy_final = path.poses.back().pose.position.y - dense_points.back().y;
+    total_dist += std::hypot(dx_final, dy_final);
+    dense_points.push_back({path.poses.back().pose.position.x, path.poses.back().pose.position.y, total_dist});
+
+    // --- STEP 2: Uniform Re-sampling ---
+    // Now we walk along that "measured" path at exactly 5cm intervals.
+    nav_msgs::msg::Path smooth_path;
+    smooth_path.header = path.header;
+    const double target_spacing = 0.05;
+    size_t dense_idx = 0;
+
+    for (double s = 0; s <= total_dist; s += target_spacing) {
+        // Find the two points in dense_points that straddle distance 's'
+        while (dense_idx < dense_points.size() - 2 && dense_points[dense_idx + 1].dist < s) {
+            dense_idx++;
+        }
+
+        InternalPoint p_a = dense_points[dense_idx];
+        InternalPoint p_b = dense_points[dense_idx + 1];
+
+        // Linear interpolation between the two dense points
+        double segment_dist = p_b.dist - p_a.dist;
+        double interp_t = (segment_dist > 1e-6) ? (s - p_a.dist) / segment_dist : 0.0;
+
+        geometry_msgs::msg::PoseStamped ps;
+        ps.header = smooth_path.header;
+        ps.pose.position.x = p_a.x + interp_t * (p_b.x - p_a.x);
+        ps.pose.position.y = p_a.y + interp_t * (p_b.y - p_a.y);
+        ps.pose.orientation.w = 1.0;
+        
+        smooth_path.poses.push_back(ps);
+    }
+
+    // Always ensure the very last pose is the exact goal
     smooth_path.poses.push_back(path.poses.back());
+
+    for (size_t i = 0; i < smooth_path.poses.size(); ++i) {
+      double yaw;
+      if (i < smooth_path.poses.size() - 1) {
+          double dx = smooth_path.poses[i+1].pose.position.x - smooth_path.poses[i].pose.position.x;
+          double dy = smooth_path.poses[i+1].pose.position.y - smooth_path.poses[i].pose.position.y;
+          yaw = std::atan2(dy, dx);
+      } else {
+          yaw = tf2::getYaw(smooth_path.poses[i-1].pose.orientation);
+      }
+
+      tf2::Quaternion q;
+      q.setRPY(0, 0, yaw);
+      smooth_path.poses[i].pose.orientation = tf2::toMsg(q);
+  }
+
     return smooth_path;
 }
 

@@ -17,6 +17,8 @@ find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "action/AStar.action"
@@ -38,6 +40,8 @@ ament_target_dependencies(${PROJECT_NAME}_components
   rclcpp_action
   rclcpp_components
   std_msgs
+  tf2
+  tf2_geometry_msgs
 )
 
 rosidl_get_typesupport_target(cpp_typesupport_target

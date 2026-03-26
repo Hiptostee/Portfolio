@@ -25,8 +25,8 @@ struct OpenSetCompare
   }
 };
 
-struct SplinePoint {
-    double x, y, vx, vy, ax, ay;
+struct InternalPoint {
+    double x, y, dist;
 };
 
 }  // namespace
