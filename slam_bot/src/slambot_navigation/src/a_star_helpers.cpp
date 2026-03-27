@@ -38,7 +38,7 @@ bool AStarPlanner::isInBounds(const Coordinate & cell) const
   return cell.x >= 0 && cell.y >= 0 && cell.x < width && cell.y < height;
 }
 
-// Convert a valid grid cell into the flat index used by OccupancyGrid::data.
+// Convert a valid grid cell into the flat index used by OccupancyGrid data.
 size_t AStarPlanner::toIndex(const Coordinate & cell) const
 {
   if (!isInBounds(cell)) {
@@ -184,7 +184,7 @@ nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) c
     if (path.poses.size() < 2) return path;
 
     // --- STEP 1: Dense Sampling ---
-    // We sample the spline very heavily to "measure" its true shape.
+    // We sample the spline very heavily to effectively model it.
     std::vector<InternalPoint> dense_points;
     double total_dist = 0.0;
 
@@ -243,9 +243,10 @@ nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) c
         smooth_path.poses.push_back(ps);
     }
 
-    // Always ensure the very last pose is the exact goal
+    // Always ensure the very last pose is the exact goal.
     smooth_path.poses.push_back(path.poses.back());
 
+    // Apply heading that point towards the next point.
     for (size_t i = 0; i < smooth_path.poses.size(); ++i) {
       double yaw;
       if (i < smooth_path.poses.size() - 1) {

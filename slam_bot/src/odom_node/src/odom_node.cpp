@@ -4,7 +4,7 @@
 #include "rclcpp_components/register_node_macro.hpp"
 #include "std_msgs/msg/int32_multi_array.hpp"
 
-#include <cmath>      // std::sin, std::cos, std::isfinite
+#include <cmath>  
 #include <functional>
 
 namespace odom_node
@@ -14,19 +14,24 @@ OdomNode::OdomNode(const rclcpp::NodeOptions & options)
 {
   RCLCPP_INFO(get_logger(), "Odom Node Started");
 
+  // Physical Constants.
   wheel_radius_ = declare_parameter<double>("wheel_radius", 0.0485);
   const double base_length = declare_parameter<double>("base_length", 0.212);
   const double base_width = declare_parameter<double>("base_width", 0.194);
   const double ticks_per_rev = declare_parameter<double>("ticks_per_rev", 2882.0);
+  
+  // Topic and frame name declarations.
   encoder_topic_ = declare_parameter<std::string>("encoder_topic", "/wheel_encoders");
   odom_topic_ = declare_parameter<std::string>("odom_topic", "/odom");
   odom_frame_ = declare_parameter<std::string>("odom_frame", "odom");
   base_frame_ = declare_parameter<std::string>("base_frame", "base_link");
 
+  // Physical Constants.
   half_length_ = base_length / 2.0;
   half_width_ = base_width / 2.0;
   distance_per_tick_ = (2.0 * 3.141592653589793 * wheel_radius_) / ticks_per_rev;
 
+  // Encoder topic subscriber.
   sub_ = create_subscription<std_msgs::msg::Int32MultiArray>(
     encoder_topic_,
     10,
@@ -44,6 +49,7 @@ void OdomNode::odomCallback(const std_msgs::msg::Int32MultiArray::SharedPtr msg)
     return;
   }
 
+  // Read encoders and calculate the change since the last reading.
   int32_t encFL = msg->data[0];
   int32_t encFR = msg->data[1];
   int32_t encBL = msg->data[2];

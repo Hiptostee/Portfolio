@@ -8,6 +8,7 @@
 namespace lqr
 {
 
+// Method to solve the Algebraic Riccati Equation.
 Matrix3d LQR::solveDare(Matrix3d A, Matrix3d B, Matrix3d Q, Matrix3d R)
 {
   Matrix3d P = Q;
@@ -23,6 +24,7 @@ Matrix3d LQR::solveDare(Matrix3d A, Matrix3d B, Matrix3d Q, Matrix3d R)
   return K;
 }
 
+// The error matrix between the current and target poses.
 Vector3d LQR::calculateError(const Pose & current_pose, const Pose & target_pose)
 {
   const double dx = target_pose.x - current_pose.x;
@@ -39,11 +41,14 @@ Vector3d LQR::calculateError(const Pose & current_pose, const Pose & target_pose
   return local_error;
 }
 
+// Helper method to make sure the angle stays within (0, 360).
 double LQR::wrapAngle(double a) const
 {
   return std::atan2(std::sin(a), std::cos(a));
 }
 
+
+// Method to find the closest index to the robot pose.
 std::size_t LQR::findClosestIndex(
   const Pose & robot_pose,
   const std::vector<Pose> & path,
@@ -68,6 +73,7 @@ std::size_t LQR::findClosestIndex(
   return closest_idx;
 }
 
+// Convert a pose stamped to a pose.
 Pose LQR::poseStampedToPose(const geometry_msgs::msg::PoseStamped & pose_stamped) const
 {
   const auto & position = pose_stamped.pose.position;

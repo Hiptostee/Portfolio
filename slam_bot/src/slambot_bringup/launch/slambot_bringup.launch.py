@@ -9,9 +9,7 @@ from launch.substitutions import Command, LaunchConfiguration
 import os
 
 def generate_launch_description():
-    # -------------------------------------------------------------------------
-    # Paths to other launch files
-    # -------------------------------------------------------------------------
+
     ros2_mpu6050_launch = os.path.join(
         get_package_share_directory('bno08x_driver'),
         'launch',
@@ -63,7 +61,7 @@ def generate_launch_description():
         'urdf',
         'slambot.urdf'
     )
-    # IMU topic plumbed through to localization (hardware may use /imu/data)
+
     imu_input_arg = DeclareLaunchArgument(
         'imu_input_topic',
         default_value='/imu',
@@ -89,9 +87,6 @@ def generate_launch_description():
     localization_mode = LaunchConfiguration('localization_mode')
     map_yaml = LaunchConfiguration('map_yaml')
 
-    # -------------------------------------------------------------------------
-    # robot_state_publisher (URDF)
-    # -------------------------------------------------------------------------
     robot_state_publisher = Node(
         package='robot_state_publisher',
         executable='robot_state_publisher',
@@ -104,9 +99,6 @@ def generate_launch_description():
         output='screen'
     )
 
-    # -------------------------------------------------------------------------
-    # Include IMU + LiDAR drivers
-    # -------------------------------------------------------------------------
     imu_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(ros2_mpu6050_launch)
     )
@@ -151,9 +143,7 @@ def generate_launch_description():
         condition=UnlessCondition(localization_mode)
     )
 
-    # -------------------------------------------------------------------------
-    # Return everything
-    # -------------------------------------------------------------------------
+    
     return LaunchDescription([
         robot_state_publisher,
         imu_input_arg,

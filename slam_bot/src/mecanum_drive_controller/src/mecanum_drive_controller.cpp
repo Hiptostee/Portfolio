@@ -20,6 +20,7 @@
 
 namespace mecanum_drive_controller
 {
+  // Clamp an integer to the range of a signed 16-bit value before packing.
   static inline int16_t clamp_i16(int v)
   {
     if (v > 32767)
@@ -29,6 +30,7 @@ namespace mecanum_drive_controller
     return (int16_t)v;
   }
 
+  // Decode a little-endian 32-bit integer read back from the Pico.
   static inline int32_t le_i32(const uint8_t *p)
   {
     return (int32_t)((uint32_t)p[0] |
@@ -40,20 +42,24 @@ namespace mecanum_drive_controller
   MecanumDriveController::MecanumDriveController(const rclcpp::NodeOptions &options)
       : rclcpp::Node("mecanum_drive_controller", options)
   {
+    // Hardware and ROS interface parameters.
     i2c_device_ = declare_parameter<std::string>("i2c_device", "/dev/i2c-1");
     i2c_address_ = declare_parameter<int>("i2c_address", 0x12);
     encoder_publish_period_ms_ = declare_parameter<int>("encoder_publish_period_ms", 50);
     cmd_vel_topic_ = declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel");
     encoder_topic_ = declare_parameter<std::string>("encoder_topic", "/wheel_encoders");
 
+    // Velocity PID gains used by the Pico motor controller.
     kp_ = declare_parameter<double>("kp", 0.5);
     ki_ = declare_parameter<double>("ki", 0.00001);
     kd_ = declare_parameter<double>("kd", 0.0);
 
+    // Hold PID gains used when the commanded target is zero.
     kp_hold_ = declare_parameter<double>("kp_hold", 5.0);
     ki_hold_ = declare_parameter<double>("ki_hold", 0.0);
     kd_hold_ = declare_parameter<double>("kd_hold", 0.0);
 
+    // Open the I2C bus and bind it to the Pico address.
     i2c_file_ = open(i2c_device_.c_str(), O_RDWR);
     if (i2c_file_ < 0)
       RCLCPP_FATAL(get_logger(), "Failed to open %s", i2c_device_.c_str());
@@ -61,12 +67,15 @@ namespace mecanum_drive_controller
     if (ioctl(i2c_file_, I2C_SLAVE, i2c_address_) < 0)
       RCLCPP_FATAL(get_logger(), "Failed to set I2C addr 0x%02x", i2c_address_);
 
+    // Push the configured gains once at startup.
     sendPidToPico();
 
+    // Periodically poll the wheel encoder registers from the Pico.
     encoder_timer_ = this->create_wall_timer(
         std::chrono::milliseconds(encoder_publish_period_ms_),
         std::bind(&MecanumDriveController::readEncoders, this));
 
+    // Subscribe to ROS2 velocity commands and publish encoder feedback.
     cmd_vel_sub_ = create_subscription<geometry_msgs::msg::Twist>(
         cmd_vel_topic_, 10,
         std::bind(&MecanumDriveController::cmdVelCallback, this, std::placeholders::_1));
@@ -74,12 +83,14 @@ namespace mecanum_drive_controller
     pub_ = create_publisher<std_msgs::msg::Int32MultiArray>(encoder_topic_, 10);
   }
 
+  // Close the I2C file descriptor when the node shuts down.
   MecanumDriveController::~MecanumDriveController()
   {
     if (i2c_file_ >= 0)
       close(i2c_file_);
   }
 
+  // Read a raw byte block from a Pico register over I2C.
   bool MecanumDriveController::i2cReadArray(uint8_t reg, uint8_t *data, size_t len)
   {
     if (write(i2c_file_, &reg, 1) != 1)
@@ -89,6 +100,7 @@ namespace mecanum_drive_controller
     return true;
   }
 
+  // Write a signed byte block to a Pico register over I2C.
   bool MecanumDriveController::i2cWriteI8(uint8_t reg, const int8_t *data, size_t len)
   {
     std::vector<uint8_t> buf(len + 1);
@@ -97,6 +109,7 @@ namespace mecanum_drive_controller
     return (write(i2c_file_, buf.data(), buf.size()) == (ssize_t)buf.size());
   }
 
+  // Write an unsigned byte block to a Pico register over I2C.
   bool MecanumDriveController::i2cWriteU8(uint8_t reg, const uint8_t *data, size_t len)
   {
     std::vector<uint8_t> buf(len + 1);
@@ -105,6 +118,7 @@ namespace mecanum_drive_controller
     return (write(i2c_file_, buf.data(), buf.size()) == (ssize_t)buf.size());
   }
 
+  // Pack the configured PID gains and send them to the Pico controller.
   void MecanumDriveController::sendPidToPico()
   {
     int16_t kp_q = clamp_i16((int)std::lround(kp_ * 1000.0));
@@ -136,6 +150,7 @@ namespace mecanum_drive_controller
                 kp_, ki_, kd_, kp_hold_, ki_hold_, kd_hold_);
   }
 
+  // Read all four wheel encoders from the Pico and publish them to ROS.
   void MecanumDriveController::readEncoders()
   {
     uint8_t raw[16];
@@ -155,6 +170,7 @@ namespace mecanum_drive_controller
     pub_->publish(msg);
   }
 
+  // Convert a ROS cmd_vel command into normalized mecanum wheel speed commands.
   void MecanumDriveController::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
   {
     double y = msg->linear.x;

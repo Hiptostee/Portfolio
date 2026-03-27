@@ -40,7 +40,6 @@ slam_toolbox:
     loop_search_maximum_distance: 2.0
     loop_search_space_dimension: 8.0
 
-    # Pi 5 Specifics
     max_laser_range: 4.0 # Don't trust LD19 noise at long range
     minimum_travel_distance: 0.1 # Wait for more movement before updating
     minimum_travel_heading: 0.1 # ~5.7 degrees: Prevents "micro-jumps"

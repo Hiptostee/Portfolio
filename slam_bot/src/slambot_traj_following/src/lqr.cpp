@@ -58,7 +58,7 @@ LQR::LQR(const rclcpp::NodeOptions & options)
 
 void LQR::lqrLoop()
 {
-  // --- Gating Logic with Debug Info ---
+  // Debugging.
   if (!have_estimated_pose_) {
     RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 5000, "Stalled: Waiting for /estimated_pose");
     return;
@@ -68,7 +68,7 @@ void LQR::lqrLoop()
     return;
   }
 
-  // Calculate Gain K once
+  // Calculate Gain K once.
   if (!initialized_) {
     Matrix3d A = Matrix3d::Identity();
     Matrix3d B = Matrix3d::Identity() * (static_cast<double>(control_period_ms_) / 1000.0);
@@ -83,6 +83,8 @@ void LQR::lqrLoop()
     RCLCPP_INFO(get_logger(), "LQR Gain Matrix K calculated successfully.");
   }
 
+  /* Publish a boolean that tells the particle filter to default to base level random particle injection to prevent localization
+  jumps during navigation. */
   auto nav_msg = std_msgs::msg::Bool();
   nav_msg.data = have_path_ && !current_path_.empty();
   nav_status_pub_->publish(nav_msg);
@@ -96,11 +98,13 @@ void LQR::lqrLoop()
     current_path_index_ + static_cast<std::size_t>(std::max(1, lookahead_points_)),
     current_path_.size() - 1);
   const Pose target_pose = current_path_[target_idx];
-
+  
+  // Feedback.
   const Vector3d error = calculateError(current_pose, target_pose);
-  const Vector3d control = K * error; // Command = Gain * Error
+  const Vector3d control = K * error;
   const std::size_t next_idx = std::min(target_idx + 1, current_path_.size() - 1);
 
+  // Feedforward.
   double segment_dx = 0.0;
   double segment_dy = 0.0;
   if (next_idx > target_idx) {
@@ -111,6 +115,7 @@ void LQR::lqrLoop()
     segment_dy = target_pose.y - current_pose.y;
   }
 
+  // Convert feedforward term into a velocity in the robot point of reference.
   const double segment_norm = std::hypot(segment_dx, segment_dy);
   Vector3d feedforward = Vector3d::Zero();
   if (segment_norm > 1e-6) {
@@ -126,7 +131,7 @@ void LQR::lqrLoop()
                    0.5 * wrapAngle(segment_yaw - current_pose.theta);
   }
 
-  const Eigen::Vector3d total_control = control + feedforward;
+  const Vector3d total_control = control + feedforward;
 
   // Publish velocity targets to the Pico controller [cite: 30, 87]
   geometry_msgs::msg::Twist cmd;
@@ -134,7 +139,7 @@ void LQR::lqrLoop()
   cmd.linear.y = std::clamp(total_control(1), -max_linear_velocity_, max_linear_velocity_);
   cmd.angular.z = std::clamp(total_control(2), -max_angular_velocity_, max_angular_velocity_);
 
-  // Stop if at the end of the path
+  // Stop if at the end of the path.
   const double dist_to_end = std::hypot(
     current_path_.back().x - current_pose.x,
     current_path_.back().y - current_pose.y);
@@ -147,18 +152,21 @@ void LQR::lqrLoop()
   }
 }
 
+// Publish a zero velocity to end the LQR controller.
 void LQR::publishZeroVelocity()
 {
   geometry_msgs::msg::Twist stop;
   cmd_pub_->publish(stop);
 }
 
+// Set the current estimated pose when a new one is received.
 void LQR::estimatedPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
   current_estimated_pose_msg_ = *msg;
   have_estimated_pose_ = true;
 }
 
+// Set the current path when a new one is received.
 void LQR::pathCallback(const nav_msgs::msg::Path::SharedPtr msg)
 {
   current_path_.clear();

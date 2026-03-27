@@ -40,7 +40,6 @@ def generate_launch_description():
         'mapping.launch.py'
     )
 
-    # Expand XACRO → URDF
     robot_description = ParameterValue(
         Command([
             FindExecutable(name='xacro'), ' ', xacro_file, ' ',
@@ -116,8 +115,6 @@ def generate_launch_description():
         parameters=[{'use_sim_time': True}],
         output='screen'
     )
-
-    # No ros2_control spawners needed in kinematic mode
 
     # Ensure odom node uses sim time when running in Gazebo
     odom_node_launch = IncludeLaunchDescription(
