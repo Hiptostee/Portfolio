@@ -9,6 +9,7 @@
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
+#include "std_srvs/srv/trigger.hpp"
 
 #include "slambot_traj_following/lqr_helpers.hpp"
 
@@ -32,6 +33,9 @@ private:
   void lqrLoop();
   void estimatedPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void pathCallback(const nav_msgs::msg::Path::SharedPtr msg);
+  void handleStop(
+    const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
+    std::shared_ptr<std_srvs::srv::Trigger::Response> response);
   Pose poseStampedToPose(const geometry_msgs::msg::PoseStamped & pose_stamped) const;
   void publishZeroVelocity();
   Eigen::Matrix3d K;
@@ -40,6 +44,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr nav_status_pub_;
+  rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_service_;
 
   rclcpp::TimerBase::SharedPtr timer_;
   geometry_msgs::msg::PoseStamped current_estimated_pose_msg_;

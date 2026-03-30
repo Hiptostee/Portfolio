@@ -16,6 +16,7 @@ find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
 find_package(std_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
 
@@ -35,6 +36,7 @@ ament_target_dependencies(${PROJECT_NAME}_components
   rclcpp
   rclcpp_components
   std_msgs
+  std_srvs
   tf2
   tf2_geometry_msgs
 )

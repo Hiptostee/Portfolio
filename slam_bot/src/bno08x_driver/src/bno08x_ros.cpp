@@ -207,8 +207,7 @@ void BNO08xROS::sensor_callback(void *cookie, sh2_SensorValue_t *sensor_value) {
 			this->mag_msg_.magnetic_field.y = sensor_value->un.magneticField.y;
 			this->mag_msg_.magnetic_field.z = sensor_value->un.magneticField.z;
 			this->mag_msg_.header.frame_id = this->frame_id_;
-			this->mag_msg_.header.stamp.sec = this->get_clock()->now().seconds();
-			this->mag_msg_.header.stamp.nanosec = this->get_clock()->now().nanoseconds();
+			this->mag_msg_.header.stamp = this->get_clock()->now();
 			// IMU will still return infrequent magnetic field reports even if the report
 			// was not enabled, so check it was enabled before publishing.
 			if (publish_magnetic_field_) {
@@ -238,12 +237,15 @@ void BNO08xROS::sensor_callback(void *cookie, sh2_SensorValue_t *sensor_value) {
 			break;
 	}
 
-	if(imu_received_flag_ == (ROTATION_VECTOR_RECEIVED | ACCELEROMETER_RECEIVED | GYROSCOPE_RECEIVED)){
+	// After each field has been seen at least once, publish on every IMU-related
+	// update using the latest cached values instead of waiting for a perfectly
+	// aligned trio of reports in the same cycle.
+	const uint8_t required_imu_fields =
+		ROTATION_VECTOR_RECEIVED | ACCELEROMETER_RECEIVED | GYROSCOPE_RECEIVED;
+	if ((imu_received_flag_ & required_imu_fields) == required_imu_fields && publish_imu_) {
 		this->imu_msg_.header.frame_id = this->frame_id_;
-		this->imu_msg_.header.stamp.sec = this->get_clock()->now().seconds();
-		this->imu_msg_.header.stamp.nanosec = this->get_clock()->now().nanoseconds();
+		this->imu_msg_.header.stamp = this->get_clock()->now();
 		this->imu_publisher_->publish(this->imu_msg_);
-		imu_received_flag_ = 0;
 	}
 
 }

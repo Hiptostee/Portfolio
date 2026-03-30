@@ -79,7 +79,7 @@ def generate_launch_description():
     )
     map_yaml_arg = DeclareLaunchArgument(
         'map_yaml',
-        default_value='/home/slambot/ros2_ws/maps/my_map.yaml',
+        default_value='/home/slambot/ros2_ws_pi/maps/my_map.yaml',
         description='Map yaml used by localization mode'
     )
     imu_input_topic = LaunchConfiguration('imu_input_topic')

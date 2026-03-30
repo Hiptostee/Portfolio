@@ -4,4 +4,4 @@ a_star_action_server:
     map_topic: "/map"
     pose_topic: "/estimated_pose"
     path_topic: "/path"
-    obstacle_buffer_m: 0.3
+    obstacle_buffer_m: 0.2

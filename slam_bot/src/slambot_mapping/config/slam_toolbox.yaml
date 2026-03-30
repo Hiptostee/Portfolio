@@ -1,47 +1,51 @@
 slam_toolbox:
   ros__parameters:
-    # Frames
+    # Frames & Topics
     odom_frame: odom
     map_frame: map
     base_frame: base_link
-
-    # Topics
     scan_topic: /scan
+    mode: mapping # Ensure you are calling 'sync_slam_toolbox_node'
 
-    # Mode
-    mode: mapping
+    # The "Timing" Fix: Managing the RPi 5 / EKF Jitter
+    # Increased buffer to handle the 34Hz bottleneck we saw in view_frames.
+    transform_timeout: 0.2
+    tf_buffer_duration: 30.0
+    transform_publish_period: 0.02 # 50Hz: Matches your LQR target
 
-    # Scan Matching
+    # Scan Matching: "High-Fidelity" Snap
     use_scan_matching: true
     use_scan_barycenter: true
-    minimum_angle_penalty: 0.5 # Higher = trust scan more, trust odom less
-    minimum_distance_penalty: 0.5
-    use_response_expansion: true # Helps recover if the robot turns too fast
+    # 0.1 is the 'Golden Ratio'—snaps to walls without 'teleporting'
+    minimum_angle_penalty: 0.1
+    minimum_distance_penalty: 0.1
+    use_response_expansion: true
 
-    # Search Parameters
-    # This defines the "area" the matcher looks in when odom is shaky
-    correlation_search_space_dimension: 0.5 # meters
-    correlation_search_space_resolution: 0.01 # meters
+    # Search Parameters: The "Surgical" Window
+    # Adjusted to 0.3m (Safe-Tight) to avoid the 'Gray Void' teleport
+    correlation_search_space_dimension: 0.3
+    correlation_search_space_resolution: 0.01
     correlation_search_space_smear_deviation: 0.03
 
-    # Rotation Search
-    # If the robot rotates fast, increase this window
+    # Rotation Search: Precise Catch
     link_match_maximum_distance_ratio: 0.8
-    link_scan_maximum_distance: 1.0
+    link_scan_maximum_distance: 1.5
+    angle_upper_rum_limit: 1.57
 
-    # Timing & Performance
-    transform_publish_period: 0.02 # 50Hz: Matches the LQR loop for zero-lag
-    map_update_interval: 2.0 # Slowing this down saves CPU for LQR
+    # Update Thresholds: Strategic Triggers
+    # We wait for a clear 5.7-degree move before baking it into the map.
+    minimum_travel_distance: 0.1
+    minimum_travel_heading: 0.1
+    map_update_interval: 1.0 # Keeps the CPU cooled for the LQR
 
-    # Loop Closure
+    # Loop Closure: Integer Types (STRICT)
     do_loop_closing: true
-    loop_match_minimum_chain_size: 20
-    loop_match_maximum_variance_coarse: 0.1
-    loop_search_maximum_distance: 2.0
+    loop_match_minimum_chain_size: 10
+    loop_match_maximum_variance_coarse: 0.3
+    loop_search_maximum_distance: 4.0
     loop_search_space_dimension: 8.0
 
-    max_laser_range: 4.0 # Don't trust LD19 noise at long range
-    minimum_travel_distance: 0.1 # Wait for more movement before updating
-    minimum_travel_heading: 0.1 # ~5.7 degrees: Prevents "micro-jumps"
-
+    # Sensor Constraints: LD19 Reality
+    max_laser_range: 8.0
+    resolution: 0.05
     publish_tf: true

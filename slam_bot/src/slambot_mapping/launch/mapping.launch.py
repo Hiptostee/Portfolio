@@ -22,7 +22,7 @@ def generate_launch_description():
     slam_toolbox_online_launch = os.path.join(
         get_package_share_directory('slam_toolbox'),
         'launch',
-        'online_async_launch.py'
+        'online_sync_launch.py'
     )
 
     return LaunchDescription([

@@ -21,6 +21,8 @@ LQR::LQR(const rclcpp::NodeOptions & options)
     declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel");
   const std::string navigation_state_topic =
     declare_parameter<std::string>("navigation_state_topic", "/is_navigating");
+  const std::string stop_service_name =
+    declare_parameter<std::string>("stop_service_name", "/lqr/stop");
 
   control_period_ms_ = declare_parameter<int>("control_period_ms", 20);
   lookahead_points_ = declare_parameter<int>("lookahead_points", 1);
@@ -43,6 +45,9 @@ LQR::LQR(const rclcpp::NodeOptions & options)
   cmd_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic, 10);
 
   nav_status_pub_ = create_publisher<std_msgs::msg::Bool>(navigation_state_topic, 10);
+  stop_service_ = create_service<std_srvs::srv::Trigger>(
+    stop_service_name,
+    std::bind(&LQR::handleStop, this, std::placeholders::_1, std::placeholders::_2));
 
   timer_ = create_wall_timer(
     std::chrono::milliseconds(control_period_ms_),
@@ -50,10 +55,11 @@ LQR::LQR(const rclcpp::NodeOptions & options)
 
   RCLCPP_INFO(
     get_logger(),
-    "LQR node ready: estimated_pose_topic='%s', path_topic='%s', cmd_vel_topic='%s'",
+    "LQR node ready: estimated_pose_topic='%s', path_topic='%s', cmd_vel_topic='%s', stop_service='%s'",
     estimated_pose_topic.c_str(),
     path_topic.c_str(),
-    cmd_vel_topic.c_str());
+    cmd_vel_topic.c_str(),
+    stop_service_name.c_str());
 }
 
 void LQR::lqrLoop()
@@ -157,6 +163,24 @@ void LQR::publishZeroVelocity()
 {
   geometry_msgs::msg::Twist stop;
   cmd_pub_->publish(stop);
+}
+
+void LQR::handleStop(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
+  std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+{
+  current_path_.clear();
+  current_path_index_ = 0;
+  have_path_ = false;
+  publishZeroVelocity();
+
+  auto nav_msg = std_msgs::msg::Bool();
+  nav_msg.data = false;
+  nav_status_pub_->publish(nav_msg);
+
+  response->success = true;
+  response->message = "LQR stopped: cleared path and published zero velocity.";
+  RCLCPP_WARN(get_logger(), "Stop service called: cleared path and published zero velocity.");
 }
 
 // Set the current estimated pose when a new one is received.

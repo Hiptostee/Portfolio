@@ -4,6 +4,7 @@ lqr:
     path_topic: "/path"
     cmd_vel_topic: "/cmd_vel"
     navigation_state_topic: "/is_navigating"
+    stop_service_name: "/lqr/stop"
     control_period_ms: 20
     lookahead_points: 1
     max_linear_velocity: 0.6
