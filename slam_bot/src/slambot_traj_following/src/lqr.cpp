@@ -125,7 +125,7 @@ void LQR::lqrLoop()
   const double segment_norm = std::hypot(segment_dx, segment_dy);
   Vector3d feedforward = Vector3d::Zero();
   if (segment_norm > 1e-6) {
-    const double ff_speed = std::min(0.4, max_linear_velocity_);
+    const double ff_speed = std::min(0.7, max_linear_velocity_);
     const double world_vx = ff_speed * (segment_dx / segment_norm);
     const double world_vy = ff_speed * (segment_dy / segment_norm);
     const double cos_th = std::cos(current_pose.theta);
