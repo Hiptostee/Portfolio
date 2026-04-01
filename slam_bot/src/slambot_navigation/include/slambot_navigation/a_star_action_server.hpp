@@ -28,6 +28,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_subscriber_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_subscriber_;
   rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_publisher_;
+  rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr inflated_map_publisher_;
   nav_msgs::msg::OccupancyGrid current_map_;
   geometry_msgs::msg::PoseStamped current_pose_;
   bool have_map_{false};

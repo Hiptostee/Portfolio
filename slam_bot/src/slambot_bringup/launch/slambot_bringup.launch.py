@@ -2,6 +2,7 @@ from launch import LaunchDescription
 from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.conditions import IfCondition, UnlessCondition
+from launch.substitutions import PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
@@ -77,9 +78,14 @@ def generate_launch_description():
         default_value='false',
         description='false: mapping with slam_toolbox, true: localization with particle filter'
     )
+    map_yaml_default = PythonExpression([
+        "'/home/slambot/ros2_ws/maps/my_map.yaml' if '",
+        LaunchConfiguration('sim'),
+        "' in ['true', 'True', '1'] else '/home/slambot/ros2_ws_pi/maps/my_map_real.yaml'"
+    ])
     map_yaml_arg = DeclareLaunchArgument(
         'map_yaml',
-        default_value='/home/slambot/ros2_ws_pi/maps/my_map.yaml',
+        default_value=map_yaml_default,
         description='Map yaml used by localization mode'
     )
     imu_input_topic = LaunchConfiguration('imu_input_topic')

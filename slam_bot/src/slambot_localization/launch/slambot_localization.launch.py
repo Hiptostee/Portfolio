@@ -37,7 +37,7 @@ def generate_launch_description():
     map_yaml_default = PythonExpression([
         "'/home/slambot/ros2_ws/maps/my_map.yaml' if '",
         LaunchConfiguration('sim'),
-        "' in ['true', 'True', '1'] else '/home/slambot/ros2_ws_pi/maps/my_map.yaml'"
+        "' in ['true', 'True', '1'] else '/home/slambot/ros2_ws_pi/maps/my_map_real.yaml'"
     ])
     map_yaml_arg = DeclareLaunchArgument(
         'map_yaml',

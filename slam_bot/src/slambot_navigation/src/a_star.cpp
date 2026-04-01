@@ -136,7 +136,11 @@ nav_msgs::msg::Path AStarPlanner::plan(
       const int dx = neighbor.x - current.x;
       const int dy = neighbor.y - current.y;
       const double step_cost = (std::abs(dx) == 1 && std::abs(dy) == 1) ? std::sqrt(2.0) : 1.0;
-      const double tentative_g = g_score[current_index] + step_cost;
+      const double obstacle_penalty = getCellTraversalPenalty(neighbor);
+      if (!std::isfinite(obstacle_penalty)) {
+        continue;
+      }
+      const double tentative_g = g_score[current_index] + step_cost + obstacle_penalty;
 
       /* If the tentative g cost is lower than what we have previously calculated for this node, then update its total score,
          add it to the open set, and update the came_from vector. 

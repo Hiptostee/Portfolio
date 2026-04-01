@@ -1,5 +1,7 @@
 #include <algorithm>
 #include <cmath>
+#include <functional>
+#include <limits>
 #include <stdexcept>
 
 #include "slambot_navigation/a_star_helpers.hpp"
@@ -54,34 +56,32 @@ bool AStarPlanner::isCellTraversable(const Coordinate & cell) const
     throw std::out_of_range("Grid cell is out of bounds");
   }
 
-  const double resolution = map_.info.resolution;
-  const int buffer_cells = static_cast<int>(std::ceil(obstacle_buffer_m_ / resolution));
-
-  for (int dy = -buffer_cells; dy <= buffer_cells; ++dy) {
-    for (int dx = -buffer_cells; dx <= buffer_cells; ++dx) {
-      const Coordinate neighbor{cell.x + dx, cell.y + dy};
-      if (!isInBounds(neighbor)) {
-        return false;
-      }
-
-      const double distance_m = std::sqrt(
-        std::pow(static_cast<double>(dx) * resolution, 2) +
-        std::pow(static_cast<double>(dy) * resolution, 2));
-      if (distance_m > obstacle_buffer_m_) {
-        continue;
-      }
-
-      const int value = map_.data[toIndex(neighbor)];
-      if (value >= 50 || value == -1) {
-        return false;
-      }
-    }
+  if (map_inflated_.data.size() != map_.data.size()) {
+    return false;
   }
 
-  return true;
+  return map_inflated_.data[toIndex(cell)] < 100;
 }
 
-// String pulling to create a path of the longest possible straight lines
+double AStarPlanner::getCellTraversalPenalty(const Coordinate & cell) const
+{
+  if (!isInBounds(cell)) {
+    throw std::out_of_range("Grid cell is out of bounds");
+  }
+
+  if (map_inflated_.data.size() != map_.data.size()) {
+    return 0.0;
+  }
+
+  const int value = map_inflated_.data[toIndex(cell)];
+  if (value >= 100) {
+    return std::numeric_limits<double>::infinity();
+  }
+
+  return static_cast<double>(value) / 100.0;
+}
+
+// String pulling to create a path of the longest possible straight lines.
 nav_msgs::msg::Path AStarPlanner::stringPull(const nav_msgs::msg::Path& path) const {
   if (path.poses.size() <= 2) {
     return path;
@@ -96,22 +96,103 @@ nav_msgs::msg::Path AStarPlanner::stringPull(const nav_msgs::msg::Path& path) co
   while (current_idx < static_cast<int>(path.poses.size()) - 1) {
     bool found_shortcut = false;
 
-    for (int i = path.poses.size() - 1; i > current_idx; i--) {
-      if (is_line_clear(path.poses[current_idx].pose, path.poses[i].pose, map_)) {
+    for (int i = static_cast<int>(path.poses.size()) - 1; i > current_idx; --i) {
+      if (is_line_clear(path.poses[current_idx].pose, path.poses[i].pose, map_inflated_)) {
         smoothed_path.poses.push_back(path.poses[i]);
-        current_idx = i; 
+        current_idx = i;
         found_shortcut = true;
-        break; 
+        break;
       }
     }
 
     if (!found_shortcut) {
-      current_idx++;
+      ++current_idx;
       smoothed_path.poses.push_back(path.poses[current_idx]);
     }
   }
 
   return smoothed_path;
+}
+
+// Simplify the raw A* polyline with RDP while still respecting the inflated map.
+nav_msgs::msg::Path AStarPlanner::rdpSimplify(const nav_msgs::msg::Path& path) const {
+  if (path.poses.size() <= 2) {
+    return path;
+  }
+
+  const double epsilon = std::max(static_cast<double>(map_.info.resolution), 0.03);
+  std::vector<bool> keep(path.poses.size(), false);
+  keep.front() = true;
+  keep.back() = true;
+
+  const auto perpendicular_distance = [](
+    const geometry_msgs::msg::Point & point,
+    const geometry_msgs::msg::Point & line_start,
+    const geometry_msgs::msg::Point & line_end) -> double
+  {
+    const double dx = line_end.x - line_start.x;
+    const double dy = line_end.y - line_start.y;
+    const double length_sq = dx * dx + dy * dy;
+    if (length_sq < 1e-9) {
+      return std::hypot(point.x - line_start.x, point.y - line_start.y);
+    }
+
+    const double t = std::clamp(
+      ((point.x - line_start.x) * dx + (point.y - line_start.y) * dy) / length_sq,
+      0.0,
+      1.0);
+    const double proj_x = line_start.x + t * dx;
+    const double proj_y = line_start.y + t * dy;
+    return std::hypot(point.x - proj_x, point.y - proj_y);
+  };
+
+  std::function<void(size_t, size_t)> rdp_recursive =
+    [&](size_t start_index, size_t end_index)
+    {
+      if (end_index <= start_index + 1) {
+        return;
+      }
+
+      double max_distance = 0.0;
+      size_t split_index = start_index;
+
+      for (size_t i = start_index + 1; i < end_index; ++i) {
+        const double distance = perpendicular_distance(
+          path.poses[i].pose.position,
+          path.poses[start_index].pose.position,
+          path.poses[end_index].pose.position);
+        if (distance > max_distance) {
+          max_distance = distance;
+          split_index = i;
+        }
+      }
+
+      if (max_distance <= epsilon &&
+          is_line_clear(path.poses[start_index].pose, path.poses[end_index].pose, map_inflated_))
+      {
+        return;
+      }
+
+      if (split_index == start_index) {
+        return;
+      }
+
+      keep[split_index] = true;
+      rdp_recursive(start_index, split_index);
+      rdp_recursive(split_index, end_index);
+    };
+
+  rdp_recursive(0, path.poses.size() - 1);
+
+  nav_msgs::msg::Path simplified_path;
+  simplified_path.header = path.header;
+  for (size_t i = 0; i < path.poses.size(); ++i) {
+    if (keep[i]) {
+      simplified_path.poses.push_back(path.poses[i]);
+    }
+  }
+
+  return simplified_path.poses.size() >= 2 ? simplified_path : path;
 }
 
 // Bresenham Line Algorithm + line search.
@@ -130,23 +211,15 @@ bool AStarPlanner::is_line_clear(const geometry_msgs::msg::Pose& start,
     int sy = (y0 < y1) ? 1 : -1;
     int err = dx - dy;
 
-    int radius = 4;
-
     while (true) {
-        for (int i = -radius; i <= radius; ++i) {
-            for (int j = -radius; j <= radius; ++j) {
-                int nx = x0 + i;
-                int ny = y0 + j;
+        if (x0 < 0 || x0 >= static_cast<int>(map.info.width) ||
+            y0 < 0 || y0 >= static_cast<int>(map.info.height)) {
+            return false;
+        }
 
-                if (nx < 0 || nx >= (int)map.info.width || ny < 0 || ny >= (int)map.info.height) {
-                    return false;
-                }
-
-                int index = ny * map.info.width + nx;
-                if (map.data[index] > 50) {
-                    return false;
-                }
-            }
+        int index = y0 * map.info.width + x0;
+        if (map.data[index] >= 100) {
+            return false;
         }
 
         if (x0 == x1 && y0 == y1) break;
@@ -179,88 +252,87 @@ double AStarPlanner::catmullRom(double p0, double p1, double p2, double p3, doub
     );
 }
 
-// Apply the spline to the path
+// Apply the spline to the path.
 nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) const {
-    if (path.poses.size() < 2) return path;
+    if (path.poses.size() < 2) {
+      return path;
+    }
 
-    // --- STEP 1: Dense Sampling ---
-    // We sample the spline very heavily to effectively model it.
+    // Dense sampling of Catmull-Rom segments to approximate a smooth curve.
     std::vector<InternalPoint> dense_points;
     double total_dist = 0.0;
 
     for (size_t i = 0; i < path.poses.size() - 1; ++i) {
-        auto p1 = path.poses[i].pose.position;
-        auto p2 = path.poses[i+1].pose.position;
-        auto p0 = (i == 0) ? p1 : path.poses[i-1].pose.position;
-        auto p3 = (i + 2 < path.poses.size()) ? path.poses[i+2].pose.position : p2;
+      const auto p1 = path.poses[i].pose.position;
+      const auto p2 = path.poses[i + 1].pose.position;
+      const auto p0 = (i == 0) ? p1 : path.poses[i - 1].pose.position;
+      const auto p3 = (i + 2 < path.poses.size()) ? path.poses[i + 2].pose.position : p2;
 
-        const int samples_per_segment = 100; 
-        for (int s = 0; s < samples_per_segment; ++s) {
-            double t = static_cast<double>(s) / samples_per_segment;
-            double cur_x = catmullRom(p0.x, p1.x, p2.x, p3.x, t);
-            double cur_y = catmullRom(p0.y, p1.y, p2.y, p3.y, t);
+      const int samples_per_segment = 100;
+      for (int s = 0; s < samples_per_segment; ++s) {
+        const double t = static_cast<double>(s) / samples_per_segment;
+        const double cur_x = catmullRom(p0.x, p1.x, p2.x, p3.x, t);
+        const double cur_y = catmullRom(p0.y, p1.y, p2.y, p3.y, t);
 
-            if (!dense_points.empty()) {
-                double dx = cur_x - dense_points.back().x;
-                double dy = cur_y - dense_points.back().y;
-                total_dist += std::hypot(dx, dy);
-            }
-            dense_points.push_back({cur_x, cur_y, total_dist});
+        if (!dense_points.empty()) {
+          const double dx = cur_x - dense_points.back().x;
+          const double dy = cur_y - dense_points.back().y;
+          total_dist += std::hypot(dx, dy);
         }
+        dense_points.push_back({cur_x, cur_y, total_dist});
+      }
     }
-    // Add the final goal point explicitly
-    double dx_final = path.poses.back().pose.position.x - dense_points.back().x;
-    double dy_final = path.poses.back().pose.position.y - dense_points.back().y;
-    total_dist += std::hypot(dx_final, dy_final);
-    dense_points.push_back({path.poses.back().pose.position.x, path.poses.back().pose.position.y, total_dist});
 
-    // --- STEP 2: Uniform Re-sampling ---
-    // Now we walk along that "measured" path at exactly 5cm intervals.
+    const double dx_final = path.poses.back().pose.position.x - dense_points.back().x;
+    const double dy_final = path.poses.back().pose.position.y - dense_points.back().y;
+    total_dist += std::hypot(dx_final, dy_final);
+    dense_points.push_back({
+      path.poses.back().pose.position.x,
+      path.poses.back().pose.position.y,
+      total_dist
+    });
+
     nav_msgs::msg::Path smooth_path;
     smooth_path.header = path.header;
     const double target_spacing = 0.05;
     size_t dense_idx = 0;
 
-    for (double s = 0; s <= total_dist; s += target_spacing) {
-        // Find the two points in dense_points that straddle distance 's'
-        while (dense_idx < dense_points.size() - 2 && dense_points[dense_idx + 1].dist < s) {
-            dense_idx++;
-        }
+    for (double s = 0.0; s <= total_dist; s += target_spacing) {
+      while (dense_idx < dense_points.size() - 2 && dense_points[dense_idx + 1].dist < s) {
+        ++dense_idx;
+      }
 
-        InternalPoint p_a = dense_points[dense_idx];
-        InternalPoint p_b = dense_points[dense_idx + 1];
+      const InternalPoint p_a = dense_points[dense_idx];
+      const InternalPoint p_b = dense_points[dense_idx + 1];
+      const double segment_dist = p_b.dist - p_a.dist;
+      const double interp_t = (segment_dist > 1e-6) ? (s - p_a.dist) / segment_dist : 0.0;
 
-        // Linear interpolation between the two dense points
-        double segment_dist = p_b.dist - p_a.dist;
-        double interp_t = (segment_dist > 1e-6) ? (s - p_a.dist) / segment_dist : 0.0;
-
-        geometry_msgs::msg::PoseStamped ps;
-        ps.header = smooth_path.header;
-        ps.pose.position.x = p_a.x + interp_t * (p_b.x - p_a.x);
-        ps.pose.position.y = p_a.y + interp_t * (p_b.y - p_a.y);
-        ps.pose.orientation.w = 1.0;
-        
-        smooth_path.poses.push_back(ps);
+      geometry_msgs::msg::PoseStamped ps;
+      ps.header = smooth_path.header;
+      ps.pose.position.x = p_a.x + interp_t * (p_b.x - p_a.x);
+      ps.pose.position.y = p_a.y + interp_t * (p_b.y - p_a.y);
+      ps.pose.orientation.w = 1.0;
+      smooth_path.poses.push_back(ps);
     }
 
-    // Always ensure the very last pose is the exact goal.
     smooth_path.poses.push_back(path.poses.back());
 
-    // Apply heading that point towards the next point.
     for (size_t i = 0; i < smooth_path.poses.size(); ++i) {
       double yaw;
       if (i < smooth_path.poses.size() - 1) {
-          double dx = smooth_path.poses[i+1].pose.position.x - smooth_path.poses[i].pose.position.x;
-          double dy = smooth_path.poses[i+1].pose.position.y - smooth_path.poses[i].pose.position.y;
-          yaw = std::atan2(dy, dx);
+        const double dx =
+          smooth_path.poses[i + 1].pose.position.x - smooth_path.poses[i].pose.position.x;
+        const double dy =
+          smooth_path.poses[i + 1].pose.position.y - smooth_path.poses[i].pose.position.y;
+        yaw = std::atan2(dy, dx);
       } else {
-          yaw = tf2::getYaw(smooth_path.poses[i-1].pose.orientation);
+        yaw = tf2::getYaw(smooth_path.poses[i - 1].pose.orientation);
       }
 
       tf2::Quaternion q;
       q.setRPY(0, 0, yaw);
       smooth_path.poses[i].pose.orientation = tf2::toMsg(q);
-  }
+    }
 
     return smooth_path;
 }
@@ -422,19 +494,97 @@ nav_msgs::msg::Path AStarPlanner::buildPathMessage(
     path.poses.push_back(gridToWorldPose(coord, header));
   }
 
-  return applySpline(stringPull(path));
+  return applySpline(rdpSimplify(path));
 }
 
 // Store the latest occupancy grid used for planning.
 void AStarPlanner::setMap(const nav_msgs::msg::OccupancyGrid & map)
 {
   map_ = map;
+  buildInflatedMap();
 }
 
 // Update the obstacle inflation radius used during traversability checks.
 void AStarPlanner::setObstacleBufferMeters(double obstacle_buffer_m)
 {
   obstacle_buffer_m_ = obstacle_buffer_m;
+  if (soft_obstacle_buffer_m_ < obstacle_buffer_m_) {
+    soft_obstacle_buffer_m_ = obstacle_buffer_m_;
+  }
+}
+
+void AStarPlanner::setSoftObstacleBufferMeters(double soft_obstacle_buffer_m)
+{
+  soft_obstacle_buffer_m_ = std::max(soft_obstacle_buffer_m, obstacle_buffer_m_);
+}
+
+const nav_msgs::msg::OccupancyGrid & AStarPlanner::getInflatedMap() const
+{
+  return map_inflated_;
+}
+
+void AStarPlanner::buildInflatedMap()
+{
+  map_inflated_ = map_;
+
+  if (!isMapValid()) {
+    map_inflated_.data.clear();
+    return;
+  }
+
+  const int width = static_cast<int>(map_.info.width);
+  const int height = static_cast<int>(map_.info.height);
+  const double resolution = map_.info.resolution;
+  const int soft_radius_cells =
+    static_cast<int>(std::ceil(soft_obstacle_buffer_m_ / resolution));
+  const double radius_span = std::max(soft_obstacle_buffer_m_ - obstacle_buffer_m_, 1e-6);
+
+  map_inflated_.data.assign(map_.data.size(), 0);
+
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      const Coordinate cell{x, y};
+      const size_t cell_index = toIndex(cell);
+
+      double nearest_obstacle_m = soft_obstacle_buffer_m_ + resolution;
+
+      for (int dy = -soft_radius_cells; dy <= soft_radius_cells; ++dy) {
+        for (int dx = -soft_radius_cells; dx <= soft_radius_cells; ++dx) {
+          const double distance_m = std::hypot(
+            static_cast<double>(dx) * resolution,
+            static_cast<double>(dy) * resolution);
+          if (distance_m > soft_obstacle_buffer_m_) {
+            continue;
+          }
+
+          const int nx = x + dx;
+          const int ny = y + dy;
+          bool is_obstacle = false;
+
+          if (nx < 0 || nx >= width || ny < 0 || ny >= height) {
+            is_obstacle = true;
+          } else {
+            const int source_value = map_.data[static_cast<size_t>(ny) * map_.info.width + nx];
+            is_obstacle = source_value >= 50 || source_value == -1;
+          }
+
+          if (is_obstacle) {
+            nearest_obstacle_m = std::min(nearest_obstacle_m, distance_m);
+          }
+        }
+      }
+
+      if (nearest_obstacle_m <= obstacle_buffer_m_) {
+        map_inflated_.data[cell_index] = 100;
+      } else if (nearest_obstacle_m <= soft_obstacle_buffer_m_) {
+        const double t = (soft_obstacle_buffer_m_ - nearest_obstacle_m) / radius_span;
+        map_inflated_.data[cell_index] =
+          static_cast<int8_t>(50 + std::round(49.0 * std::clamp(t, 0.0, 1.0)));
+      } else {
+        map_inflated_.data[cell_index] = 0;
+      }
+    }
+  }
 }
 
 }  // namespace slambot_navigation

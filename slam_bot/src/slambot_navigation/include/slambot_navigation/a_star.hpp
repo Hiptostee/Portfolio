@@ -14,10 +14,13 @@ public:
     const geometry_msgs::msg::PoseStamped & goal) const;
   void setMap(const nav_msgs::msg::OccupancyGrid & map);
   void setObstacleBufferMeters(double obstacle_buffer_m);
+  void setSoftObstacleBufferMeters(double soft_obstacle_buffer_m);
+  const nav_msgs::msg::OccupancyGrid & getInflatedMap() const;
   bool isMapValid() const;
   bool isInBounds(const Coordinate & cell) const;
   size_t toIndex(const Coordinate & cell) const;
   bool isCellTraversable(const Coordinate & cell) const;
+  double getCellTraversalPenalty(const Coordinate & cell) const;
   bool worldToGrid(double wx, double wy, Coordinate & cell) const;
   geometry_msgs::msg::PoseStamped gridToWorldPose(const Coordinate & cell,
     const std_msgs::msg::Header & header) const;
@@ -34,6 +37,7 @@ public:
                                  const geometry_msgs::msg::Pose& end, 
                                  const nav_msgs::msg::OccupancyGrid& map) const;
   nav_msgs::msg::Path stringPull(const nav_msgs::msg::Path& path) const;
+  nav_msgs::msg::Path rdpSimplify(const nav_msgs::msg::Path& path) const;
   nav_msgs::msg::Path applySpline(const nav_msgs::msg::Path& sparse_path) const;
   double catmullRom(double p0, double p1, double p2, double p3, double t) const;
   
@@ -41,7 +45,10 @@ public:
 
 private:
   nav_msgs::msg::OccupancyGrid map_;
+  nav_msgs::msg::OccupancyGrid map_inflated_;
   double obstacle_buffer_m_{0.3};
+  double soft_obstacle_buffer_m_{0.5};
+  void buildInflatedMap();
 };
 
 }  // namespace slambot_navigation

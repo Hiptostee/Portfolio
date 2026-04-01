@@ -2,6 +2,8 @@ a_star_action_server:
   ros__parameters:
     action_name: "a_star"
     map_topic: "/map"
+    inflated_map_topic: "/map_inflated"
     pose_topic: "/estimated_pose"
     path_topic: "/path"
     obstacle_buffer_m: 0.2
+    soft_obstacle_buffer_m: 0.4
