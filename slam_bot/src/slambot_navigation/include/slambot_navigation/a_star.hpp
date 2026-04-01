@@ -14,7 +14,8 @@ public:
     const geometry_msgs::msg::PoseStamped & goal) const;
   void setMap(const nav_msgs::msg::OccupancyGrid & map);
   void setObstacleBufferMeters(double obstacle_buffer_m);
-  void setSoftObstacleBufferMeters(double soft_obstacle_buffer_m);
+  void setClearanceDecayLengthMeters(double clearance_decay_length_m);
+  void setClearanceCostScale(double clearance_cost_scale);
   const nav_msgs::msg::OccupancyGrid & getInflatedMap() const;
   bool isMapValid() const;
   bool isInBounds(const Coordinate & cell) const;
@@ -37,17 +38,23 @@ public:
                                  const geometry_msgs::msg::Pose& end, 
                                  const nav_msgs::msg::OccupancyGrid& map) const;
   nav_msgs::msg::Path stringPull(const nav_msgs::msg::Path& path) const;
-  nav_msgs::msg::Path rdpSimplify(const nav_msgs::msg::Path& path) const;
   nav_msgs::msg::Path applySpline(const nav_msgs::msg::Path& sparse_path) const;
-  double catmullRom(double p0, double p1, double p2, double p3, double t) const;
+  geometry_msgs::msg::Point catmullRom(
+    const geometry_msgs::msg::Point & p0,
+    const geometry_msgs::msg::Point & p1,
+    const geometry_msgs::msg::Point & p2,
+    const geometry_msgs::msg::Point & p3,
+    double t) const;
   
   
 
 private:
   nav_msgs::msg::OccupancyGrid map_;
   nav_msgs::msg::OccupancyGrid map_inflated_;
+  std::vector<double> traversal_costs_;
   double obstacle_buffer_m_{0.3};
-  double soft_obstacle_buffer_m_{0.5};
+  double clearance_decay_length_m_{0.6};
+  double clearance_cost_scale_{3.0};
   void buildInflatedMap();
 };
 

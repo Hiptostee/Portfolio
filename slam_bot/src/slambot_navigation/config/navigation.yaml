@@ -6,4 +6,5 @@ a_star_action_server:
     pose_topic: "/estimated_pose"
     path_topic: "/path"
     obstacle_buffer_m: 0.2
-    soft_obstacle_buffer_m: 0.4
+    clearance_decay_length_m: 0.6
+    clearance_cost_scale: 3.0

@@ -12,8 +12,10 @@ AStarActionServer::AStarActionServer(const rclcpp::NodeOptions & options)
 {
   const double obstacle_buffer_m =
     declare_parameter<double>("obstacle_buffer_m", 0.3);
-  const double soft_obstacle_buffer_m =
-    declare_parameter<double>("soft_obstacle_buffer_m", 0.5);
+  const double clearance_decay_length_m =
+    declare_parameter<double>("clearance_decay_length_m", 0.6);
+  const double clearance_cost_scale =
+    declare_parameter<double>("clearance_cost_scale", 3.0);
   const std::string action_name =
     declare_parameter<std::string>("action_name", "a_star");
   const std::string map_topic =
@@ -25,7 +27,8 @@ AStarActionServer::AStarActionServer(const rclcpp::NodeOptions & options)
   const std::string pose_topic =
     declare_parameter<std::string>("pose_topic", "/estimated_pose");
   planner_.setObstacleBufferMeters(obstacle_buffer_m);
-  planner_.setSoftObstacleBufferMeters(soft_obstacle_buffer_m);
+  planner_.setClearanceDecayLengthMeters(clearance_decay_length_m);
+  planner_.setClearanceCostScale(clearance_cost_scale);
 
   action_server_ = rclcpp_action::create_server<AStarAction>(
     this,
