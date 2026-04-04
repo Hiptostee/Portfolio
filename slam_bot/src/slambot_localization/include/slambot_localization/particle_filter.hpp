@@ -47,6 +47,7 @@ namespace slambot_localization
     void roughen();
     double effectiveSampleSize() const;
     void navCallback(const std_msgs::msg::Bool::SharedPtr msg);
+    void globalLocalization();
   
 
     
@@ -96,11 +97,10 @@ namespace slambot_localization
     int num_random_max_;
     double random_adapt_gain_;
     double adaptive_yaw_rate_threshold_;
-    double particles_random_x_;
-    double particles_random_y_;
     double particles_random_theta_;
     std::string base_frame_{"base_link"};
     std::string lidar_frame_{"base_laser"};
+    std::vector<std::pair<double,double>> free_cells_;
   };
 }
 

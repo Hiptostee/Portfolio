@@ -67,6 +67,7 @@ class SlambotBridgeNode(Node):
         self.last_planned_path_msg: Optional[NavPath] = None
         self.paused_path_msg: Optional[NavPath] = None
         self.is_navigating = False
+        self.last_navigation_state_update_monotonic = 0.0
         self.is_paused = False
         self.pause_requested = False
         self.last_error = ''
@@ -90,6 +91,9 @@ class SlambotBridgeNode(Node):
         self.a_star_action_name = str(self.declare_parameter('a_star_action_name', '/a_star').value)
         self.stop_service_name = str(self.declare_parameter('stop_service_name', '/lqr/stop').value)
         self.teleop_timeout_ms = int(self.declare_parameter('teleop_timeout_ms', 250).value)
+        self.navigation_state_stale_timeout_sec = float(
+            self.declare_parameter('navigation_state_stale_timeout_sec', 0.75).value
+        )
         self.launch_startup_delay_sec = float(
             self.declare_parameter('launch_startup_delay_sec', 1.0).value
         )
@@ -135,6 +139,7 @@ class SlambotBridgeNode(Node):
         self.create_subscription(Bool, '/is_navigating', self._handle_navigating, 10)
 
         self.create_timer(0.05, self._check_teleop_timeout)
+        self.create_timer(0.1, self._check_navigation_state_timeout)
         self.create_timer(0.5, self._check_launch_process)
 
         self._executor = MultiThreadedExecutor()
@@ -364,6 +369,7 @@ class SlambotBridgeNode(Node):
         return self.snapshot_state()
 
     def handle_teleop(self, client_id: str, payload: Dict[str, Any]) -> None:
+        self._check_navigation_state_timeout()
         with self.state_lock:
             current_mode = self.current_mode
             is_navigating = self.is_navigating
@@ -506,6 +512,28 @@ class SlambotBridgeNode(Node):
             self._clear_teleop()
             self.publish_zero_velocity()
 
+    def _check_navigation_state_timeout(self) -> None:
+        with self.state_lock:
+            stale = (
+                self.is_navigating
+                and self.last_navigation_state_update_monotonic > 0.0
+                and time.monotonic() - self.last_navigation_state_update_monotonic
+                >= self.navigation_state_stale_timeout_sec
+            )
+            if not stale:
+                return
+
+            self.is_navigating = False
+            if not self.is_paused and not self.pause_requested:
+                self.current_path_msg = None
+                self.last_planned_path_msg = None
+                self.last_navigation_goal = None
+
+        self.get_logger().warn(
+            'Navigation state heartbeat timed out; clearing stale navigating flag.'
+        )
+        self._mark_revision()
+
     def _check_launch_process(self) -> None:
         with self.state_lock:
             launch = self.current_launch
@@ -547,6 +575,7 @@ class SlambotBridgeNode(Node):
 
     def _handle_navigating(self, msg: Bool) -> None:
         with self.state_lock:
+            self.last_navigation_state_update_monotonic = time.monotonic()
             self.is_navigating = bool(msg.data)
             if self.is_navigating:
                 self.is_paused = False

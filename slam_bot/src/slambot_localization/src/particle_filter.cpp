@@ -28,9 +28,7 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
 
   // random particle injection parameters for recovery when lost; tuned based on expected size of the "lost" region in the state space and how 
   // aggressively you want to inject random particles when the robot is lost.
-  particles_random_x_ = declare_parameter<double>("particles_random_x", 2.00); 
-  particles_random_y_ = declare_parameter<double>("particles_random_y", 2.00); 
-  particles_random_theta_ = declare_parameter<double>("particles_random_theta", M_PI); 
+  particles_random_theta_ = declare_parameter<double>("particles_random_theta", 2 * M_PI); 
 
   // base random particle percent
   num_random_ = std::clamp(static_cast<int>(declare_parameter<int>("num_random", 1)), 0, 100); 
@@ -115,15 +113,14 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
     std::bind(&ParticleFilter::navCallback, this, std::placeholders::_1));
 
   map_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(
-      map_topic, rclcpp::SystemDefaultsQoS(),
-      [this](const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
-        map_ = *msg;
-        rebuildDistanceField();
-        have_map_ = true;
-        RCLCPP_INFO(get_logger(),
-                    "Map received in particle filter: size %d x %d, resolution %.3f",
-                    map_.info.width, map_.info.height, map_.info.resolution);
-      });
+    map_topic, rclcpp::SystemDefaultsQoS(),
+    [this](const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
+      map_ = *msg;
+      rebuildDistanceField();
+      have_map_ = true;
+      initialized_particles_ = false; // force re-init on new map
+      globalLocalization();           // scatter across whole map
+    });
   
   // TF setup
   tf_buffer_ = std::make_unique<tf2_ros::Buffer>(get_clock());
@@ -152,17 +149,7 @@ void ParticleFilter::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
 
    
   if (!initialized_particles_) {
-    for (auto &p : particles_) {
-      p.x = init_x_ + randomUniform(-particles_x_initial_, particles_x_initial_);
-      p.y = init_y_ + randomUniform(-particles_y_initial_, particles_y_initial_);
-      p.theta = wrapAngle(init_yaw_ + randomUniform(-particles_theta_initial_, particles_theta_initial_));
-      p.weight = 1.0 / static_cast<double>(num_particles_);
-    }
-    initialized_particles_ = true;
-    last_odom_x_ = odom_x;
-    last_odom_y_ = odom_y;
-    last_odom_yaw_ = odom_yaw;
-    last_odom_time_ = current_time;
+    globalLocalization();
   } else {
     const double dt = (current_time - last_odom_time_).seconds();
     if (!(dt > 0.0)) return;
@@ -241,9 +228,15 @@ void ParticleFilter::odomCallback(const nav_msgs::msg::Odometry::SharedPtr msg)
       for (size_t i = 0; i < inject_count; ++i) {
         size_t idx = static_cast<size_t>(randomUniform(0.0, static_cast<double>(particles_.size())));
         if (idx >= particles_.size()) idx = particles_.size() - 1;
-        particles_[idx].x = odom_x + randomUniform(-particles_random_x_, particles_random_x_);
-        particles_[idx].y = odom_y + randomUniform(-particles_random_y_, particles_random_y_);
-        particles_[idx].theta = wrapAngle(odom_yaw + randomUniform(-particles_random_theta_, particles_random_theta_));
+
+        // sample from free cells instead of odom-centered uniform
+        const auto &cell = free_cells_[static_cast<size_t>(
+          randomUniform(0, static_cast<double>(free_cells_.size()))
+        )];
+        const double res = map_.info.resolution;
+        particles_[idx].x = cell.first + randomUniform(-res, res);
+        particles_[idx].y = cell.second + randomUniform(-res, res);
+        particles_[idx].theta = wrapAngle(randomUniform(-M_PI, M_PI));
       }
 
     }
@@ -317,6 +310,43 @@ void ParticleFilter::scanCallback(const sensor_msgs::msg::LaserScan::SharedPtr m
     systematicResample();
     roughen();
   }
+}
+
+void ParticleFilter::globalLocalization()
+{
+  const double ox = map_.info.origin.position.x;
+  const double oy = map_.info.origin.position.y;
+  const double res = map_.info.resolution;
+  const double map_width_m = map_.info.width * map_.info.resolution;
+  const double map_height_m = map_.info.height * map_.info.resolution;
+  const int width = static_cast<int>(map_.info.width);
+  const int height = static_cast<int>(map_.info.height);
+
+  // Collect all free cells
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      const size_t idx = static_cast<size_t>(y) * width + x;
+      if (map_.data[idx] >= 0 && map_.data[idx] < 50) { // free cell
+        free_cells_.emplace_back(
+          ox + (x + 0.5) * res,
+          oy + (y + 0.5) * res
+        );
+      }
+    }
+  }
+
+  if (free_cells_.empty()) return;
+
+  for (auto &p : particles_) {
+    const auto &cell = free_cells_[static_cast<size_t>(
+      randomUniform(0, static_cast<double>(free_cells_.size()))
+    )];
+    p.x = cell.first + randomUniform(-res, res);
+    p.y = cell.second + randomUniform(-res, res);
+    p.theta = randomUniform(-M_PI, M_PI);
+    p.weight = 1.0 / static_cast<double>(num_particles_);
+  }
+  initialized_particles_ = true;
 }
 
 } // namespace slambot_localization
