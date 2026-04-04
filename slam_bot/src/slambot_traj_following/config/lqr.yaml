@@ -10,7 +10,7 @@ lqr:
     max_linear_velocity: 1.0
     max_angular_velocity: 1.0
     path_complete_tolerance: 0.08
-    q_x: 4.0
-    q_y: 10.0
+    q_x: 2.0
+    q_y: 5.0
     q_theta: 1.0
     r_weight: 0.6
