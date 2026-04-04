@@ -5,6 +5,6 @@ a_star_action_server:
     inflated_map_topic: "/map_inflated"
     pose_topic: "/estimated_pose"
     path_topic: "/path"
-    obstacle_buffer_m: 0.2
+    obstacle_buffer_m: 0.25
     clearance_decay_length_m: 0.6
     clearance_cost_scale: 3.0

@@ -38,6 +38,7 @@ private:
     std::shared_ptr<std_srvs::srv::Trigger::Response> response);
   Pose poseStampedToPose(const geometry_msgs::msg::PoseStamped & pose_stamped) const;
   void publishZeroVelocity();
+  void stopTracking(const char * reason);
   Eigen::Matrix3d K;
 
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr estimated_pose_sub_;

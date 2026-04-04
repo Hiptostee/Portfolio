@@ -70,6 +70,9 @@ void LQR::lqrLoop()
     return;
   }
   if (!have_path_ || current_path_.empty()) {
+    auto nav_msg = std_msgs::msg::Bool();
+    nav_msg.data = false;
+    nav_status_pub_->publish(nav_msg);
     RCLCPP_INFO_THROTTLE(get_logger(), *get_clock(), 5000, "Stalled: Waiting for /path");
     return;
   }
@@ -150,9 +153,7 @@ void LQR::lqrLoop()
     current_path_.back().x - current_pose.x,
     current_path_.back().y - current_pose.y);
   if (current_path_index_ >= current_path_.size() - 1 && dist_to_end < path_complete_tolerance_) {
-    RCLCPP_INFO(get_logger(), "Path Complete. Stopping.");
-    publishZeroVelocity();
-    have_path_ = false;
+    stopTracking("Path Complete. Stopping.");
   } else {
     cmd_pub_->publish(cmd);
   }
@@ -165,9 +166,7 @@ void LQR::publishZeroVelocity()
   cmd_pub_->publish(stop);
 }
 
-void LQR::handleStop(
-  const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
-  std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+void LQR::stopTracking(const char * reason)
 {
   current_path_.clear();
   current_path_index_ = 0;
@@ -178,9 +177,19 @@ void LQR::handleStop(
   nav_msg.data = false;
   nav_status_pub_->publish(nav_msg);
 
+  if (reason != nullptr) {
+    RCLCPP_INFO(get_logger(), "%s", reason);
+  }
+}
+
+void LQR::handleStop(
+  const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
+  std::shared_ptr<std_srvs::srv::Trigger::Response> response)
+{
+  stopTracking("Stop service called: cleared path and published zero velocity.");
+
   response->success = true;
   response->message = "LQR stopped: cleared path and published zero velocity.";
-  RCLCPP_WARN(get_logger(), "Stop service called: cleared path and published zero velocity.");
 }
 
 // Set the current estimated pose when a new one is received.

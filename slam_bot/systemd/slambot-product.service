@@ -1,0 +1,21 @@
+[Unit]
+Description=Slambot Mobile Product Stack
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=slambot
+WorkingDirectory=/home/slambot/ros2_ws_pi
+ExecStart=/home/slambot/ros2_ws_pi/scripts/start_slambot_product.sh
+Restart=on-failure
+RestartSec=3
+Environment=WORKSPACE_DIR=/home/slambot/ros2_ws_pi
+Environment=STARTUP_MODE=mapping
+Environment=MAP_YAML=/home/slambot/ros2_ws_pi/maps/my_map_real.yaml
+Environment=MAP_SAVE_PREFIX=/home/slambot/ros2_ws_pi/maps/my_map_real
+Environment=HTTP_HOST=0.0.0.0
+Environment=HTTP_PORT=8000
+
+[Install]
+WantedBy=multi-user.target

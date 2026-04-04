@@ -1,0 +1,248 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		04B00F712EFFFF1000A10001 /* SlambotMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B00F702EFFFF1000A10001 /* SlambotMobileApp.swift */; };
+		04B00F732EFFFF1000A10001 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B00F722EFFFF1000A10001 /* ContentView.swift */; };
+		04B00F752EFFFF1000A10001 /* AppModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04B00F742EFFFF1000A10001 /* AppModel.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		04B00F5D2EFFFF1000A10001 /* SlambotMobile.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = SlambotMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		04B00F702EFFFF1000A10001 /* SlambotMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlambotMobileApp.swift; sourceTree = "<group>"; };
+		04B00F722EFFFF1000A10001 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		04B00F742EFFFF1000A10001 /* AppModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppModel.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		04B00F5A2EFFFF1000A10001 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		04B00F512EFFFF1000A10001 = {
+			isa = PBXGroup;
+			children = (
+				04B00F602EFFFF1000A10001 /* SlambotMobile */,
+				04B00F5E2EFFFF1000A10001 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		04B00F5E2EFFFF1000A10001 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				04B00F5D2EFFFF1000A10001 /* SlambotMobile.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		04B00F602EFFFF1000A10001 /* SlambotMobile */ = {
+			isa = PBXGroup;
+			children = (
+				04B00F702EFFFF1000A10001 /* SlambotMobileApp.swift */,
+				04B00F722EFFFF1000A10001 /* ContentView.swift */,
+				04B00F742EFFFF1000A10001 /* AppModel.swift */,
+			);
+			path = SlambotMobile;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		04B00F5C2EFFFF1000A10001 /* SlambotMobile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 04B00F6B2EFFFF1000A10001 /* Build configuration list for PBXNativeTarget "SlambotMobile" */;
+			buildPhases = (
+				04B00F592EFFFF1000A10001 /* Sources */,
+				04B00F5A2EFFFF1000A10001 /* Frameworks */,
+				04B00F5B2EFFFF1000A10001 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SlambotMobile;
+			productName = SlambotMobile;
+			productReference = 04B00F5D2EFFFF1000A10001 /* SlambotMobile.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		04B00F522EFFFF1000A10001 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					04B00F5C2EFFFF1000A10001 = {
+						CreatedOnToolsVersion = 16.0;
+					};
+				};
+			};
+			buildConfigurationList = 04B00F552EFFFF1000A10001 /* Build configuration list for PBXProject "SlambotMobile" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 04B00F512EFFFF1000A10001;
+			productRefGroup = 04B00F5E2EFFFF1000A10001 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				04B00F5C2EFFFF1000A10001 /* SlambotMobile */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		04B00F5B2EFFFF1000A10001 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		04B00F592EFFFF1000A10001 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				04B00F752EFFFF1000A10001 /* AppModel.swift in Sources */,
+				04B00F732EFFFF1000A10001 /* ContentView.swift in Sources */,
+				04B00F712EFFFF1000A10001 /* SlambotMobileApp.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		04B00F692EFFFF1000A10001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		04B00F6A2EFFFF1000A10001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		04B00F6C2EFFFF1000A10001 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = ZVN9SH9TUS;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SlambotMobile/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.josephmarra.SlambotMobile;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		04B00F6D2EFFFF1000A10001 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = ZVN9SH9TUS;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = SlambotMobile/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.josephmarra.SlambotMobile;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		04B00F552EFFFF1000A10001 /* Build configuration list for PBXProject "SlambotMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				04B00F692EFFFF1000A10001 /* Debug */,
+				04B00F6A2EFFFF1000A10001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		04B00F6B2EFFFF1000A10001 /* Build configuration list for PBXNativeTarget "SlambotMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				04B00F6C2EFFFF1000A10001 /* Debug */,
+				04B00F6D2EFFFF1000A10001 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 04B00F522EFFFF1000A10001 /* Project object */;
+}
