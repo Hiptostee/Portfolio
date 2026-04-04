@@ -323,6 +323,7 @@ private struct NavigationView: View {
     }
 
     private func pushTeleop() {
+        guard joystickEnabled else { return }
         model.updateTeleop(translation: translation, rotation: rotation)
         model.beginTeleop()
     }

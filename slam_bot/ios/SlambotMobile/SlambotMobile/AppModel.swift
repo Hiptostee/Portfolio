@@ -207,6 +207,7 @@ final class AppModel: ObservableObject {
     private var statePollingTask: Task<Void, Never>?
     private var webSocketReconnectTask: Task<Void, Never>?
     private var teleopTask: Task<Void, Never>?
+    private var teleopTaskGeneration = 0
     private var translationVector = CGPoint.zero
     private var rotationVector = 0.0
     private var isConnecting = false
@@ -305,6 +306,7 @@ final class AppModel: ObservableObject {
                 method: "POST",
                 body: GoalRequest(xM: worldPoint.x, yM: worldPoint.y)
             )
+            inlineError = nil
             await refreshState()
         } catch {
             inlineError = error.localizedDescription
@@ -376,10 +378,25 @@ final class AppModel: ObservableObject {
     }
 
     func beginTeleop() {
+        if let teleopTask, teleopTask.isCancelled {
+            self.teleopTask = nil
+        }
         guard teleopTask == nil else {
             return
         }
+
+        teleopTaskGeneration += 1
+        let generation = teleopTaskGeneration
         teleopTask = Task { [weak self] in
+            defer {
+                Task { @MainActor [weak self] in
+                    guard let self, self.teleopTaskGeneration == generation else {
+                        return
+                    }
+                    self.teleopTask = nil
+                }
+            }
+
             while let self, !Task.isCancelled {
                 await self.sendTeleop(deadman: true)
                 try? await Task.sleep(for: .milliseconds(80))
@@ -393,6 +410,7 @@ final class AppModel: ObservableObject {
     }
 
     func endTeleop() {
+        teleopTaskGeneration += 1
         teleopTask?.cancel()
         teleopTask = nil
         translationVector = .zero
@@ -502,9 +520,17 @@ final class AppModel: ObservableObject {
     }
 
     private func apply(state: BridgeState) {
-        if state.mode == "localization" && state.isNavigating {
+        let wasNavigating = bridgeState.isNavigating
+        
+        // only end teleop when TRANSITIONING to navigating, not every update
+        if !wasNavigating && state.isNavigating && state.mode == "localization" {
             endTeleop()
         }
+        
+        if wasNavigating && !state.isNavigating {
+            inlineError = nil
+        }
+        
         bridgeState = state
         if !state.mapAvailable {
             occupancyMap = nil
@@ -567,6 +593,7 @@ final class AppModel: ObservableObject {
         do {
             let state: BridgeState = try await performRequest(path: "/state")
             apply(state: state)
+            // remove the inlineError = nil line here
             await fetchMapIfNeeded(expectedRevision: state.mapRevision)
         } catch {
             if webSocketTask == nil {
@@ -597,6 +624,12 @@ final class AppModel: ObservableObject {
     }
 
     private func sendTeleop(deadman: Bool) async {
+        let linearX = Double(-translationVector.y)
+        let linearY = Double(-translationVector.x)
+        let angularZ = -rotationVector
+        print(
+            "sendTeleop: deadman=\(deadman), webSocketTask=\(webSocketTask == nil ? "nil - BLOCKED" : "exists"), linear_x=\(linearX), linear_y=\(linearY), angular_z=\(angularZ)"
+        )
         guard let webSocketTask else {
             return
         }
@@ -604,9 +637,9 @@ final class AppModel: ObservableObject {
         let payload: [String: Any] = [
             "type": "teleop",
             "deadman": deadman,
-            "linear_x": Double(-translationVector.y),
-            "linear_y": Double(-translationVector.x),
-            "angular_z": -rotationVector,
+            "linear_x": linearX,
+            "linear_y": linearY,
+            "angular_z": angularZ,
         ]
 
         do {

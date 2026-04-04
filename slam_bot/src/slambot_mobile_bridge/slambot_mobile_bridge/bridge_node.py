@@ -92,7 +92,7 @@ class SlambotBridgeNode(Node):
         self.stop_service_name = str(self.declare_parameter('stop_service_name', '/lqr/stop').value)
         self.teleop_timeout_ms = int(self.declare_parameter('teleop_timeout_ms', 250).value)
         self.navigation_state_stale_timeout_sec = float(
-            self.declare_parameter('navigation_state_stale_timeout_sec', 0.75).value
+            self.declare_parameter('navigation_state_stale_timeout_sec', 0.3).value
         )
         self.launch_startup_delay_sec = float(
             self.declare_parameter('launch_startup_delay_sec', 1.0).value
@@ -369,6 +369,7 @@ class SlambotBridgeNode(Node):
         return self.snapshot_state()
 
     def handle_teleop(self, client_id: str, payload: Dict[str, Any]) -> None:
+        self.get_logger().info(f'teleop received: deadman={payload.get("deadman")}, navigating={self.is_navigating}')
         self._check_navigation_state_timeout()
         with self.state_lock:
             current_mode = self.current_mode
@@ -576,14 +577,21 @@ class SlambotBridgeNode(Node):
     def _handle_navigating(self, msg: Bool) -> None:
         with self.state_lock:
             self.last_navigation_state_update_monotonic = time.monotonic()
-            self.is_navigating = bool(msg.data)
-            if self.is_navigating:
+            new_navigating = bool(msg.data)
+            
+            # if transitioning from navigating to not navigating, force clear everything
+            if self.is_navigating and not new_navigating:
+                self.is_navigating = False
                 self.is_paused = False
                 self.pause_requested = False
-            elif not self.is_paused and not self.pause_requested:
                 self.current_path_msg = None
                 self.last_planned_path_msg = None
                 self.last_navigation_goal = None
+            else:
+                self.is_navigating = new_navigating
+                if new_navigating:
+                    self.is_paused = False
+                    self.pause_requested = False
         self._mark_revision()
 
     def _clear_teleop(self) -> None:
@@ -772,17 +780,18 @@ def create_app(bridge: SlambotBridgeNode) -> FastAPI:
         sender_task = asyncio.create_task(telemetry_stream(websocket, bridge))
         try:
             while True:
-                message = await websocket.receive_text()
-                payload = json.loads(message)
-                message_type = payload.get('type')
-                if message_type == 'teleop':
-                    bridge.handle_teleop(client_id, payload)
-                elif message_type == 'ping':
-                    await websocket.send_json({'type': 'pong'})
+                try:
+                    message = await websocket.receive_text()
+                    payload = json.loads(message)
+                    message_type = payload.get('type')
+                    if message_type == 'teleop':
+                        bridge.handle_teleop(client_id, payload)
+                    elif message_type == 'ping':
+                        await websocket.send_json({'type': 'pong'})
+                except (ValueError, BridgeError) as exc:
+                    await websocket.send_json({'type': 'error', 'message': str(exc)})
         except WebSocketDisconnect:
             pass
-        except (ValueError, BridgeError) as exc:
-            await websocket.send_json({'type': 'error', 'message': str(exc)})
         finally:
             sender_task.cancel()
             bridge.handle_disconnect(client_id)
