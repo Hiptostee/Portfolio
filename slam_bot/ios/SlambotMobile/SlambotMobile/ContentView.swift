@@ -342,6 +342,21 @@ private struct MapPanel: View {
     @ObservedObject var model: AppModel
     let tapAction: ((CGPoint) -> Void)?
 
+    private var rawMapAspectRatio: CGFloat {
+        guard let map = model.occupancyMap, map.height > 0 else {
+            return 1.0
+        }
+        return CGFloat(map.width) / CGFloat(map.height)
+    }
+
+    private var shouldRotateMap: Bool {
+        rawMapAspectRatio < 0.9
+    }
+
+    private var displayAspectRatio: CGFloat {
+        shouldRotateMap ? (1.0 / max(rawMapAspectRatio, 0.01)) : rawMapAspectRatio
+    }
+
     init(model: AppModel, tapAction: ((CGPoint) -> Void)? = nil) {
         self.model = model
         self.tapAction = tapAction
@@ -360,9 +375,12 @@ private struct MapPanel: View {
                 mapImage: model.mapImage,
                 pose: model.bridgeState.pose,
                 path: model.bridgeState.path,
+                rotateClockwise: shouldRotateMap,
                 tapAction: tapAction
             )
-            .frame(maxWidth: .infinity, minHeight: 320, maxHeight: 520)
+            .aspectRatio(displayAspectRatio, contentMode: .fit)
+            .frame(maxWidth: 680, minHeight: 280, maxHeight: 420)
+            .frame(maxWidth: .infinity, alignment: .center)
         }
         .padding()
         .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 28, style: .continuous))
@@ -374,6 +392,7 @@ private struct MapCanvasView: View {
     let mapImage: CGImage?
     let pose: PoseState?
     let path: [PathPoint]
+    let rotateClockwise: Bool
     let tapAction: ((CGPoint) -> Void)?
 
     @State private var scale: CGFloat = 1.0
@@ -390,9 +409,7 @@ private struct MapCanvasView: View {
 
                 if let map, let mapImage {
                     Canvas { context, size in
-                        // We apply the transform inside the canvas for better performance
-                        context.draw(Image(decorative: mapImage, scale: 1.0, orientation: .up), 
-                                     in: CGRect(origin: .zero, size: size))
+                        drawMapImage(context: context, mapImage: mapImage, size: size)
                         drawGrid(context: context, size: size)
                         drawPath(context: context, map: map, size: size)
                         drawRobot(context: context, map: map, size: size)
@@ -404,45 +421,67 @@ private struct MapCanvasView: View {
             }
             .contentShape(Rectangle())
             .gesture(
-                // 1. Panning Gesture
                 DragGesture()
                     .onChanged { value in
-                        offset = CGSize(
+                        let proposedOffset = CGSize(
                             width: lastOffset.width + value.translation.width,
                             height: lastOffset.height + value.translation.height
                         )
+                        offset = clampedOffset(
+                            proposedOffset,
+                            in: geometry.size,
+                            scale: scale
+                        )
                     }
                     .onEnded { _ in
+                        offset = clampedOffset(offset, in: geometry.size, scale: scale)
                         lastOffset = offset
-                    }
+                    },
+                including: scale > 1.01 ? .all : .none
             )
             .simultaneousGesture(
-                // 2. Zooming Gesture
                 MagnifyGesture()
                     .onChanged { value in
-                        scale = lastScale * value.magnification
+                        scale = clampedScale(lastScale * value.magnification)
+                        offset = clampedOffset(lastOffset, in: geometry.size, scale: scale)
                     }
                     .onEnded { _ in
-                        scale = min(max(scale, 1.0), 5.0) // Clamp zoom
+                        scale = clampedScale(scale)
+                        offset = clampedOffset(offset, in: geometry.size, scale: scale)
                         lastScale = scale
+                        lastOffset = offset
                     }
             )
             .simultaneousGesture(
                 SpatialTapGesture()
                     .onEnded { event in
                         guard let map, let tapAction else { return }
-                        // Note: Tap coordinate math gets tricky once you add offset.
-                        // You'll need to subtract the offset from the tap location 
-                        // before calculating the world point.
                         let adjustedPoint = CGPoint(
                             x: (event.location.x - offset.width - (geometry.size.width/2)) / scale + (geometry.size.width/2),
                             y: (event.location.y - offset.height - (geometry.size.height/2)) / scale + (geometry.size.height/2)
                         )
-                        tapAction(map.worldPoint(for: adjustedPoint, in: geometry.size))
+                        tapAction(displayWorldPoint(for: adjustedPoint, map: map, in: geometry.size))
                     }
             )
         }
         .clipped() // Prevents the zoomed map from bleeding over other UI elements
+    }
+
+    private func drawMapImage(context: GraphicsContext, mapImage: CGImage, size: CGSize) {
+        if rotateClockwise {
+            var rotatedContext = context
+            rotatedContext.translateBy(x: size.width, y: 0)
+            rotatedContext.rotate(by: .degrees(90))
+            rotatedContext.draw(
+                Image(decorative: mapImage, scale: 1.0, orientation: .up),
+                in: CGRect(origin: .zero, size: CGSize(width: size.height, height: size.width))
+            )
+        } else {
+            context.draw(
+                Image(decorative: mapImage, scale: 1.0, orientation: .up),
+                in: CGRect(origin: .zero, size: size)
+            )
+        }
     }
 
     private func drawGrid(context: GraphicsContext, size: CGSize) {
@@ -467,9 +506,9 @@ private struct MapCanvasView: View {
         }
 
         var route = Path()
-        route.move(to: map.screenPoint(for: CGPoint(x: path[0].x, y: path[0].y), in: size))
+        route.move(to: displayPoint(for: CGPoint(x: path[0].x, y: path[0].y), map: map, in: size))
         for point in path.dropFirst() {
-            route.addLine(to: map.screenPoint(for: CGPoint(x: point.x, y: point.y), in: size))
+            route.addLine(to: displayPoint(for: CGPoint(x: point.x, y: point.y), map: map, in: size))
         }
 
         context.stroke(route, with: .color(Color(red: 0.34, green: 0.94, blue: 0.45)), lineWidth: 3)
@@ -481,8 +520,9 @@ private struct MapCanvasView: View {
         }
 
         var mutableContext = context
-        let center = map.screenPoint(for: CGPoint(x: pose.x, y: pose.y), in: size)
-        let heading = CGFloat(-pose.theta + (.pi / 2.0))
+        let center = displayPoint(for: CGPoint(x: pose.x, y: pose.y), map: map, in: size)
+        let headingOffset = (.pi / 2.0) + (rotateClockwise ? (.pi / 2.0) : 0.0)
+        let heading = CGFloat(-pose.theta + headingOffset)
         let radius: CGFloat = 11
 
         var arrow = Path()
@@ -501,15 +541,43 @@ private struct MapCanvasView: View {
         min(max(scale, 1.0), 4.0)
     }
 
-    private func transformedPoint(
-        _ point: CGPoint,
-        in size: CGSize,
-        scale: CGFloat
-    ) -> CGPoint {
-        let center = CGPoint(x: size.width / 2.0, y: size.height / 2.0)
+    private func displayPoint(for worldPoint: CGPoint, map: OccupancyMap, in size: CGSize) -> CGPoint {
+        if !rotateClockwise {
+            return map.screenPoint(for: worldPoint, in: size)
+        }
+
+        let baseSize = CGSize(width: size.height, height: size.width)
+        let unrotatedPoint = map.screenPoint(for: worldPoint, in: baseSize)
         return CGPoint(
-            x: ((point.x - center.x) / scale) + center.x,
-            y: ((point.y - center.y) / scale) + center.y
+            x: size.width - unrotatedPoint.y,
+            y: unrotatedPoint.x
+        )
+    }
+
+    private func displayWorldPoint(for displayPoint: CGPoint, map: OccupancyMap, in size: CGSize) -> CGPoint {
+        if !rotateClockwise {
+            return map.worldPoint(for: displayPoint, in: size)
+        }
+
+        let baseSize = CGSize(width: size.height, height: size.width)
+        let unrotatedPoint = CGPoint(
+            x: displayPoint.y,
+            y: size.width - displayPoint.x
+        )
+        return map.worldPoint(for: unrotatedPoint, in: baseSize)
+    }
+
+    private func clampedOffset(_ proposedOffset: CGSize, in size: CGSize, scale: CGFloat) -> CGSize {
+        guard scale > 1.0 else {
+            return .zero
+        }
+
+        let maxX = ((size.width * scale) - size.width) / 2.0
+        let maxY = ((size.height * scale) - size.height) / 2.0
+
+        return CGSize(
+            width: min(max(proposedOffset.width, -maxX), maxX),
+            height: min(max(proposedOffset.height, -maxY), maxY)
         )
     }
 }
