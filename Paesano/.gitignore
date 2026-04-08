@@ -62,3 +62,5 @@ images/
 # Keep the main report source and draft PDF trackable.
 !documentation/main.tex
 !documentation/main.pdf
+!documentation/assets/
+!documentation/assets/**
