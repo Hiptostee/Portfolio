@@ -6,9 +6,9 @@ Welcome to my project portfolio repository! My name is Joe, and I am an aspiring
 
 ## 💻 Featured Projects
 
-### 🤖 Autonomous Mecanum Navigation Platform
+### 🤖 Paesano
 
-**Overview:** This project is my primary robotics platform: a holonomic autonomous robot built for indoor navigation, path planning, localization, and closed-loop trajectory following. The system uses a Raspberry Pi 5 for high-level planning and estimation, a Raspberry Pi Pico for real-time motor control, and onboard sensing from a BNO085 IMU, LD19 LiDAR, and wheel encoders. The architecture is modular across firmware, control, localization, navigation, and mobile integration, with custom 3D-printed hardware and ROS 2-based software written primarily in C++.
+**Overview:** Paesano is my primary robotics platform: a holonomic autonomous robot built for indoor navigation, path planning, localization, and closed-loop trajectory following. The system uses a Raspberry Pi 5 for high-level planning and estimation, a Raspberry Pi Pico for real-time motor control, and onboard sensing from a BNO085 IMU, LD19 LiDAR, and wheel encoders. The architecture is modular across firmware, control, localization, navigation, and mobile integration, with custom 3D-printed hardware and ROS 2-based software written primarily in C++.
 
 ---
 

@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<robot name="paesano" xmlns:xacro="http://www.ros.org/wiki/xacro">
+  <!-- This URDF is a thin xacro wrapper around the main description. -->
+  <xacro:include filename="$(find paesano_description)/urdf/paesano.xacro"/>
+
+  <!-- Macro is instantiated inside paesano.xacro to keep it self-contained. -->
+</robot>

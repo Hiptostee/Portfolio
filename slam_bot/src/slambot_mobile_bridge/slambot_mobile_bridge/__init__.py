@@ -1,1 +1,0 @@
-"""Slambot mobile bridge package."""

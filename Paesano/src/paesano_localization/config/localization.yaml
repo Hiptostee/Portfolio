@@ -1,0 +1,43 @@
+imu_covariances:
+  ros__parameters:
+    imu_input_topic: "/imu"
+    imu_output_topic: "/imu_with_covariances"
+
+particle_filter:
+  ros__parameters:
+    odom_topic: "/odom/filtered"
+    particle_cloud_topic: "/particle_cloud"
+    estimated_pose_topic: "/estimated_pose"
+    scan_topic: "/scan"
+    navigation_state_topic: "/is_navigating"
+    map_topic: "/map"
+    num_particles: 2000
+    particles_x_initial: 0.25
+    particles_y_initial: 0.25
+    particles_theta_initial: 0.15
+    particles_random_theta: 6.28318
+    num_random: 5
+    num_random_max: 100
+    random_adapt_gain: 1.0
+    adaptive_yaw_rate_threshold: 0.1
+    x_noise: 0.005
+    y_noise: 0.0075
+    theta_noise: 0.009
+    init_x: 0.0
+    init_y: 0.0
+    init_yaw: 0.0
+    beam_stride: 3
+    z_hit: 0.95
+    z_rand: 0.05
+    sigma_hit: 0.05
+    alpha_fast: 0.05
+    alpha_slow: 0.005
+    base_frame: "base_link"
+    lidar_frame: "base_laser"
+
+map_loader_service:
+  ros__parameters:
+    map_server_load_service: "/map_server/load_map"
+    global_load_map_service: "/paesano/load_map"
+    load_map_service: "/paesano/load_map"
+    map_topic: "/map"

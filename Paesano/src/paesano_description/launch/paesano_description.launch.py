@@ -1,0 +1,181 @@
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument, TimerAction
+from launch.conditions import IfCondition, UnlessCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration
+from ament_index_python.packages import get_package_share_directory
+import os
+
+def generate_launch_description():
+
+    pkg_path = get_package_share_directory('paesano_description')
+    xacro_file = os.path.join(pkg_path, 'urdf', 'paesano.xacro')
+    
+    odom_node_launch = os.path.join(
+        get_package_share_directory('odom_node'),
+        'launch',
+        'odom_node.launch.py'
+    )
+
+    ekf_launch = os.path.join(
+        get_package_share_directory('paesano_localization'),
+        'launch',
+        'paesano_localization.launch.py'
+    )
+    navigation_launch = os.path.join(
+        get_package_share_directory('paesano_navigation'),
+        'launch',
+        'a_star_action_server.launch.py'
+    )
+    traj_following_launch = os.path.join(
+        get_package_share_directory('paesano_traj_following'),
+        'launch',
+        'lqr.launch.py'
+    )
+    mapping_launch = os.path.join(
+        get_package_share_directory('paesano_mapping'),
+        'launch',
+        'mapping.launch.py'
+    )
+
+    robot_description = ParameterValue(
+        Command([
+            FindExecutable(name='xacro'), ' ', xacro_file, ' ',
+            'use_gz:=true'
+        ]),
+        value_type=str
+    )
+
+    localization_mode_arg = DeclareLaunchArgument(
+        'localization_mode',
+        default_value='false',
+        description='true: run particle filter; false: run slam_toolbox'
+    )
+    map_yaml_arg = DeclareLaunchArgument(
+        'map_yaml',
+        default_value='/home/Paesano/ros2_ws/maps/my_map.yaml',
+        description='Map yaml path used by localization map server/load service',
+    )
+    localization_mode = LaunchConfiguration('localization_mode')
+    map_yaml = LaunchConfiguration('map_yaml')
+
+
+
+    # Start Gazebo with ODE world for mecanum friction modeling
+    world_file = os.path.join(pkg_path, 'worlds', 'mecanum_ode.sdf')
+    gazebo = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            os.path.join(
+                get_package_share_directory('ros_gz_sim'),
+                'launch',
+                'gz_sim.launch.py'
+            )
+        ),
+        launch_arguments={'gz_args': f'-r {world_file}'}.items()
+    )
+
+    # Robot State Publisher
+    rsp = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        parameters=[{
+            'robot_description': robot_description,
+            'use_sim_time': True
+        }],
+        output='screen'
+    )
+
+    # Spawn robot in Gazebo (same xacro)
+    # Wrap in TimerAction to wait for Gazebo Sim to be ready
+    spawn_robot_delayed = TimerAction(
+        period=5.0,
+        actions=[
+            Node(
+                package='ros_gz_sim',
+                executable='create',
+                arguments=[
+                    '-world', 'mecanum_ode',
+                    '-name', 'paesano',
+                    '-string', Command([
+                        FindExecutable(name='xacro'), ' ', xacro_file, ' ',
+                        'use_gz:=true'
+                    ])
+                ],
+                output='screen'
+            )
+        ]
+    )
+
+    lidar_frame_alias_gpu_lidar = Node(
+        package='tf2_ros',
+        executable='static_transform_publisher',
+        arguments=['0', '0', '0', '0', '0', '0', 'base_laser', 'paesano/base_link/gpu_lidar'],
+        parameters=[{'use_sim_time': True}],
+        output='screen'
+    )
+
+    # Ensure odom node uses sim time when running in Gazebo
+    odom_node_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(odom_node_launch),
+        launch_arguments={'sim': 'true'}.items()
+    )
+
+    ekf_node_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(ekf_launch),
+        launch_arguments={
+            'sim': 'true',
+            'localization_mode': localization_mode,
+            'map_yaml': map_yaml,
+        }.items()
+    )
+    mapping_node_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(mapping_launch),
+        launch_arguments={'sim': 'true'}.items(),
+        condition=UnlessCondition(localization_mode),
+    )
+
+    navigation_launch_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(navigation_launch),
+        launch_arguments={'sim': 'true'}.items(),
+        condition=IfCondition(localization_mode),
+    )
+
+    traj_following_launch_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(traj_following_launch),
+        launch_arguments={'sim': 'true'}.items(),
+        condition=IfCondition(localization_mode),
+    )
+
+
+
+    bridge_yaml = DeclareLaunchArgument(
+        "bridge_yaml",
+        default_value=os.path.join(pkg_path, "config", "bridge.yaml"),
+        description="bridge YAML config",
+    )
+
+    bridge = Node(
+        package="ros_gz_bridge",
+        executable="parameter_bridge",
+        name="ros_gz_bridge",
+        output="screen",
+        parameters=[{"config_file": LaunchConfiguration("bridge_yaml")}],
+    )
+
+    return LaunchDescription([
+        localization_mode_arg,
+        map_yaml_arg,
+        bridge_yaml,
+        gazebo,
+        rsp,
+        spawn_robot_delayed,
+        lidar_frame_alias_gpu_lidar,
+        odom_node_launch,
+        ekf_node_launch,
+        mapping_node_launch,
+        navigation_launch_node,
+        traj_following_launch_node,
+        bridge,
+    ])
