@@ -6,17 +6,17 @@ Welcome to my project portfolio repository! My name is Joe, and I am an aspiring
 
 ## 💻 Featured Projects
 
-### 🤖 SLAM Bot: Holonomic Autonomous Mobile Robotics Platform
+### 🤖 Autonomous Mecanum Navigation Platform
 
-**Overview:** This project presents the design, implementation, and testing of a holonomic autonomous mobile robotics platform built to navigate complex and ambiguous environments. It utilizes state estimation from an Extended Kalman Filter and Monte Carlo localization algorithm, and follows planned trajectories using semantic control. The hardware and software architecture are designed to be modular and scalable, featuring a Raspberry Pi 5 for high-level processing (state estimation, navigation, planning), a Raspberry Pi Pico for real-time motor control, and sensors including a BNO085 IMU, LD19 LiDAR, and wheel encoders. The system emphasizes modularity, simplicity, expandability, accessibility, and cost-effectiveness, with custom 3D-printed mechanical mounts and firmware written in C++.
+**Overview:** This project is my primary robotics platform: a holonomic autonomous robot built for indoor navigation, path planning, localization, and closed-loop trajectory following. The system uses a Raspberry Pi 5 for high-level planning and estimation, a Raspberry Pi Pico for real-time motor control, and onboard sensing from a BNO085 IMU, LD19 LiDAR, and wheel encoders. The architecture is modular across firmware, control, localization, navigation, and mobile integration, with custom 3D-printed hardware and ROS 2-based software written primarily in C++.
 
 ---
 
-### 🔫 Electromagnetic Gauss Rifle Tracking & Aiming System
+### 🎯 Vision-Based Target Tracking & Pan-Tilt Control
 
-**Overview:** This project combines computer vision with precision servo control to create an intelligent aiming mechanism. It's designed to detect and track objects in real-time using a camera, then autonomously adjust the horizontal and vertical aim of an electromagnetic coil gun to keep the target centered.
+**Overview:** This project combines computer vision with closed-loop servo control to build a real-time target tracking system. A camera detects and tracks colored objects, then sends position updates to an Arduino-controlled pan-tilt mechanism that keeps the target centered. The work focuses on vision processing, serial communication, and smooth actuator control rather than the specific hardware mounted on the platform.
 
-![Electromagnetic Gauss Rifle](/images/gaussrifle.png)
+![Vision-Based Target Tracking Platform](/images/gaussrifle.png)
 
 This project was made in collaboration with Francis Leahy (Binghamton University) and Matthew Russo (University at Buffalo)
 

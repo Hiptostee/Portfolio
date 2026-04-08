@@ -1,4 +1,4 @@
-# 🔫 Coil Gun Aiming & Tracking System 🎯
+# 🎯 Vision-Based Target Tracking & Pan-Tilt Control
 
 A demo video is available at [this link](https://photos.app.goo.gl/oTzyxrED9PwBCRbX7).
 
@@ -8,7 +8,7 @@ This project showcases expertise in:
 
 - **Computer Vision:** OpenCV (Object Detection, Tracking, Filtering)
 - **Microcontroller Programming:** Arduino (C++)
-- **Robotics & Control:** Servo Control, Real-time Aiming Systems
+- **Robotics & Control:** Servo Control, Real-time Tracking Systems
 - **Hardware Interfacing:** Serial Communication (Python-Arduino), Camera Control
 - **Image Processing:** HSV Color Space, Morphological Operations, Contours
 - **Languages:** Python, C++ (Arduino)
@@ -18,7 +18,7 @@ This project showcases expertise in:
 
 ## ✨ Project Overview
 
-Welcome to the **Coil Gun Aiming & Tracking System** project! This repository combines computer vision with precision servo control to create an intelligent aiming mechanism for an electromagnetic coil gun. The system uses a camera to detect and track objects in real-time, then communicates with an Arduino Nano to precisely adjust the coil gun's horizontal and vertical aiming. Get ready to lock on to your targets! 🚀
+This project combines computer vision with precision servo control to create a real-time target tracking system. A camera detects and tracks colored objects, then communicates with an Arduino Nano to adjust a two-axis pan-tilt mechanism and keep the target centered. The technical focus is on vision processing, serial communication, and smooth closed-loop actuation.
 
 ## ✅ Features
 
@@ -28,9 +28,9 @@ Welcome to the **Coil Gun Aiming & Tracking System** project! This repository co
 
 - **Adaptive Servo Control:** Arduino-based logic smoothly adjusts two servos (horizontal and vertical) to center the detected object in the camera's view. 🤖
 
-- **Dynamic Aim Correction:** Implements error calculation and stepped adjustments to prevent jerky movements and ensure stable aiming. 🔄
+- **Dynamic Tracking Correction:** Implements error calculation and stepped adjustments to prevent jerky movements and ensure stable tracking. 🔄
 
-- **Configurable Parameters:** Easy-to-tune parameters for camera resolution, servo limits, movement steps, and aiming offsets. ⚙️
+- **Configurable Parameters:** Easy-to-tune parameters for camera resolution, servo limits, movement steps, and alignment offsets. ⚙️
 
 - **Serial Communication:** Robust data transfer between the Python vision system and the Arduino microcontroller. 📡
 
@@ -43,7 +43,6 @@ This project functions as a closed-loop control system:
 1.  **Camera Input:** A webcam captures live video frames. 🖼️
 
 2.  **Python Vision Processing:**
-
     - Each frame is converted from BGR to HSV color space.
 
     - Color masks are applied to isolate the target object (e.g., a red object).
@@ -57,24 +56,23 @@ This project functions as a closed-loop control system:
     - This data (`X,Y,W,H`) is then sent over a serial connection to the Arduino.
 
 3.  **Arduino Servo Control:**
-
     - The Arduino receives the object's `X` and `Y` coordinates from Python.
 
     - These coordinates are normalized (0 to 1) relative to the camera's resolution.
 
     - Optional **scaling** is applied to the normalized values for non-linear servo response, allowing for finer control around the center.
 
-    - The scaled coordinates are mapped to target angles for the horizontal (`bottomServo`) and vertical (`topServo`) aiming servos.
+    - The scaled coordinates are mapped to target angles for the horizontal (`bottomServo`) and vertical (`topServo`) servos.
 
-    - Small **correction offsets** can be applied for fine-tuning the aim.
+    - Small **correction offsets** can be applied for fine-tuning the pan-tilt response.
 
     - The current servo angles are compared to the target angles to calculate `error`.
 
-    - Servos are adjusted in small, constrained steps (`maxStepBottom`, `maxStepTop`) to smoothly move the coil gun towards the target.
+    - Servos are adjusted in small, constrained steps (`maxStepBottom`, `maxStepTop`) to smoothly move the platform towards the target.
 
     - Real-time debug information (face position, servo angles) is sent back to Python (though not explicitly read by the Python script in the provided code).
 
-4.  **Aiming the Coil Gun:** The two servos control the physical orientation of the electromagnetic coil gun, constantly adjusting its aim to keep the detected target centered. 🌟
+4.  **Pan-Tilt Tracking:** The two servos control the physical orientation of the pan-tilt platform, constantly adjusting to keep the detected target centered. 🌟
 
 ## ⚙️ Components Used
 
@@ -85,12 +83,11 @@ This project functions as a closed-loop control system:
 - **Arduino Nano (or similar):** Microcontroller for servo control. 🔌
 
 - **2x Servo Motors:**
-
   - One for **horizontal** (pan) movement.
 
   - One for **vertical** (tilt) movement.
 
-- **Electromagnetic Coil Gun:** The device being aimed (not provided in code, assumed external). ⚡
+- **Pan-Tilt Mount or Payload:** The code can drive a two-axis tracking platform for different mounted hardware. ⚡
 
 - **USB Cable:** For serial communication between computer and Arduino. 🔗
 
@@ -114,7 +111,6 @@ This project functions as a closed-loop control system:
 ### 📝 Setup
 
 1.  **Arduino Code:**
-
     - Open the `arduino_code.ino` (or equivalent) in Arduino IDE.
 
     - **Verify Servo Connections:** Ensure `bottomServo` and `topServo` are attached to the correct pins (A2 and A3 in the code).
@@ -122,7 +118,6 @@ This project functions as a closed-loop control system:
     - Upload the code to your Arduino Nano.
 
 2.  **Python Code:**
-
     - **`arduino_port`:** Modify `arduino_port = '/dev/cu.usbserial-110'` to match your Arduino's serial port. You can usually find this in the Arduino IDE under `Tools > Port`.
 
     - **Camera Index:** `cv2.VideoCapture(0)` assumes your default webcam. If you have multiple cameras, you might need to change `0` to `1`, `2`, etc.
@@ -130,10 +125,9 @@ This project functions as a closed-loop control system:
     - **Color Ranges:** Adjust `lower_color`/`upper_color` arrays (e.g., `lower_red1`, `upper_red1`, `lower_red2`, `upper_red2` for red) to accurately detect your target object's HSV color range. You can use an HSV color picker tool or experiment. 🌈
 
 3.  **Physical Setup:**
-
     - Mount your camera securely.
 
-    - Attach the two servos to your coil gun base or aiming platform such that one controls horizontal rotation and the other controls vertical tilt.
+    - Attach the two servos to your pan-tilt base such that one controls horizontal rotation and the other controls vertical tilt.
 
     - Wire the servos to the Arduino according to the code (A2 and A3 for signal, plus power and ground).
 
@@ -160,7 +154,7 @@ This project functions as a closed-loop control system:
 
 - `lower_color`, `upper_color` (and `lower_red1`, etc.): HSV ranges for color detection.
 
-### Arduino (`arduino_code.ino`)
+### Arduino (`main.ino`)
 
 - `cameraWidth`, `cameraHeight`: Expected camera resolution (match Python).
 
@@ -170,13 +164,13 @@ This project functions as a closed-loop control system:
 
 - `angleBottomInit`, `angleTopInit`: Initial starting angles for the servos.
 
-- `correctionOffsetX`, `correctionOffsetY`: Fine-tune fixed offset for aiming.
+- `correctionOffsetX`, `correctionOffsetY`: Fine-tune fixed offset for pan-tilt alignment.
 
 - `useScaling`: `true` or `false` to enable/disable non-linear scaling of input.
 
 ## 🚧 Future Enhancements
 
-- **Coil Gun Firing Integration:** Add logic to trigger the coil gun based on a "locked-on" state or a separate command. 🔥
+- **Payload Integration:** Add logic for whatever device or mechanism is mounted on the pan-tilt platform once a target is locked. 🔥
 
 - **Multiple Object Tracking:** Track and prioritize multiple targets.
 

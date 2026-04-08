@@ -54,11 +54,11 @@ void loop()
     int commaIndex = input.indexOf(',');
     if (commaIndex > 0)
     {
-      int faceX = input.substring(0, commaIndex).toInt();
-      int faceY = input.substring(commaIndex + 1).toInt();
+      int itemX = input.substring(0, commaIndex).toInt();
+      int itemY = input.substring(commaIndex + 1).toInt();
 
-      float normX = (float)faceX / cameraWidth;
-      float normY = (float)faceY / cameraHeight;
+      float normX = (float)itemX / cameraWidth;
+      float normY = (float)itemY / cameraHeight;
 
       float scaledX = useScaling ? scaleInput(normX) : normX;
       float scaledY = useScaling ? scaleInput(normY) : normY;
