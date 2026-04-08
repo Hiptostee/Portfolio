@@ -10,6 +10,8 @@ Welcome to my project portfolio repository! My name is Joe, and I am an aspiring
 
 **Overview:** Paesano is my primary robotics platform: a holonomic autonomous robot built for indoor navigation, path planning, localization, and closed-loop trajectory following. The system uses a Raspberry Pi 5 for high-level planning and estimation, a Raspberry Pi Pico for real-time motor control, and onboard sensing from a BNO085 IMU, LD19 LiDAR, and wheel encoders. The architecture is modular across firmware, control, localization, navigation, and mobile integration, with custom 3D-printed hardware and ROS 2-based software written primarily in C++.
 
+![Paesano - Holonomic Autonomous Robotics Platform](Paesano/documentation/assets/bot.png)
+
 ---
 
 ### 🎯 Vision-Based Target Tracking & Pan-Tilt Control

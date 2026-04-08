@@ -25,8 +25,17 @@
 \begin{document}
 
 \maketitle
+
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=0.62\textwidth]{bot.png}
+    \caption{Paesano assembled hardware platform.}
+    \label{fig:paesano-platform}
+\end{figure}
+
 \tableofcontents
 \newpage
+
 
 \section{Introduction}
 This report presents the design, implementation, and testing of Paesano, a holonomic autonomous mobile robotics platform.
@@ -102,6 +111,7 @@ Wago Connectors & \$11.95 \\
     \caption{System architecture overview.}
     \label{fig:system-architecture}
 \end{figure}
+
 \subsection{Power Architecture}
 The robot is powered by a 7.4 nominal voltage 2S 5200mAh LiPo battery. This battery directly powers the entire system, acting as the "heart" 
 of the robot. This battery is chosen for its high energy density and ability to provide the necessary current for both the high-level compute module 
