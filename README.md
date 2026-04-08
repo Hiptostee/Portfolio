@@ -30,6 +30,26 @@ This project was made in collaboration with Francis Leahy (Binghamton University
 
 ---
 
+### 🏀 SWISHHH!
+
+**Overview:** SWISHHH! is a four-person AI ATL group project built around live NBA game data, webcam gesture input, and real-time shot prediction gameplay. The app combines live scoreboard and play-by-play feeds with gesture-based interaction to create a polished, fast-moving prediction experience. I include it here as a collaboration project rather than a solo-owned codebase.
+
+**Team:** Kevin Gao (`@Pudging`), Nash Pillai (`@nash-pillai`), Neha Nataraj (`@nehanataraj`), and Joe Marra (`@Hiptostee`)
+
+**Links:** [Original Repository](https://github.com/Pudging/AIATL) · [Devpost](https://devpost.com/software/swishhh) · [Archived Demo](https://aiatl.vercel.app)
+
+---
+
+### 🪐 Cosmic Collector
+
+**Overview:** Cosmic Collector is a four-person Robotech 2026 hackathon project built around autonomous cave navigation, wall avoidance, and physical ore marking in a Mars-inspired environment. The robot combined a mecanum chassis, camera, IMU, LiDAR, ROS-based navigation, and custom ESP32 firmware under tight hackathon time pressure.
+
+**Team:** Hiro, Joseph Marra, Nash Pillai, and Quinn Kortbus
+
+**Links:** [Original Repository](https://github.com/Hiptostee/robotech) · [Devpost](https://devpost.com/software/cosmic-collector)
+
+---
+
 ## 💡 Skills & Technologies
 
 This portfolio demonstrates proficiency in technologies central to autonomous systems and robotics, including:
