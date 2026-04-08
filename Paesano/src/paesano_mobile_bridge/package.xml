@@ -3,8 +3,8 @@
   <name>paesano_mobile_bridge</name>
   <version>0.0.1</version>
   <description>FastAPI and WebSocket bridge for the Paesano mobile product.</description>
-  <maintainer email="josephmarra@example.com">Joseph Marra</maintainer>
-  <license>Apache-2.0</license>
+  <maintainer email="joey.marra2007@gmail.com">Joey Marra</maintainer>
+  <license>MIT</license>
 
   <buildtool_depend>ament_python</buildtool_depend>
 

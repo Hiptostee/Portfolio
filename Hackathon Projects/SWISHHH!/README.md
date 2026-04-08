@@ -1,6 +1,6 @@
-# Swishhh
+# SWISHHH!
 
-Swishhh is a group-built AI ATL project centered on live NBA game data, webcam gesture input, and real-time prediction gameplay.
+SWISHHH! is a group-built AI ATL project centered on live NBA game data, webcam gesture input, and real-time prediction gameplay.
 
 ## Links
 
@@ -10,7 +10,7 @@ Swishhh is a group-built AI ATL project centered on live NBA game data, webcam g
 
 ## Project Summary
 
-Swishhh is an interactive NBA prediction app that combines live game state, player context, and webcam-based gesture input. The experience lets users make shot predictions during live games and react to the next made or missed shot in real time.
+SWISHHH! is an interactive NBA prediction app that combines live game state, player context, and webcam-based gesture input. The experience lets users make shot predictions during live games and react to the next made or missed shot in real time.
 
 The original repository describes it as an **AI ATL Shot Bet App**, and the README frames it as an **NBA Gesture Predictor** built around:
 

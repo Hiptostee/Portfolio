@@ -60,7 +60,7 @@ Welcome to my project portfolio repository! My name is Joe, and I am an aspiring
 
 This portfolio demonstrates proficiency in technologies central to autonomous systems and robotics, including:
 
-- **Robotics & Embedded Systems:** C++, Python, ROS2, Probabilistic State Estimation (Extended Kalman Filter, Monte Carlo Localization), Control Algorithms (PID, Semantic Control), Path Planning Algorithms (A*, Theta*), Real-time Motor Control, Sensor Fusion, I2C Communication, Firmware Development, Mechanical Design (CAD, 3D Printing), Arduino, Raspberry Pi, ESP32
+- **Robotics & Embedded Systems:** C++, Python, ROS2, Probabilistic State Estimation (Extended Kalman Filter, Monte Carlo Localization), Control Algorithms (PID, LQR), Path Planning Algorithms (A\*), Real-time Motor Control, Sensor Fusion, I2C Communication, Firmware Development, Mechanical Design (CAD, 3D Printing), Arduino, Raspberry Pi, ESP32
 
 - **AI/ML & NLP:** OpenAI API, OpenCV, Prompt Engineering, Large Language Models (LLMs)
 
