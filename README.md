@@ -24,14 +24,6 @@ This project was made in collaboration with Francis Leahy (Binghamton University
 
 ---
 
-### 🤖 FTC Autonomous & TeleOp OpModes
-
-**Overview:** As a member of the Jaybots, the FTC robotics team at John Jay High School, I held the positions of **Equipment Manager**, **Corporate Outreach Manager**, and most recently, **Build Leader**. This past season, we advanced to the _FIRST_ World Championship through the 3rd Place Inspire Award. I have had a large role in both programming and building the robot. I will detail the software for an FTC robot, encompassing both its **Autonomous** and **Driver-Controlled (TeleOp)** operational modes. It focuses on precision robotics, utilizing advanced motion planning for pre-programmed tasks and intelligent sensor integration for responsive manual control during competitions.
-
-![FTC Robotics](FTC%20Robotics/assets/jaybots.png)
-
----
-
 ### 🏀 SWISHHH!
 
 **Overview:** SWISHHH! is a four-person AI ATL group project built around live NBA game data, webcam gesture input, and real-time shot prediction gameplay. The app combines live scoreboard and play-by-play feeds with gesture-based interaction to create a polished, fast-moving prediction experience. I include it here as a collaboration project rather than a solo-owned codebase.
