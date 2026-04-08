@@ -1,4 +1,4 @@
-# 🌟 My Project Portfolio: Joseph M. Marra 🚀
+# My Project Portfolio: Joseph M. Marra
 
 Welcome to my project portfolio repository! My name is Joe, and I am an aspiring AI/Robotics engineer studying Computer Science at the **Georgia Institute of Technology** 🐝. This collection showcases various autonomous systems and robotics projects I've developed, demonstrating expertise in robotics, embedded systems, AI algorithms, and sensor integration. Each project aims to solve real-world problems through innovative autonomous solutions.
 
