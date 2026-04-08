@@ -10,7 +10,9 @@ Welcome to my project portfolio repository! My name is Joe, and I am an aspiring
 
 **Overview:** Paesano is my primary robotics platform: a holonomic autonomous robot built for indoor navigation, path planning, localization, and closed-loop trajectory following. The system uses a Raspberry Pi 5 for high-level planning and estimation, a Raspberry Pi Pico for real-time motor control, and onboard sensing from a BNO085 IMU, LD19 LiDAR, and wheel encoders. The architecture is modular across firmware, control, localization, navigation, and mobile integration, with custom 3D-printed hardware and ROS 2-based software written primarily in C++.
 
-![Paesano - Holonomic Autonomous Robotics Platform](Paesano/documentation/assets/bot.png)
+<p align="center">
+  <img src="Paesano/documentation/assets/bot.png" alt="Paesano - Holonomic Autonomous Robotics Platform" width="420">
+</p>
 
 ---
 
@@ -18,9 +20,11 @@ Welcome to my project portfolio repository! My name is Joe, and I am an aspiring
 
 **Overview:** This project combines computer vision with closed-loop servo control to build a real-time target tracking system. A camera detects and tracks colored objects, then sends position updates to an Arduino-controlled pan-tilt mechanism that keeps the target centered. The work focuses on vision processing, serial communication, and smooth actuator control rather than the specific hardware mounted on the platform.
 
-![Vision-Based Target Tracking Platform](Vision-Based%20Target%20Tracking/assets/tracking.png)
+<p align="center">
+  <img src="Vision-Based%20Target%20Tracking/assets/tracking.png" alt="Vision-Based Target Tracking Platform" width="420">
+</p>
 
-This project was made in collaboration with Francis Leahy (Binghamton University) and Matthew Russo (University at Buffalo)
+**Team:** Made in collaboration with Francis Leahy and Matthew Russo
 
 ---
 
@@ -28,9 +32,13 @@ This project was made in collaboration with Francis Leahy (Binghamton University
 
 **Overview:** SWISHHH! is a four-person AI ATL group project built around live NBA game data, webcam gesture input, and real-time shot prediction gameplay. The app combines live scoreboard and play-by-play feeds with gesture-based interaction to create a polished, fast-moving prediction experience. I include it here as a collaboration project rather than a solo-owned codebase.
 
-**Team:** Kevin Gao (`@Pudging`), Nash Pillai (`@nash-pillai`), Neha Nataraj (`@nehanataraj`), and Joe Marra (`@Hiptostee`)
+**Team:** Made in collaboration with Kevin Gao, Nash Pillai, and Neha Nataraj
 
 **Links:** [Original Repository](https://github.com/Pudging/AIATL) · [Devpost](https://devpost.com/software/swishhh) · [Archived Demo](https://aiatl.vercel.app)
+
+<p align="center">
+  <img src="Hackathon%20Projects/SWISHHH!/SWISHHH.png" alt="SWISHHH!" width="420">
+</p>
 
 ---
 
@@ -38,9 +46,13 @@ This project was made in collaboration with Francis Leahy (Binghamton University
 
 **Overview:** Cosmic Collector is a four-person Robotech 2026 hackathon project built around autonomous cave navigation, wall avoidance, and physical ore marking in a Mars-inspired environment. The robot combined a mecanum chassis, camera, IMU, LiDAR, ROS-based navigation, and custom ESP32 firmware under tight hackathon time pressure.
 
-**Team:** Hiro, Joseph Marra, Nash Pillai, and Quinn Kortbus
+**Team:** Made in collaboration with Hiroyuki Sakuma, Nash Pillai, and Quinn Kortbus
 
 **Links:** [Original Repository](https://github.com/Hiptostee/robotech) · [Devpost](https://devpost.com/software/cosmic-collector)
+
+<p align="center">
+  <img src="Hackathon%20Projects/Cosmic%20Collector/cosmic_collector.png" alt="The Cosmic Collector" width="420">
+</p>
 
 ---
 
