@@ -2,6 +2,8 @@
 
 SWISHHH! is a group-built AI ATL project centered on live NBA game data, webcam gesture input, and real-time prediction gameplay.
 
+It won the AI ATL PrizePicks / Matt Steele Tracks challenge.
+
 ## Links
 
 - **Original Repository:** https://github.com/Pudging/AIATL

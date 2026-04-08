@@ -32,6 +32,8 @@ Welcome to my project portfolio repository! My name is Joe, and I am an aspiring
 
 **Overview:** SWISHHH! is a four-person AI ATL group project built around live NBA game data, webcam gesture input, and real-time shot prediction gameplay. The app combines live scoreboard and play-by-play feeds with gesture-based interaction to create a polished, fast-moving prediction experience. I include it here as a collaboration project rather than a solo-owned codebase.
 
+**Result:** Winner of the AI ATL PrizePicks / Matt Steele Tracks challenge
+
 **Team:** Made in collaboration with Kevin Gao, Nash Pillai, and Neha Nataraj
 
 **Links:** [Original Repository](https://github.com/Pudging/AIATL) · [Devpost](https://devpost.com/software/swishhh) · [Archived Demo](https://aiatl.vercel.app)
