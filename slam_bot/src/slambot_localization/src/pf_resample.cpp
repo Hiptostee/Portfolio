@@ -6,6 +6,7 @@
 namespace slambot_localization
 {
 
+// Calculates the effective sample size of the particle set. 
 double ParticleFilter::effectiveSampleSize() const
 {
   double sum_sq = 0.0;
@@ -14,6 +15,7 @@ double ParticleFilter::effectiveSampleSize() const
   return 1.0 / sum_sq;
 }
 
+// Adds gaussian nose to a particle to prevent impoverishment after resampling.
 void ParticleFilter::roughen()
 {
   if (!have_map_) return;
@@ -28,6 +30,7 @@ void ParticleFilter::roughen()
   }
 }
 
+// This method systematically resamples the particles based on their weights, using a cumulative distribution function (CDF).
 void ParticleFilter::systematicResample()
 {
   const size_t n = particles_.size();

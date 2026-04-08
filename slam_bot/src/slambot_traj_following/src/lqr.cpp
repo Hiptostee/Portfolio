@@ -62,6 +62,7 @@ LQR::LQR(const rclcpp::NodeOptions & options)
     stop_service_name.c_str());
 }
 
+// Main LQR control loop, runs at the configured control period.
 void LQR::lqrLoop()
 {
   // Debugging.
@@ -166,6 +167,7 @@ void LQR::publishZeroVelocity()
   cmd_pub_->publish(stop);
 }
 
+// This method is called to stop the LQR controller, clear the current path, and publish a zero velocity command.
 void LQR::stopTracking(const char * reason)
 {
   current_path_.clear();
@@ -182,6 +184,7 @@ void LQR::stopTracking(const char * reason)
   }
 }
 
+// Service callback to stop the LQR controller and clear the current path.
 void LQR::handleStop(
   const std::shared_ptr<std_srvs::srv::Trigger::Request> /*request*/,
   std::shared_ptr<std_srvs::srv::Trigger::Response> response)

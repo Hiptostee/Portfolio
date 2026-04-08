@@ -16,6 +16,9 @@ constexpr int8_t kOccupiedThreshold = 50;
 constexpr double kMaxObstacleLookupDistanceMeters = 1.0;
 constexpr double kHugeSquaredDistanceCells = 1e12;
 
+// This function computes the expected endpoint of a laser beam given a particle's pose and the beam index, 
+// taking into account the extrinsic transform from the robot's base to the lidar if available. 
+// This is used in the scoring of particles against the observed laser scan.
 std::pair<double, double> computeEndpoint(
     const Particle &particle,
     size_t beam_index,
@@ -43,6 +46,7 @@ std::pair<double, double> computeEndpoint(
   };
 }
 
+// Computes a 1D squared Euclidean distance transform, which is a key step in building the 2D distance field from the occupancy grid map.
 void distanceTransform1D(const std::vector<double> &f, int n, std::vector<double> &d,
                          std::vector<int> &v, std::vector<double> &z)
 {
@@ -79,6 +83,8 @@ void distanceTransform1D(const std::vector<double> &f, int n, std::vector<double
 
 }  // namespace
 
+
+// This method turns the map into a distance field, which allows us to efficiently compute the distance from any point in the map to the nearest obstacle.
 void ParticleFilter::rebuildDistanceField()
 {
   const int width = static_cast<int>(map_.info.width);
@@ -244,18 +250,28 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
     logw[pi] = acc;
   }
 
-  // Normalize weights with log-sum-exp (you already do the max trick)
+  // Normalize weights with log-sum-exp
   const double max_logw = *std::max_element(logw.begin(), logw.end());
   double sum_exp_shifted = 0.0;
   for (const double lw : logw) sum_exp_shifted += std::exp(lw - max_logw);
 
   if (sum_exp_shifted > 0.0) {
+    // Calculate the likelihood of the scan given the particle distribution, which is used for adaptive resampling.
     const double logsumexp = max_logw + std::log(sum_exp_shifted);
     const double log_mean_likelihood =
         logsumexp - std::log(static_cast<double>(particles_.size()));
+
+    // The scan quality is a measure of how well the current particle distribution explains the observed laser scan.
     const double scan_quality =
         std::exp(log_mean_likelihood / static_cast<double>(valid_beam_count));
 
+
+    // Update the running averages of the scan quality for the adaptive resampling.
+    // w_fast_ tracks a fast-moving average that responds quickly to changes in scan quality, 
+    // while w_slow_ tracks a slow-moving average that provides a more stable estimate.
+    // The difference between these two averages can be used to determine when to inject random 
+    // particles to prevent particle deprivation during rapid movements or when the scan quality drops 
+    // significantly.
     if (std::isfinite(scan_quality)) {
       if (!weight_averages_initialized_) {
         w_fast_ = scan_quality;
@@ -269,6 +285,10 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
     }
   }
 
+  // Update particle weights based on the computed log likelihoods. We subtract the maximum log weight for numerical stability 
+  // before exponentiating, and then we normalize the weights so that they sum to 1. If the total weight is very small 
+  // (which can happen if all particles have very low likelihood), we reset the weights to a uniform distribution to 
+  // prevent particle deprivation.
   double total = 0.0;
   for (size_t i = 0; i < particles_.size(); ++i) {
     particles_[i].weight *= std::exp(logw[i] - max_logw);

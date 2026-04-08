@@ -2,6 +2,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -52,13 +53,24 @@ def generate_launch_description():
         http_host_arg,
         http_port_arg,
         Node(
+            package='slambot_orchestration',
+            executable='orchestration_node',
+            name='slambot_orchestration',
+            output='screen',
+            parameters=[{
+                'sim': ParameterValue(LaunchConfiguration('sim'), value_type=bool),
+                'startup_mode': LaunchConfiguration('startup_mode'),
+                'default_map_yaml': LaunchConfiguration('map_yaml'),
+                'map_save_prefix': LaunchConfiguration('map_save_prefix'),
+            }],
+        ),
+        Node(
             package='slambot_mobile_bridge',
             executable='bridge_node',
             name='slambot_mobile_bridge',
             output='screen',
             parameters=[{
                 'sim': LaunchConfiguration('sim'),
-                'startup_mode': LaunchConfiguration('startup_mode'),
                 'default_map_yaml': LaunchConfiguration('map_yaml'),
                 'map_save_prefix': LaunchConfiguration('map_save_prefix'),
                 'http_host': LaunchConfiguration('http_host'),

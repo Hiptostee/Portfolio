@@ -1,0 +1,8 @@
+string client_id
+bool deadman
+float64 linear_x
+float64 linear_y
+float64 angular_z
+---
+bool success
+string message

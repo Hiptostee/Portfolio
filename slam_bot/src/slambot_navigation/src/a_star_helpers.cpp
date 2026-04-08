@@ -461,21 +461,25 @@ void AStarPlanner::setObstacleBufferMeters(double obstacle_buffer_m)
   obstacle_buffer_m_ = obstacle_buffer_m;
 }
 
+// Update the decay length used for the exponential cost penalty based on distance to obstacles.
 void AStarPlanner::setClearanceDecayLengthMeters(double clearance_decay_length_m)
 {
   clearance_decay_length_m_ = std::max(clearance_decay_length_m, 1e-3);
 }
 
+// Update the scale of the clearance cost penalty applied to cells near obstacles.
 void AStarPlanner::setClearanceCostScale(double clearance_cost_scale)
 {
   clearance_cost_scale_ = std::max(clearance_cost_scale, 0.0);
 }
 
+// Get the latest inflated map.
 const nav_msgs::msg::OccupancyGrid & AStarPlanner::getInflatedMap() const
 {
   return map_inflated_;
 }
 
+// Builds the inflated map and clearance cost map based on the original occupancy grid and the configured parameters.
 void AStarPlanner::buildInflatedMap()
 {
   map_inflated_ = map_;

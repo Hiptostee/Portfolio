@@ -47,7 +47,6 @@ double LQR::wrapAngle(double a) const
   return std::atan2(std::sin(a), std::cos(a));
 }
 
-
 // Method to find the closest index to the robot pose.
 std::size_t LQR::findClosestIndex(
   const Pose & robot_pose,

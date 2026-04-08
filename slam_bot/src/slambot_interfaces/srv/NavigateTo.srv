@@ -1,0 +1,6 @@
+float64 x_m
+float64 y_m
+---
+bool success
+string message
+uint32 path_points

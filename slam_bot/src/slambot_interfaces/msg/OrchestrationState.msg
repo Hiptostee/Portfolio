@@ -1,0 +1,12 @@
+builtin_interfaces/Time stamp
+string current_mode
+bool launch_running
+bool is_navigating
+bool is_paused
+bool pause_requested
+bool has_navigation_goal
+float64 navigation_goal_x
+float64 navigation_goal_y
+string last_error
+string map_yaml
+string map_save_prefix
