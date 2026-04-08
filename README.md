@@ -16,7 +16,7 @@ Welcome to my project portfolio repository! My name is Joe, and I am an aspiring
 
 **Overview:** This project combines computer vision with closed-loop servo control to build a real-time target tracking system. A camera detects and tracks colored objects, then sends position updates to an Arduino-controlled pan-tilt mechanism that keeps the target centered. The work focuses on vision processing, serial communication, and smooth actuator control rather than the specific hardware mounted on the platform.
 
-![Vision-Based Target Tracking Platform](/images/gaussrifle.png)
+![Vision-Based Target Tracking Platform](Vision-Based%20Target%20Tracking/assets/tracking.png)
 
 This project was made in collaboration with Francis Leahy (Binghamton University) and Matthew Russo (University at Buffalo)
 
@@ -26,7 +26,7 @@ This project was made in collaboration with Francis Leahy (Binghamton University
 
 **Overview:** As a member of the Jaybots, the FTC robotics team at John Jay High School, I held the positions of **Equipment Manager**, **Corporate Outreach Manager**, and most recently, **Build Leader**. This past season, we advanced to the _FIRST_ World Championship through the 3rd Place Inspire Award. I have had a large role in both programming and building the robot. I will detail the software for an FTC robot, encompassing both its **Autonomous** and **Driver-Controlled (TeleOp)** operational modes. It focuses on precision robotics, utilizing advanced motion planning for pre-programmed tasks and intelligent sensor integration for responsive manual control during competitions.
 
-![FTC Robotics](/images/jaybots.png)
+![FTC Robotics](FTC%20Robotics/assets/jaybots.png)
 
 ---
 
