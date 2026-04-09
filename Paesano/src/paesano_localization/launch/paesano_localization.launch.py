@@ -48,6 +48,11 @@ def generate_launch_description():
     sim = LaunchConfiguration('sim')
     localization_mode = LaunchConfiguration('localization_mode')
     map_yaml = LaunchConfiguration('map_yaml')
+    localization_mode_enabled = PythonExpression([
+        "'",
+        localization_mode,
+        "'.lower() in ['true', '1', 'yes', 'on']"
+    ])
 
     return LaunchDescription([
         imu_input_arg,
@@ -98,7 +103,7 @@ def generate_launch_description():
                 localization_param_file,
                 {'use_sim_time': ParameterValue(sim, value_type=bool)},
             ],
-            condition=IfCondition(localization_mode),
+            condition=IfCondition(localization_mode_enabled),
         ),
 
     
@@ -114,7 +119,7 @@ def generate_launch_description():
                 localization_param_file,
                 {'use_sim_time': ParameterValue(sim, value_type=bool)},
             ],
-            condition=IfCondition(localization_mode),
+            condition=IfCondition(localization_mode_enabled),
         ),
 
         # -------------------------
@@ -129,7 +134,7 @@ def generate_launch_description():
                 'use_sim_time': ParameterValue(sim, value_type=bool),
                 'yaml_filename': map_yaml,
             }],
-            condition=IfCondition(localization_mode),
+            condition=IfCondition(localization_mode_enabled),
         ),
         Node(
             package='nav2_lifecycle_manager',
@@ -141,6 +146,6 @@ def generate_launch_description():
                 'autostart': True,
                 'node_names': ['map_server'],
             }],
-            condition=IfCondition(localization_mode),
+            condition=IfCondition(localization_mode_enabled),
         ),
     ])

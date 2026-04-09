@@ -92,6 +92,11 @@ def generate_launch_description():
     sim = LaunchConfiguration('sim')
     localization_mode = LaunchConfiguration('localization_mode')
     map_yaml = LaunchConfiguration('map_yaml')
+    localization_mode_enabled = PythonExpression([
+        "'",
+        localization_mode,
+        "'.lower() in ['true', '1', 'yes', 'on']"
+    ])
 
     robot_state_publisher = Node(
         package='robot_state_publisher',
@@ -134,19 +139,19 @@ def generate_launch_description():
     navigation_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(navigation_launch),
         launch_arguments={'sim': sim}.items(),
-        condition=IfCondition(localization_mode),
+        condition=IfCondition(localization_mode_enabled),
     )
 
     traj_following_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(traj_following_launch),
         launch_arguments={'sim': sim}.items(),
-        condition=IfCondition(localization_mode),
+        condition=IfCondition(localization_mode_enabled),
     )
 
     mapping_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(mapping_launch),
         launch_arguments={'sim': sim}.items(),
-        condition=UnlessCondition(localization_mode)
+        condition=UnlessCondition(localization_mode_enabled)
     )
 
     

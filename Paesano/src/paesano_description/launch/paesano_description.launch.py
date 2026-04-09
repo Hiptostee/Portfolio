@@ -4,7 +4,7 @@ from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
-from launch.substitutions import Command, FindExecutable, LaunchConfiguration
+from launch.substitutions import Command, FindExecutable, LaunchConfiguration, PythonExpression
 from ament_index_python.packages import get_package_share_directory
 import os
 
@@ -48,6 +48,11 @@ def generate_launch_description():
         value_type=str
     )
 
+    sim_arg = DeclareLaunchArgument(
+        'sim',
+        default_value='true',
+        description='true for sim time (/clock), false for hardware time'
+    )
     localization_mode_arg = DeclareLaunchArgument(
         'localization_mode',
         default_value='false',
@@ -58,8 +63,14 @@ def generate_launch_description():
         default_value='/home/Paesano/ros2_ws/maps/my_map.yaml',
         description='Map yaml path used by localization map server/load service',
     )
+    sim = LaunchConfiguration('sim')
     localization_mode = LaunchConfiguration('localization_mode')
     map_yaml = LaunchConfiguration('map_yaml')
+    localization_mode_enabled = PythonExpression([
+        "'",
+        localization_mode,
+        "'.lower() in ['true', '1', 'yes', 'on']"
+    ])
 
 
 
@@ -82,7 +93,7 @@ def generate_launch_description():
         executable='robot_state_publisher',
         parameters=[{
             'robot_description': robot_description,
-            'use_sim_time': True
+            'use_sim_time': ParameterValue(sim, value_type=bool)
         }],
         output='screen'
     )
@@ -119,33 +130,33 @@ def generate_launch_description():
     # Ensure odom node uses sim time when running in Gazebo
     odom_node_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(odom_node_launch),
-        launch_arguments={'sim': 'true'}.items()
+        launch_arguments={'sim': sim}.items()
     )
 
     ekf_node_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(ekf_launch),
         launch_arguments={
-            'sim': 'true',
+            'sim': sim,
             'localization_mode': localization_mode,
             'map_yaml': map_yaml,
         }.items()
     )
     mapping_node_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(mapping_launch),
-        launch_arguments={'sim': 'true'}.items(),
-        condition=UnlessCondition(localization_mode),
+        launch_arguments={'sim': sim}.items(),
+        condition=UnlessCondition(localization_mode_enabled),
     )
 
     navigation_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(navigation_launch),
-        launch_arguments={'sim': 'true'}.items(),
-        condition=IfCondition(localization_mode),
+        launch_arguments={'sim': sim}.items(),
+        condition=IfCondition(localization_mode_enabled),
     )
 
     traj_following_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(traj_following_launch),
-        launch_arguments={'sim': 'true'}.items(),
-        condition=IfCondition(localization_mode),
+        launch_arguments={'sim': sim}.items(),
+        condition=IfCondition(localization_mode_enabled),
     )
 
 
@@ -165,6 +176,7 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
+        sim_arg,
         localization_mode_arg,
         map_yaml_arg,
         bridge_yaml,

@@ -13,7 +13,6 @@ find_package(geometry_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_action REQUIRED)
-find_package(rosidl_default_generators REQUIRED)
 find_package(paesano_interfaces REQUIRED)
 find_package(paesano_navigation REQUIRED)
 find_package(std_msgs REQUIRED)
@@ -32,19 +31,6 @@ ament_target_dependencies(orchestration_node
   paesano_navigation
   std_msgs
   std_srvs
-)
-
-rosidl_get_typesupport_target(paesano_interfaces_typesupport_target
-  paesano_interfaces
-  "rosidl_typesupport_cpp"
-)
-rosidl_get_typesupport_target(paesano_navigation_typesupport_target
-  paesano_navigation
-  "rosidl_typesupport_cpp"
-)
-target_link_libraries(orchestration_node
-  "${paesano_interfaces_typesupport_target}"
-  "${paesano_navigation_typesupport_target}"
 )
 
 install(TARGETS
