@@ -26,12 +26,14 @@ LQR::LQR(const rclcpp::NodeOptions & options)
 
   control_period_ms_ = declare_parameter<int>("control_period_ms", 20);
   lookahead_points_ = declare_parameter<int>("lookahead_points", 1);
+  final_pose_capture_radius_ = declare_parameter<double>("final_pose_capture_radius", 0.25);
   max_linear_velocity_ = declare_parameter<double>("max_linear_velocity", 0.6);
   max_angular_velocity_ = declare_parameter<double>("max_angular_velocity", 0.6);
   path_complete_tolerance_ = declare_parameter<double>("path_complete_tolerance", 0.08);
+  heading_complete_tolerance_ = declare_parameter<double>("heading_complete_tolerance", 0.12);
   q_x_ = declare_parameter<double>("q_x", 50.0);
   q_y_ = declare_parameter<double>("q_y", 75.0);
-  q_theta_ = declare_parameter<double>("q_theta", 5.0);
+  q_theta_ = declare_parameter<double>("q_theta", 12.0);
   r_weight_ = declare_parameter<double>("r_weight", 0.5);
 
   estimated_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
@@ -100,14 +102,21 @@ void LQR::lqrLoop()
   nav_status_pub_->publish(nav_msg);
 
   const Pose current_pose = poseStampedToPose(current_estimated_pose_msg_);
+  const double dist_to_end = std::hypot(
+    current_path_.back().x - current_pose.x,
+    current_path_.back().y - current_pose.y);
+  const bool near_final_pose = dist_to_end < final_pose_capture_radius_;
   
   // Update Path Tracking
   current_path_index_ = findClosestIndex(current_pose, current_path_, current_path_index_);
   
-  const std::size_t target_idx = std::min(
-    current_path_index_ + static_cast<std::size_t>(std::max(1, lookahead_points_)),
-    current_path_.size() - 1);
+  const std::size_t target_idx = near_final_pose ?
+    (current_path_.size() - 1) :
+    std::min(
+      current_path_index_ + static_cast<std::size_t>(std::max(1, lookahead_points_)),
+      current_path_.size() - 1);
   const Pose target_pose = current_path_[target_idx];
+  const bool targeting_final_pose = (target_idx >= current_path_.size() - 1);
   
   // Feedback.
   const Vector3d error = calculateError(current_pose, target_pose);
@@ -117,10 +126,10 @@ void LQR::lqrLoop()
   // Feedforward.
   double segment_dx = 0.0;
   double segment_dy = 0.0;
-  if (next_idx > target_idx) {
+  if (!targeting_final_pose && next_idx > target_idx) {
     segment_dx = current_path_[next_idx].x - current_path_[target_idx].x;
     segment_dy = current_path_[next_idx].y - current_path_[target_idx].y;
-  } else {
+  } else if (!targeting_final_pose) {
     segment_dx = target_pose.x - current_pose.x;
     segment_dy = target_pose.y - current_pose.y;
   }
@@ -128,7 +137,7 @@ void LQR::lqrLoop()
   // Convert feedforward term into a velocity in the robot point of reference.
   const double segment_norm = std::hypot(segment_dx, segment_dy);
   Vector3d feedforward = Vector3d::Zero();
-  if (segment_norm > 1e-6) {
+  if (!targeting_final_pose && segment_norm > 1e-6) {
     const double ff_speed = std::min(0.7, max_linear_velocity_);
     const double world_vx = ff_speed * (segment_dx / segment_norm);
     const double world_vy = ff_speed * (segment_dy / segment_norm);
@@ -150,10 +159,13 @@ void LQR::lqrLoop()
   cmd.angular.z = std::clamp(total_control(2), -max_angular_velocity_, max_angular_velocity_);
 
   // Stop if at the end of the path.
-  const double dist_to_end = std::hypot(
-    current_path_.back().x - current_pose.x,
-    current_path_.back().y - current_pose.y);
-  if (current_path_index_ >= current_path_.size() - 1 && dist_to_end < path_complete_tolerance_) {
+  const double heading_error_to_end = std::abs(
+    wrapAngle(current_path_.back().theta - current_pose.theta));
+  if (
+    current_path_index_ >= current_path_.size() - 1 &&
+    dist_to_end < path_complete_tolerance_ &&
+    heading_error_to_end < heading_complete_tolerance_)
+  {
     stopTracking("Path Complete. Stopping.");
   } else {
     cmd_pub_->publish(cmd);

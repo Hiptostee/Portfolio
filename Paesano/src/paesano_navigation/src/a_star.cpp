@@ -111,7 +111,7 @@ nav_msgs::msg::Path AStarPlanner::plan(
 
     // If the node is the goal, return the path to get to it.
     if (current_index == goal_index) {
-      return buildPathMessage(path.header, start_cell, goal_cell, came_from);
+      return buildPathMessage(path.header, start_cell, goal_cell, goal.pose, came_from);
     }
 
 

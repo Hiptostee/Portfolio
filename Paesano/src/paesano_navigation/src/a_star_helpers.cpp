@@ -268,6 +268,8 @@ nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) c
 
     smooth_path.poses.push_back(path.poses.back());
 
+    const double goal_yaw = tf2::getYaw(path.poses.back().pose.orientation);
+
     for (size_t i = 0; i < smooth_path.poses.size(); ++i) {
       double yaw;
       if (i < smooth_path.poses.size() - 1) {
@@ -277,7 +279,7 @@ nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) c
           smooth_path.poses[i + 1].pose.position.y - smooth_path.poses[i].pose.position.y;
         yaw = std::atan2(dy, dx);
       } else {
-        yaw = tf2::getYaw(smooth_path.poses[i - 1].pose.orientation);
+        yaw = goal_yaw;
       }
 
       tf2::Quaternion q;
@@ -434,6 +436,7 @@ nav_msgs::msg::Path AStarPlanner::buildPathMessage(
   const std_msgs::msg::Header & header,
   const Coordinate & start,
   const Coordinate & goal,
+  const geometry_msgs::msg::Pose & goal_pose,
   const std::vector<int> & came_from) const
 {
   const std::vector<Coordinate> coordinates = reconstructPath(start, goal, came_from);
@@ -443,6 +446,10 @@ nav_msgs::msg::Path AStarPlanner::buildPathMessage(
 
   for (const Coordinate & coord : coordinates) {
     path.poses.push_back(gridToWorldPose(coord, header));
+  }
+
+  if (!path.poses.empty()) {
+    path.poses.back().pose.orientation = goal_pose.orientation;
   }
 
   return applySpline(stringPull(path));

@@ -32,7 +32,7 @@
     \caption{Paesano assembled hardware platform.}
     \label{fig:paesano-platform}
 \end{figure}
-
+\newpage
 \tableofcontents
 \newpage
 
@@ -40,7 +40,7 @@
 \section{Introduction}
 This report presents the design, implementation, and testing of Paesano, a holonomic autonomous mobile robotics platform.
 Paesano is built to navigate complex and ambiguous environments using state estimation from an Extended Kalman Filter and a Monte Carlo localization algorithm, 
-and to follow planned trajectories using semantic control. The hardware and software architecture are designed to be modular and scalable. This
+to follow planned trajectories while being operated and monitored through a mobile application with live telemetry. The hardware and software architecture are designed to be modular and scalable. This
 makes for the possibility of future additions such as higher quality sensors or more advanced control algorithms.
 \\
 \\
@@ -962,118 +962,27 @@ y \sim \mathcal{U}(y_{\text{odom}} \pm \Delta y), \quad
 \\
 \noindent This reduces the path to the minimum number of straight-line segments required to traverse the environment without colliding with obstacles. In practice, this removes much of the staircase-like structure produced by the grid and produces a cleaner geometric path before any smoothing is attempted.
 
-\subsubsection{\texorpdfstring{$C^{1}$}{C1} Continous Spline Interpolation (Catmull Rom)}
-\noindent After pruning, the remaining path segments are smoothed using a Catmull-Rom spline. Catmull-Rom interpolation was selected because it produces a $C^{1}$ continuous path while still passing directly through the pruned waypoints. This makes it well suited for converting a piecewise linear path into a trajectory that is easier for the downstream controller to follow.
-\\
-\\
-\noindent For four consecutive control points $P_0, P_1, P_2, P_3$, the interpolated position between $P_1$ and $P_2$ is given in matrix form by
-\\
-\[
-\mathbf{p}(t)
-=
-\frac{1}{2}
-\begin{bmatrix}
-1 & t & t^2 & t^3
-\end{bmatrix}
-\begin{bmatrix}
-0 & 2 & 0 & 0 \\
--1 & 0 & 1 & 0 \\
-2 & -5 & 4 & -1 \\
--1 & 3 & -3 & 1
-\end{bmatrix}
-\begin{bmatrix}
-\mathbf{P}_0 \\
-\mathbf{P}_1 \\
-\mathbf{P}_2 \\
-\mathbf{P}_3
-\end{bmatrix},
-\qquad t \in [0,1]
-\]
-\\
-\noindent Applying this component-wise gives
-\\
-\[
-x(t)=\mathrm{CR}(x_0,x_1,x_2,x_3,t), \qquad
-y(t)=\mathrm{CR}(y_0,y_1,y_2,y_3,t)
-\]
-\\
-\noindent where $\mathrm{CR}(\cdot)$ denotes the Catmull-Rom interpolation operator.
-\\
-\\
-\noindent Initially, the spline was sampled by dividing each segment into a fixed set of parameter steps with $t \in [0,1]$. However, this introduced a fundamental problem: in spline mathematics, $t$ is only a relative interpolation parameter and not a physical distance measure. A long segment and a short segment both span the same parameter range, so a fixed increment such as $\Delta t = 0.05$ covers much more physical distance on a long segment than on a short segment.
-\\
-\\
-\noindent This caused the trajectory points to become unevenly spaced. In effect, the spline became ``stretchy,'' with some parts of the path sampled sparsely and others densely. The LQR controller therefore received a fluctuating geometric error signal, which translated into inconsistent velocity behavior.
-\\
-\\
-\noindent To correct this, the final trajectory is generated using arc-length parameterization. Instead of sampling the spline according to the interpolation parameter $t$, the path is re-sampled according to physical distance $s$ traveled along the curve. For a parametric spline $\mathbf{p}(t) = [x(t), y(t)]^T$, the arc length from $0$ to $t$ is
-\\
-\[
-s(t)=\int_0^t \left\lVert \frac{d\mathbf{p}(\tau)}{d\tau} \right\rVert d\tau
-=\int_0^t \sqrt{\left(\frac{dx}{d\tau}\right)^2+\left(\frac{dy}{d\tau}\right)^2}\,d\tau
-\]
-\\
-\noindent A numerical approximation is used to interpret this integral. The process is implemented in three stages:
+\subsubsection{Path Smoothing and Arc-Length Parameterization}
+
+Following string pulling, the path consists of sparse, unevenly spaced waypoints. To produce a reference trajectory suitable for the LQR controller, we apply a \textbf{Centripetal Catmull-Rom spline} followed by a uniform resampling stage.
+
+\paragraph{Spline Selection}
+The centripetal parameterization ($\alpha = 0.5$) was chosen over the standard uniform version because it inherently handles the non-uniform waypoint spacing produced by the $A^*$ and string pulling stages. This choice prevents the "overshoot" and unrealistic loops often seen in uniform splines when waypoints are clustered. Furthermore, as an interpolating spline, it ensures the robot passes exactly through the meaningful geometric constraints of the pruned path.
+
+\paragraph{The Parameterization Problem}
+Standard spline evaluation uses a relative parameter $t \in [0,1]$ for each segment. However, $t$ does not map linearly to physical distance. Sampling at fixed increments of $\Delta t$ causes the trajectory to become "stretchy": long segments are sampled sparsely, while short segments are sampled densely. This creates a fluctuating geometric error signal for the LQR controller, leading to inconsistent velocity profiles and "jittery" tracking.
+
+\paragraph{Uniform Resampling Implementation}
+To ensure a consistent reference signal, the spline is re-parameterized by arc length $s$ through a three-stage numerical process:
+
 \begin{enumerate}
-    \item \textbf{Dense modeling.} Each spline segment is first sampled at high resolution to create a dense approximation of the curve.
-    \item \textbf{Cumulative distance calculation.} The Euclidean distance between consecutive dense points is accumulated to compute the arc length at every sampled location.
-    \item \textbf{Uniform re-sampling.} The dense model is then re-sampled into trajectory points spaced at fixed \SI{5}{cm} intervals.
+    \item \textbf{Dense Modeling:} Each spline segment is evaluated at high resolution ($100$ samples per segment) to create a dense polyline approximation of the curve, denoted as points $\mathbf{q}_0, \mathbf{q}_1, \ldots, \mathbf{q}_N$.
+    \item \textbf{Cumulative Distance:} The discrete cumulative arc length $\ell$ is computed for every dense point:
+    \[ \ell_0 = 0, \qquad \ell_k = \ell_{k-1} + \left\lVert \mathbf{q}_k - \mathbf{q}_{k-1} \right\rVert \]
+    \item \textbf{Linear Resampling:} The final trajectory points $\hat{\mathbf{p}}_m$ are generated at uniform spatial intervals of $\Delta s = \SI{0.05}{m}$. For a target distance $s_m = m \cdot \Delta s$, we locate the interval $\ell_k \le s_m \le \ell_{k+1}$ and interpolate:
+    \[ \hat{\mathbf{p}}_m = (1-\lambda_m)\mathbf{q}_k + \lambda_m \mathbf{q}_{k+1}, \quad \text{where} \quad \lambda_m = \frac{s_m - \ell_k}{\ell_{k+1}-\ell_k} \]
 \end{enumerate}
-\noindent If the dense samples are denoted $\mathbf{p}_0,\mathbf{p}_1,\ldots,\mathbf{p}_N$, then the discrete cumulative arc length is approximated as
-\\
-\[
-s_0=0,\qquad
-s_k = s_{k-1} + \left\lVert \mathbf{p}_k-\mathbf{p}_{k-1} \right\rVert, \quad k=1,\dots,N
-\]
-\\
-\noindent Let the dense samples be denoted
-\\
-\[
-\mathbf{q}_0,\mathbf{q}_1,\ldots,\mathbf{q}_N
-\]
-\\
-\noindent with cumulative arc lengths
-\\
-\[
-\ell_0 = 0,\qquad
-\ell_k = \ell_{k-1} + \left\lVert \mathbf{q}_k - \mathbf{q}_{k-1} \right\rVert, \quad k=1,\dots,N
-\]
-\\
-\noindent so that the total path length is
-\\
-\[
-L = \ell_N
-\]
-\\
-\noindent The re-sampled trajectory is then defined at uniform spatial intervals
-\\
-\[
-\Delta s = \SI{0.05}{m}, \qquad
-s_m = m\,\Delta s,\quad m=0,1,\dots,\left\lfloor \frac{L}{\Delta s}\right\rfloor
-\]
-\\
-\noindent For each target distance $s_m$, choose the index $k$ such that
-\\
-\[
-\ell_k \le s_m \le \ell_{k+1}
-\]
-\\
-\noindent and define the interpolation weight
-\\
-\[
-\lambda_m =
-\frac{s_m - \ell_k}{\ell_{k+1}-\ell_k}
-\]
-\\
-\noindent The uniformly spaced trajectory sample is then obtained by linear interpolation:
-\\
-\[
-\hat{\mathbf{p}}_m
-=
-(1-\lambda_m)\mathbf{q}_k + \lambda_m \mathbf{q}_{k+1}
-\]
-\\
-\noindent The result is a trajectory whose points are uniformly spaced in physical distance regardless of the original segment lengths. This produces a far more consistent reference for the controller and significantly improves tracking smoothness by preventing the waypoint density from changing unpredictably along the path.
+\noindent This ensures that the controller receives waypoints at a constant spatial frequency, allowing for stable gain application and smooth motion regardless of the original path geometry.
 
 \section{Trajectory Following}
 \subsection{Linear Quadratic Regulator (LQR)}
@@ -1132,88 +1041,61 @@ with
 \end{bmatrix}
 = \Delta t\,\mathbf{I}.
 \]
-\\
-\noindent The objective is not only to reduce tracking error, but to do so while avoiding unnecessarily aggressive actuation. This is expressed through the infinite-horizon quadratic cost
-\\
+\paragraph{Objective Function and Value Function}
+The controller is designed to minimize the infinite-horizon quadratic cost $J$, which serves as the cumulative penalty for state error and control effort over an infinite timeline:
 \[
-J = \sum_{k=0}^{\infty}
-\left(
-\mathbf{x}_k^T \mathbf{Q}\mathbf{x}_k +
-\mathbf{u}_k^T \mathbf{R}\mathbf{u}_k
-\right)
+J = \sum_{k=0}^{\infty} \left( \mathbf{x}_k^T \mathbf{Q}\mathbf{x}_k + \mathbf{u}_k^T \mathbf{R}\mathbf{u}_k \right)
 \]
-\\
-\noindent where $\mathbf{Q}$ penalizes state error and $\mathbf{R}$ penalizes control effort. In the implementation, $\mathbf{Q}$ is chosen as a diagonal weighting matrix so that position and heading error can be penalized independently, while $\mathbf{R}$ is chosen as a scaled identity matrix to penalize large velocity commands.
-\\
-\\
-\noindent For the infinite-horizon case, the steady-state optimal solution is determined by the Discrete Algebraic Riccati Equation (DARE):
-\\
+While $J$ defines the optimization goal, the actual minimum achievable cost from a given state is described by the \textbf{Value Function}, $V(\mathbf{x}_k) = J_{\min}$. For a linear-quadratic regulator, this value represents the total "cost-to-go" assuming an optimal policy is followed from the current time $k$ onward. Because the optimal control is a deterministic function of the state, the control input $\mathbf{u}$ is eliminated from the final expression, leaving $J_{\min}$ as a function of the error $\mathbf{x}_k$:
 \[
-\mathbf{P}
-=
-\mathbf{A}^T\mathbf{P}\mathbf{A}
--\mathbf{A}^T\mathbf{P}\mathbf{B}
-\left(
-\mathbf{R}+\mathbf{B}^T\mathbf{P}\mathbf{B}
-\right)^{-1}
-\mathbf{B}^T\mathbf{P}\mathbf{A}
-+\mathbf{Q}.
+J_{\min} = \mathbf{x}_k^T \mathbf{P}\,\mathbf{x}_k
 \]
-\\
-\noindent The matrix $\mathbf{P}$ is the steady-state cost-to-go matrix. Although it is a constant matrix once solved, it encodes dynamic behavior because it is derived from the state-space model and therefore incorporates how present errors propagate through time. In this sense, $\mathbf{P}$ is a quadratic form that summarizes the long-term penalty of being in a given state.
-\\
-\\
-\noindent The resulting minimum infinite-horizon cost from state $\mathbf{x}_k$ is
-\\
-\[
-J_{\min} = \mathbf{x}_k^T \mathbf{P}\,\mathbf{x}_k.
-\]
-\noindent Here, $\mathbf{x}_k$ denotes the state presented to the regulator at time step $k$. In this trajectory-tracking setting, it is best interpreted as the pose error state relative to the current reference sample, rather than the robot's absolute global pose.
-\\
-\\
-\noindent Once $\mathbf{P}$ is known, the optimal feedback gain is
-\\
-\[
-\mathbf{K}
-=
-\left(
-\mathbf{R}+\mathbf{B}^T\mathbf{P}\mathbf{B}
-\right)^{-1}
-\mathbf{B}^T\mathbf{P}\mathbf{A}.
-\]
-\\
-\noindent The matrix $\mathbf{K}$ determines how aggressively the controller reacts to pose error. Larger effective gains lead to stronger correction, while smaller gains lead to smoother but less aggressive behavior. In practical terms, $\mathbf{K}$ is the matrix that maps the state error into a corrective velocity command.
-\\
-\\
-\noindent In standard LQR notation, the optimal feedback law is written as
-\\
-\[
-\mathbf{u}_{fb} = -\mathbf{K}\mathbf{x}_{err}.
-\]
-\\
-\noindent In this project, the tracking error is defined as desired pose minus current pose and then transformed into the robot's local frame. With this sign convention, the implemented feedback term is equivalently applied as
-\\
-\[
-\mathbf{u}_{fb} = \mathbf{K}\mathbf{e}.
-\]
-\\
-\noindent A feedforward term is also added so that the robot does not merely react to error, but also maintains the nominal direction of motion along the path. The final control law is therefore
-\\
-\[
-\mathbf{u}_{total} = \mathbf{u}_{fb} + \mathbf{u}_{ff}.
-\]
-\\
-\noindent The feedback term drives the robot back toward the uniformly spaced spline trajectory points, while the feedforward term supplies the nominal motion along the current path segment. This combination allows the controller to both track the geometric trajectory and maintain smoother motion along the arc-length-parameterized path.
 
-\section{Semantic Control}
-% Add content here
+\paragraph{Solving the DARE}
+The matrix $\mathbf{P}$ is the steady-state solution to the \textbf{Discrete Algebraic Riccati Equation (DARE)}:
+\[
+\mathbf{P} = \mathbf{A}^T\mathbf{P}\mathbf{A} - \mathbf{A}^T\mathbf{P}\mathbf{B} \left( \mathbf{R}+\mathbf{B}^T\mathbf{P}\mathbf{B} \right)^{-1} \mathbf{B}^T\mathbf{P}\mathbf{A} + \mathbf{Q}
+\]
+
+In this framework, $\mathbf{P}$ acts as a compressed representation of the system's future behavior. It encodes the dynamics ($\mathbf{A}, \mathbf{B}$) and the weights ($\mathbf{Q}, \mathbf{R}$) into a constant operator that maps any current pose error into a scalar value representing the total future penalty. 
+
+\paragraph{Control Synthesis}
+Once $\mathbf{P}$ is determined, the optimal feedback gain $\mathbf{K}$ is synthesized to minimize the sum of the immediate step cost and the resulting future cost:
+\[
+\mathbf{K} = \left( \mathbf{R}+\mathbf{B}^T\mathbf{P}\mathbf{B} \right)^{-1} \mathbf{B}^T\mathbf{P}\mathbf{A}
+\]
+The final control law combines this feedback with a feedforward term ($\mathbf{u}_{ff}$) derived from the arc-length parameterized reference trajectory:
+\[
+\mathbf{u}_{total} = \mathbf{K}\mathbf{e} + \mathbf{u}_{ff}
+\]
+The feedback term drives the robot back toward the spline trajectory points, while the feedforward term provides the nominal velocity required to traverse the path. This ensures that the robot does not merely react to errors but actively tracks the geometry of the intended path.
+\section{Mobile Application}
+\noindent Paesano is operated through a custom iOS application that serves as the primary user interface for robot interaction. Rather than relying on terminal commands or ad hoc ROS tooling during normal use, the app exposes the robot's current state, map data, and navigation controls in a single interface designed for real-time operation.
+\\
+\\
+\noindent The application connects directly to the robot over the local network using a manually entered IP address or hostname. Once connected, it uses HTTP endpoints for discrete actions such as mode switching, goal submission, map saving, and navigation pause or cancel requests. A WebSocket connection is used in parallel to stream state updates and map revisions back to the phone so the interface can update continuously without requiring constant manual refresh.
+\\
+\\
+\noindent The mobile interface is organized around the robot's high-level operating modes:
+\begin{itemize}
+    \item \textbf{Mapping mode:} Provides joystick-based teleoperation for manual exploration while showing the occupancy map live. The user can save the resulting map directly from the application once sufficient coverage has been achieved.
+    \item \textbf{Navigation mode:} Displays the current occupancy map, estimated robot pose, and planned path. The user can tap directly on the map to submit a navigation goal, then pause, resume, or cancel the path while observing the live telemetry response.
+\end{itemize}
+
+\noindent This interface effectively acts as the operator console for Paesano. It bridges the autonomy stack and the human operator by combining map visualization, mode management, manual override, and telemetry feedback into a single control surface.
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.56\textwidth]{mobile.png}
+    \caption{Paesano mobile application interface for telemetry, teleoperation, and navigation control.}
+    \label{fig:paesano-mobile-app}
+\end{figure}
 
 \section{Experiments}
 \subsection{Velocity and Position Control Performance}
 \subsection{Localization Performance}
 \subsection{Trajectory Following Performance}
 
-\section{Conclusion and Possible Improvements}
+\section{Conclusion and Future Improvements}
 % Add content here
 
 \end{document}

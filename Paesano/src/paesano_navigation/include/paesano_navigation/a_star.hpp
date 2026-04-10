@@ -31,8 +31,11 @@ public:
     const Coordinate & start,
     const Coordinate & goal,
     const std::vector<int> & came_from) const;
-  nav_msgs::msg::Path buildPathMessage(const std_msgs::msg::Header & header, const Coordinate & start,
+  nav_msgs::msg::Path buildPathMessage(
+    const std_msgs::msg::Header & header,
+    const Coordinate & start,
     const Coordinate & goal,
+    const geometry_msgs::msg::Pose & goal_pose,
     const std::vector<int> & came_from) const;
   bool is_line_clear(const geometry_msgs::msg::Pose& start, 
                                  const geometry_msgs::msg::Pose& end, 

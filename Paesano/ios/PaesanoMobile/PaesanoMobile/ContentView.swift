@@ -78,7 +78,7 @@ private struct ConnectionView: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
-                Text("SlamBot Mobile")
+                Text("Paesano Mobile")
                     .font(.system(size: 40, weight: .bold, design: .rounded))
                     .foregroundStyle(.white)
 

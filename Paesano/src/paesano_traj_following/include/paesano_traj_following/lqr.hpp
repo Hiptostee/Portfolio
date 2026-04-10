@@ -56,12 +56,14 @@ private:
   bool initialized_{false};
   int control_period_ms_{20};
   int lookahead_points_{1};
+  double final_pose_capture_radius_{0.25};
   double max_linear_velocity_{0.6};
   double max_angular_velocity_{0.6};
   double path_complete_tolerance_{0.08};
+  double heading_complete_tolerance_{0.12};
   double q_x_{50.0};
   double q_y_{75.0};
-  double q_theta_{5.0};
+  double q_theta_{12.0};
   double r_weight_{0.5};
 
 };

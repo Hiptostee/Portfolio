@@ -7,10 +7,12 @@ lqr:
     stop_service_name: "/lqr/stop"
     control_period_ms: 20
     lookahead_points: 1
+    final_pose_capture_radius: 0.25
     max_linear_velocity: 1.0
     max_angular_velocity: 1.0
     path_complete_tolerance: 0.08
+    heading_complete_tolerance: 0.01
     q_x: 2.0
     q_y: 5.0
-    q_theta: 1.0
+    q_theta: 12.0
     r_weight: 0.6
