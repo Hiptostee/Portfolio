@@ -38,16 +38,16 @@
 
 
 \section{Introduction}
-This report presents the design, implementation, and testing of Paesano, a holonomic autonomous mobile robotics platform.
-Paesano is built to navigate complex and ambiguous environments using state estimation from an Extended Kalman Filter and a Monte Carlo localization algorithm, 
+This technical report will detail the design, implementation, and testing of Paesano, a holonomic autonomous mobile robotics platform.
+Paesano is built to navigate complex and ambiguous environments using probabilistic state estimation from an Extended Kalman Filter and a Monte Carlo localization algorithm, 
 to follow planned trajectories while being operated and monitored through a mobile application with live telemetry. The hardware and software architecture are designed to be modular and scalable. This
 makes for the possibility of future additions such as higher quality sensors or more advanced control algorithms.
 \\
 \\
 This project was created over the course of two semesters, with the first focused on hardware and firmware foundations, while the second
 focused on state estimation and control algorithms. The following sections will detail the design choices, implementation details,
-and certain testing metrics.
-
+and certain testing metrics. My goal of this project was to gain an understanding of full stack robotics, and to create a scalable
+platform that I can always add new features onto, or test new algorithms on.
 \section{Hardware Architecture}
 \subsection{Parts List}
 \noindent Prices shown below are approximate and may fluctuate over time based on
@@ -93,17 +93,18 @@ Wago Connectors & \$11.95 \\
 \end{itemize}
 
 \subsection{System Overview}
-  The system is built around an architecture that separates high-level processing from low-level and noisy motor control. 
-  The high-level compute module (Raspberry Pi 5 (RPI5) running Ubuntu LTS 24.04) handles state estimation, navigation, and high-level control/planning, 
-  while the motor control module (Raspberry Pi Pico (Pico), and TB6612 Motor Drivers) manages low-level actuation 
-  of motors. This separation allows for modularity and scalability, allowing future upgrades or repairs to parts without 
+  I designed the system around an architecture that separates high-level processing from low-level and noisy motor control. This makes it so 
+  the high-level compute module to focus on running complex algorithms for state estimation, navigataion, and control, without having to worry about the 
+  overhead and timing constraints of high frequency motor control.
+  The high-level compute module (Raspberry Pi 5 (RPI5) running Ubuntu LTS 24.04) handles state estimation, navigation, and high-level control and planning, 
+  while the motor control module (Raspberry Pi Pico (Pico) and TB6612 Motor Drivers) manages low-level movement 
+  of the drivetrain motors. This separation allows for easy future upgrades or repairs to either section without 
   significant redesign of the entire system. Below (Figure 1) is a block diagram of the system architecture, 
   \\
   \\
   showing the flow of information and power between components. The high-level compute module receives sensor data, processes it for 
   state estimation and navigation, and sends control commands to the motor control module, which then actuates the 
-  motors accordingly. This architecture also allows for real-time feedback and adjustments based on sensor inputs, ensuring 
-  robust performance in dynamic environments.
+  motors accordingly.
 
 \begin{figure}[htbp]
     \centering
@@ -114,8 +115,8 @@ Wago Connectors & \$11.95 \\
 
 \subsection{Power Architecture}
 The robot is powered by a 7.4 nominal voltage 2S 5200mAh LiPo battery. This battery directly powers the entire system, acting as the "heart" 
-of the robot. This battery is chosen for its high energy density and ability to provide the necessary current for both the high-level compute module 
-and the motor control module. A dedicated DC-DC converter is used to step down the voltage and amperage to appropriate levels for the RPI5,
+of the robot. This battery is chosen for its high energy density and ability to provide the necessary current for all components, especially the motor drivers.
+A dedicated DC-DC converter is used to step down the voltage and amperage to appropriate levels for the RPI5,
 ensuring stable power delivery and preventing brownouts. The motors themselves are powered directly from the 7.4V supply, since they are designed to operate at this voltage.
 \\
 \\
@@ -150,7 +151,7 @@ measurements which is used for mapping and localization. The scan data is produc
 
 \subsection{Mechanical Design}
 The chassis from HiWonder provided motors with encoders and a main chassis frame. However, it did not come with any intuitive way to 
-mount the various sensors, batteries, and other processing units. To address this, several custom mounting parts were designed to integrate these systems
+mount the various sensors, batteries, and other processing units. To address this, I designed several custom parts to integrate these systems
 into the platform. These parts were designed using OnShape and then printed on a Bambu Lab X1 Carbon in PLA.
 
 \begin{figure}[htbp]
@@ -186,12 +187,12 @@ The design philosophy of this robot is defined in 5 ideas:
     \item Accessibility
     \item Cost Effectiveness
 \end{itemize}
-The robot was built in a way that makes it easy to debug and iterate on. Components are physically accessible and logically separated so 
+I designed the robot in a way that makes it easy to debug and iterate on. Components are physically accessible and logically separated so 
 that individual parts of the system can be tested or replaced without affecting the entire robot. For example, low-level motor control 
-is handled independently from the high-level compute module, allowing each layer to be developed and debugged separately. Cost effectiveness 
+is handled independently from the high-level compute module, allowing each layer to be developed and debugged separately. I also considered cost effectiveness 
 \\
 \\
-was also considered when selecting components, favoring reliable off-the-shelf parts that still allow room for future expansion. At 
+when selecting components, favoring cheaper parts and making them work for my application, but still allowing room for future expansion. At 
 the same time, simplicity was prioritized by avoiding unnecessary complexity and additional hardware when it was not required. This 
 approach results in a system that is practical to develop on, easy to modify, and capable of supporting future improvements.
 
@@ -216,7 +217,6 @@ The RPI5 reads and writes register-mapped data to exchange control commands and 
         \texttt{REG\_MOTOR\_SPEEDS} & \texttt{51} & Read & Sets wheel/motor speed targets. \\
         \texttt{REG\_ENCODERS} & \texttt{60} & Write & Readback register for encoder counts or wheel feedback values. \\
         \texttt{REG\_PID\_GAINS} & \texttt{70} & Read & Configuration register for PID gain parameters. \\
-        \texttt{REG\_TELEM\_FL} & \texttt{73} & Write & Telemetry register for front-left motor/channel data. \\
         \bottomrule
     \end{tabularx}
 \end{table}
@@ -267,7 +267,7 @@ v_{\mathrm{ref}}(t) = K_{p,p} e_p(t) + K_{i,p}\operatorname{clip}\!\left(\int_0^
 \section{Software Architecture}
 The software in the high-level compute module, running on the Raspberry Pi 5 (RPI5), is built using the Jazzy Jalisco distribution of ROS2 on Ubuntu 24.04 LTS. ROS2 provides a modular architecture
 that allows complex robotic systems such as this to be composed of smaller independent nodes, communicating over standardized topics. Using ROS2
-provides several advantages for this system. First, it enables clear separation between the subsystems of perception, state estimation, planning, and control, where each
+provides several advantages for this system. First, it enables clear separation between the various subsystems (state estimation, planning, control, etc.), where each
 system is its own node or series of nodes. Second, the publish-subscribe communication model used by ROS2 topics makes it simple to route sensor data and commands between nodes.
 \\
 \\
@@ -299,12 +299,13 @@ across the full software stack.
 
 \section{Kinematics}
 To achieve holonomic motion, the robot uses a mecanum wheel drivetrain. Alternative systems such as swerve drive offer superior traction, efficiency, and 
-high speed performance, but it also requires additional steering actuators and more complex mechanical control systems. For a system of this size, 
-the increased hardware and software complexity isn't justifiable. 
+high speed performance, but it also requires additional steering actuators and more complex mechanical control systems. For my purposes, 
+the increased complexity simply isn't justifiable on a time or budget basis. 
 \\
 \\
-Mecanum wheels provide omnidirectional movement using only four actuators, creating a simple yet fully holonomic system. It is for this reason that 
-mecanum drive was selected for this robot.
+I chose mecanum drive because it provides omnidirectional movement using only four motors, creating a simple yet fully holonomic system. I could have also
+wen't with the simpliest option of a differential drive, however in all honesty I wanted the ability to have a robot that can strafe or move in complex patterns,
+and I thought it would be valuable to learn how to implement the more complex kinematics.
 \begin{equation*}
 \begin{bmatrix}
 v_{\mathrm{FL}} \\
@@ -329,7 +330,7 @@ v_x \\
 \begin{equation*}
 \mathbf{v}_{\mathrm{wheel}} \leftarrow \frac{1}{\max\!\left(1,\max_i \left|v_i\right|\right)} \, \mathbf{v}_{\mathrm{wheel}}
 \end{equation*}
-This system uses a simplified approach to kinematics in which wheel PWM commands
+I used a simplified approach to kinematics in which wheel PWM commands
 are generated directly from the commanded velocity input rather than from
 a full geometry-based inverse kinematics model using parameters such as
 wheel radius and horizontal/vertical wheel distances. This approach was chosen for two practical reasons. First, it guarantees
@@ -341,7 +342,7 @@ development.
 \section{Odometry}
 Wheel odometry provides a local estimate of robot motion by integrating measured wheel velocities over time. This estimate is subject to 
 drift due to wheel slip, friction, noise, and other factors, but it provides a high frequency state estimate that becomes useful for localization later on.
-It is calculated using encoder measurements from each of the four drive actuators. Each one of them provides incremental encoder counts
+It is calculated using encoder measurements from each of the four drive motors. Each one of them provides incremental encoder counts
 (approx. 2882 per revolution) which are used to estimate wheel angular velocity. From these measurements the robot body velocity is estimated and then integrated 
 to produce a pose estimate in the odom frame. 
 \\
@@ -414,9 +415,9 @@ y_{t+1} = y_t + v_{y,\mathrm{odom}}\Delta t
 
 
 \section{State Estimation}
-State estimation in this system is split into two connected layers: local fusion and global correction.
-The EKF fuses wheel odometry and IMU data to produce a smooth local estimate in the odom frame, while Monte Carlo Localization (MCL) uses LiDAR and the map to correct global drift.
-Operationally, the EKF provides \texttt{odom} $\to$ \texttt{base\_link} and MCL provides \texttt{map} $\to$ \texttt{odom}, giving:
+I split state estimation into local (Extended Kalman Filter) and global estimation (Monte Carlo Localization) layers.
+The EKF fuses wheel odometry and IMU data to produce a smooth local estimate in the odom frame, however it is subject to slip and drift. Monte Carlo Localization (MCL) uses LiDAR and the known map to adjust for this drift.
+The EKF provides \texttt{odom} $\to$ \texttt{base\_link} and MCL provides \texttt{map} $\to$ \texttt{odom}, giving:
 \[
 {}^{map}\!T_{base\_link} = {}^{map}\!T_{odom}\,{}^{odom}\!T_{base\_link}
 \]
@@ -426,15 +427,16 @@ For the purposes of this project, the EKF provided by the $robot\_localization$ 
 \subsubsection{Purpose in the System}
 The purpose of the EKF is to generate a high-frequency local state estimate (\(x\)-position, \(y\)-position, \(v_x\), \(v_y\), heading \(\theta\), and heading rate \(\dot{\theta}\)) 
 by fusing noisy sensor data from wheel odometry and the IMU, using covariance matrices to represent the relative uncertainty of each measurement.
-This local estimate is used as the motion model for MCL. The underlying prediction/update equations follow the standard $robot\_localization$ implementation.
+This local estimate is used as the motion model for MCL. The underlying prediction/update equations follow the standard $robot\_localization$ implementation. I chose 
+to use an EKF because it provides a reasonable balance between estimation accuracy and computational efficiency, and it handles nonlinearity in the motion model well.
 \subsubsection{State Vector}
 The EKF estimates a six-dimensional state representing the robot's planar pose and velocity.
 \[ \mathbf{x} = [x, y, v_x, v_y, \theta, \dot{\theta}]^T \]
 Odometry $x$, $y$, $v_x$, $v_y$, $\theta$, $\dot{\theta}$ and IMU $\theta$, $\dot{\theta}$ were fused to get this state. However, since odometry $\theta$, $\dot{\theta}$ is extremely unreliable,
-covariances were tuned so that odometry practically owns $x$, $y$, $v_x$, $v_y$ and the IMU owns $\theta$ and $\dot{\theta}$.
+I tuned the covariances matrices so that odometry practically owns $x$, $y$, $v_x$, $v_y$ and the IMU owns $\theta$ and $\dot{\theta}$.
 \subsubsection{Covariance Tuning}
-The covariance values used in the state estimation pipeline were informed by experimental odometry measurements. While the experiment was conducted in ideal conditions, the results reveal important relative characteristics of the drivetrain noise.
-The experiment shows that forward motion produces the lowest odometry error, while lateral (strafing) motion exhibits significantly higher uncertainty due to the inherent slip characteristics of mecanum wheels. Rotational motion introduces the largest error, as heading estimation accumulates encoder noise and wheel slip.
+The covariance values used for the EKF were informed by experimental odometry measurements. While the experiment was conducted in ideal conditions, the results reveal important relative characteristics of the drivetrain noise.
+The experiment shows that forward motion produces the lowest odometry error, while lateral (strafing) motion exhibits significantly higher uncertainty due to the inherent slip characteristics of mecanum wheels. Rotational motion introduces the largest error.
 Across the trials, this is the relationship between each covariance:
 \[
 \sigma_y^2 \approx 10\sigma_x^2, \qquad
@@ -449,7 +451,9 @@ Across the trials, this is the relationship between each covariance:
     \label{fig:ekf-covariance-tuning}
 \end{figure}
 
-\noindent These relationships were used to guide the structure of the odometry covariance matrix used by the filter. Because the experiments were conducted under controlled conditions, the resulting covariance values represent optimistic estimates of drivetrain noise. The exact covariance values were therefore tuned empirically to maintain stable filter behavior across different operating environments, while preserving the experimentally observed ratios between forward, lateral, and rotational uncertainty.
+\noindent Because the experiments were conducted under ideal conditions, the resulting covariance values represent optimistic estimates of drivetrain noise. 
+In the implementation, I only had to tune two values: a base covariance and a position vs. velocity scale factor. The base covariance value is for forward motion, and then lateral and rotational covariances were set to be 10x and 100x of that value respectively, following the experimental results.
+I set the position vs. velocity scale factor to be 0.5, since position is the integral of velocity, velocity has less noise amplification and is generally more accurate. 
 \\
 \\
 IMU covariance was informed from the datasheet noise standard deviation. It was then converted to variance, then tuned experimentally.
@@ -482,8 +486,6 @@ y_t \\
 \]
 \\
 \noindent represents the robot pose at time $t$.
-The constant $\eta$ is a normalization factor ensuring that the belief
-distribution integrates to one.
 \subsubsection{Motion Model}
 
 The motion model uses odometry increments to propagate each particle.
@@ -496,8 +498,8 @@ First, the odometry displacement is rotated into the robot body frame:
 \end{bmatrix}
 =
 \begin{bmatrix}
-\cos(-\theta_{odom,t-1}) & \sin(-\theta_{odom,t-1})\\
--\sin(-\theta_{odom,t-1}) & \cos(-\theta_{odom,t-1})
+\cos(\theta_{odom,t-1}) & \sin(\theta_{odom,t-1})\\
+-\sin(\theta_{odom,t-1}) & \cos(\theta_{odom,t-1})
 \end{bmatrix}
 \begin{bmatrix}
 \Delta x_{odom}\\
@@ -517,8 +519,8 @@ First, the odometry displacement is rotated into the robot body frame:
 \end{bmatrix}
 =
 \begin{bmatrix}
-\cos(\theta_{part,t-1}) & \sin(\theta_{part,t-1})\\
--\sin(\theta_{part,t-1}) & \cos(\theta_{part,t-1})
+\cos(\theta_{part,t-1}) & -\sin(\theta_{part,t-1})\\
+\sin(\theta_{part,t-1}) & \cos(\theta_{part,t-1})
 \end{bmatrix}
 \begin{bmatrix}
 \Delta x_{body}\\
@@ -535,51 +537,50 @@ y_t &= y_{t-1} + \Delta y_{part} \\
 \end{align}
 \\
 \noindent To model uncertainty in the propagated particle state, the motion model
-is represented as a 3D Gaussian with covariance:
-\\
+is represented as a 3D Gaussian with covariance
 \[
-\Sigma_{w_t}=
+\Sigma_t =
 \begin{bmatrix}
 (x_{\text{noise}}\cdot translation)^2 & 0 & 0\\
 0 & (y_{\text{noise}}\cdot translation)^2 & 0\\
 0 & 0 & (\theta_{\text{noise}}\cdot rotation)^2
-\end{bmatrix}
+\end{bmatrix}.
 \]
-\\
-The probability density for the predicted particle pose is then
-\\
+
+\noindent Conditioned on the previous particle state and the measured odometry increment,
+the propagated particle state is modeled as a Gaussian random variable centered at the
+propagated mean pose:
 \begin{equation}
-p(w_t)\propto
+p(w_t \mid u_t, w_{t-1}) \propto
 \exp\left(
--\frac{1}{2}(w_t-\mu)^T \Sigma^{-1}(w_t-\mu)
+-\frac{1}{2}(w_t-\mu_t)^T \Sigma_t^{-1}(w_t-\mu_t)
 \right)
 \end{equation}
-\\
 where
-\\
 \[
-\mu=
+\mu_t =
 \begin{bmatrix}
-x_t\\
-y_t\\
-\theta_t
+\bar{x}_t\\
+\bar{y}_t\\
+\bar{\theta}_t
 \end{bmatrix}
 \]
-\\
 \noindent is the mean predicted pose.
 \\
 \\
-\noindent A sampled particle state is therefore generated as
-
+\noindent A sampled particle state is then generated as
 \begin{equation}
-\hat{w}_t = \mu + \mathcal{N}(0,\Sigma)
+\hat{w}_t = \mu_t + \epsilon_t,
+\qquad
+\epsilon_t \sim \mathcal{N}(0,\Sigma_t).
 \end{equation}
+
 \subsubsection{Measurement Model (Likelihood Field Model)}
 
-A likelihood field model works by computing probability of a particle being correct by projecting a beam
-from the robot onto each particle and getting the distance to the nearest
-known obstacle.
-\\
+\noindent A likelihood field model scores each particle by projecting the observed laser beams
+from that particle pose, computing the expected beam endpoints in the map, and then querying
+the distance from each endpoint to the nearest known obstacle in the precomputed distance field.
+\\ 
 \\
 \noindent We represent this probability using a mixture model with Gaussian + uniform distributions:
 \\
@@ -667,12 +668,11 @@ its Gaussian probability in log space would be:
 \ln \left( \exp \left(\frac{-d^2}{2\sigma^2}\right) \right)
 =
 \ln(\exp(-1250))
-=
-\ln(0)
 \]
 \\
-since $\exp(-1250)$ underflows to $0$.
-\\
+In exact mathematics this value is simply $-1250$. However, in floating-point computation,
+$\exp(-1250)$ underflows to $0$, which would then force the implementation to evaluate $\ln(0)$.
+\\ 
 \\
 \noindent $\ln(0)$ is undefined. This breaks the MCL update.
 By adding some probability that a reading wasn't Gaussian but part of a
@@ -685,7 +685,7 @@ random uniform distribution between $0$ and $Z_{max}$ we prevent this.
 P(z_i|x) = P_{hit} + P_{rand}
 \]
 
-\noindent Where $z_i$ is one beam and $x$ is the particle.
+\noindent Here $z_i$ denotes a single beam and $x$ denotes the particle pose.
 For a full scan containing $k$ beams, the total likelihood is computed by
 \\
 \[
@@ -702,25 +702,30 @@ $P(Z|x)$ will underflow quickly.
 \ln(P(Z|x)) = \sum_{i=1}^{k} \ln(P(z_i|x))
 \]
 \\
-\noindent In log space multiplication becomes addition and addition of log
-probabilities is more stable than multiplication of probabilities $\leq 1$.
+\noindent In log space, multiplication becomes addition, and summing log
+probabilities is numerically more stable than multiplying many probabilities
+less than or equal to 1.
 \\
 \\
-Since $P(z_i|x) = P_{hit} + P_{rand}$ we must compute
-\\
+\noindent However, for each beam the measurement model is a mixture:
+\[
+P(z_i \mid x) = P_{hit} + P_{rand}.
+\]
+This means the per-beam log likelihood cannot be written as the sum of
+the individual log terms. Instead, we must evaluate
 \[
 \ln(P_{hit} + P_{rand})
 \]
-\\
-Mixture models involve a sum of two likelihood components and the
-overall scan likelihood is accumulated in log space.
-Therefore we compute the logarithms of each component separately.
-The sum is then evaluated using the log-sum-exp identity to ensure
-numerical stability.
+directly.
 \\
 \\
-Let
+\noindent To do this robustly, the logarithms of the two mixture components
+are computed separately, and the result is combined using the log-sum-exp
+identity. This preserves the mixture structure while avoiding numerical
+underflow during scan likelihood accumulation.
 \\
+\\
+\noindent Let
 \[
 a = \ln(P_{hit})
 \]
@@ -743,54 +748,49 @@ m + \ln(e^{a-m} + e^{b-m})
 m = \max(a,b)
 \]
 
-\noindent Now to calculate $\ln(P(Z|x))$ we compute
-\\
+\noindent For each particle, the total scan log likelihood is computed as
 \[
-\ln(P(Z|x))
+\log P(Z \mid x)
 =
 \sum_{i=1}^{k}
 \left[
-m + \ln(e^{a-m}+e^{b-m})
-\right]
+m_i + \ln\!\left(e^{a_i-m_i}+e^{b_i-m_i}\right)
+\right],
 \]
-\\
-For each particle we compute this.
-Now the vector of log weights for each particle is in log values and
-not normalized, so they are not probabilities. We must perform a log
-space normalization.
-\\
-\\
-Let
-\\
+where
 \[
-m = \max_i \log(w_i)
+m_i = \max(a_i, b_i).
 \]
+
+\noindent This produces an unnormalized scan log likelihood for each particle. In the
+implementation, that likelihood is applied multiplicatively to the particle's
+existing weight and then the result is normalized.
 \\
-where $w_i$ is the vector of each particle's log weight.
 \\
-\\
-Then define
-\\
+\noindent Let
 \[
-\tilde{w_i} = w_i \cdot \exp(\log w_i - m)
+c = \max_i \log w_i
 \]
+where $\log w_i$ is the scan log likelihood of particle $i$.
 \\
 \\
-Subtracting the maximum log weight shifts all values so the largest
-exponent is $0$, preventing overflow.
-\\
-\\
-Now we normalize
-\\
+\noindent Then define the shifted updated weights
 \[
-w_i = \frac{\tilde{w_i}}{\sum_j \tilde{w_j}}
+\tilde{w}_i = w_{i,t-1}\exp(\log w_i - c).
 \]
+Subtracting the maximum log weight ensures that the largest exponent is zero,
+which prevents numerical overflow.
 \\
+\\
+\noindent The normalized particle weights are then
+\[
+w_i = \frac{\tilde{w}_i}{\sum_j \tilde{w}_j},
+\]
 so that
-\\
 \[
-\sum_i w_i = 1
+\sum_i w_i = 1.
 \]
+
 \subsubsection{Resampling}
 Resampling particles is necessary because it reduces the problem of degeneracy where most particles get near-zero weight. This process:
 \begin{itemize}
@@ -806,12 +806,12 @@ Resampling particles is necessary because it reduces the problem of degeneracy w
 N_eff = \frac{1}{\sum_{i=1}^{N}w_i^2}
 \]
 \\
-Where $N$ is the total number of particles and $w_i$ is the weight of each particle. An effective sample size closer to $N$ means that most of the particles
+\noindent Here $N$ is the total number of particles and $w_i$ is the weight of each particle. An effective sample size closer to $N$ means that most of the particles
 contribute meaningfully to the state estimate. An effective sample size closer to 1 means only a few particles dominate the estimate. We resample the particles when $N_eff < 0.5 * N$.
 \\
 
 \noindent In this implementation, systematic resampling is done with a cumulative distribution (CDF) over normalized weights.
-This method achieves the 4 goals that we aforementioned. It removes low-weight particles because a low-weight particle will have a low 
+This method achieves the four goals listed above. It removes low-weight particles because a low-weight particle will have a low 
 interval in the CDF, making it less likely to be selected. It duplicates high-weight particles because a high-weight particle has a high 
 interval in the CDF, making it more likely to be selected. Because it duplicates high weight particles it keeps the particle set focused on likely states,
 and only focusing on likely states improves estimation quality for the same compute budget.
@@ -909,7 +909,8 @@ r = \frac{w_{\text{fast}}}{w_{\text{slow}}}
 \]
 
 \noindent Using the ratio of fast and slow averages is more robust than reacting to the instantaneous confidence alone, since scan quality can fluctuate momentarily due to occlusion, dynamic obstacles, or local map ambiguity. The two time scales therefore detect a sustained drop relative to the recent baseline, which is a better indicator of the kidnapped robot condition.
-
+\\
+\\
 \noindent An adaptive injection probability is then defined as:
 
 \[
@@ -931,24 +932,68 @@ P_{\text{random}} = P_{\text{base}} + (P_{\text{max}} - P_{\text{base}})\beta
 N_{\text{inject}} = \frac{P_{\text{random}}}{100} \cdot N
 \]
 
-\noindent Injected particles are sampled uniformly around the odometry estimate:
+\noindent Injected particles are sampled by choosing random free cells from the map and
+then perturbing each selected cell uniformly within one map resolution:
 
 \[
-x \sim \mathcal{U}(x_{\text{odom}} \pm \Delta x), \quad
-y \sim \mathcal{U}(y_{\text{odom}} \pm \Delta y), \quad
-\theta \sim \mathcal{U}(\theta_{\text{odom}} \pm \Delta \theta)
+x \sim \mathcal{U}(x_{\text{cell}} - r,\; x_{\text{cell}} + r), \quad
+y \sim \mathcal{U}(y_{\text{cell}} - r,\; y_{\text{cell}} + r), \quad
+\theta \sim \mathcal{U}(-\pi,\pi)
 \]
 
-\noindent To improve robustness, adaptive random injection is disabled when the robot is undergoing rapid rotation or executing planned navigation:
+\noindent To improve robustness, adaptive random injection is only enabled when the
+robot is not navigating, or when its yaw rate remains below the rapid-turn
+threshold:
 
 \[
-\text{allow} = (|\dot{\theta}| \le \tau) \land (\neg \text{navigating})
+\text{allow} = (|\dot{\theta}| \le \tau) \lor (\neg \text{navigating})
 \]
 
 \noindent This prevents spurious particle dispersion caused by scan distortion or intentional motion.
 \subsubsection{Limitations and Failure Modes}
-
+There are a few situations in which the particle filter and adaptive injection strategy may fail. 
+\begin{itemize}
+    \item If the robot is navigating and experiences a sudden large disturbance (e.g. colliding with an obstacle), the scan quality may drop significantly while the robot is still moving, which could trigger random particle injection at a time when the filter is already struggling to maintain a coherent pose estimate.
+    \item If the environment contains large ambiguous areas (e.g. long corridors or open spaces) where many poses produce similar scan likelihoods, the particle filter may struggle to converge to a single pose and may require more particles or additional sensor modalities for disambiguation.
+    \item If the map is inaccurate or outdated, the measurement model may produce consistently low likelihoods even when the robot is correctly localized, leading to excessive random particle injection and potential divergence of the filter.
+\end{itemize}
+Tuning the particle filter parameters, such as the number of particles, noise, and various liklihood field model parameters, helped mitigate these failure modes. Under extreme circumstance, the filter may still fail, but it is robust enough to handle typical navigation scenarios and to recover from temporary localization degradation.
 \section{Navigation}
+\subsection{Occupancy Grid Model}
+\noindent Global planning is performed on a 2D occupancy grid, but the planner does not treat all free cells equally. One thing I noticed is that if I run A$^{*}$ on a raw occuapncy grid, the path hugs walls and creates a path impossible for the robot to follow. Rather than running A$^{*}$ directly on the raw binary map, the implementation first constructs an \textbf{inflated clearance-aware cost map}. This allows the robot to prefer routes that maintain additional distance from obstacles instead of simply finding the shortest geometric path through free space.
+\\
+\\
+\noindent The process begins by computing, for every grid cell, the distance to the nearest occupied or unknown cell. Occupied cells and unknown cells are both treated as obstacle sources during this step. A Dijkstra-style expansion over the 8-connected grid is then used to propagate the nearest-obstacle distance throughout the map, producing a clearance field
+\\
+\[
+d(\mathbf{c}) = \text{distance from cell } \mathbf{c} \text{ to the nearest obstacle}.
+\]
+\\
+\\
+\noindent A hard safety buffer is then enforced around obstacles. If a cell lies within the configured obstacle buffer distance $d_b$, it is treated as non-traversable:
+\\
+\[
+d(\mathbf{c}) \le d_b
+\quad \Longrightarrow \quad
+\mathbf{c} \text{ is blocked.}
+\]
+\\
+\\
+\noindent For cells outside this buffer, the planner assigns a traversal penalty that decreases as clearance increases. In the current implementation this penalty is not binary and not purely geometric; it is a smooth \textbf{exponential} cost applied on top of the normal grid step cost:
+\\
+\[
+J_{\text{clear}}(\mathbf{c}) =
+\lambda \exp\!\left(
+-\frac{d(\mathbf{c}) - d_b}{\ell}
+\right),
+\qquad d(\mathbf{c}) > d_b
+\]
+\\
+\noindent where $\lambda$ is the clearance cost scale and $\ell$ is the clearance decay length. This means that cells just outside the obstacle buffer still carry a significant cost, while cells farther from obstacles rapidly become inexpensive. As a result, the planner naturally biases paths toward wider, safer corridors without discarding valid narrow passages when they are necessary.
+\\
+\\
+\noindent During search, this clearance penalty is added directly to the normal A$^{*}$ step cost for each candidate neighbor. Axis-aligned steps retain a nominal cost of $1$, diagonal steps retain a nominal cost of $\sqrt{2}$, and the obstacle-clearance penalty is added to both. The resulting planner is therefore still shortest-path based, but with a traversal model that explicitly favors obstacle clearance rather than minimizing Euclidean length alone.
+
 \subsection{\texorpdfstring{$A^{*}$}{A*}}
 \noindent Global path planning is performed using the A$^{*}$ algorithm on a 2D occupancy grid. Since the map is discretized into square cells, the raw output of A$^{*}$ is a sequence of adjacent grid coordinates rather than a continuous trajectory. This makes the initial path safe and graph-search optimal with respect to the grid cost model, but it also makes the output inherently jagged. Such a path is not ideal for a physical robot, especially one that will later be tracked by a continuous controller.
 \\

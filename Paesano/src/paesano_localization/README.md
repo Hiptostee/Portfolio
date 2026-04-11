@@ -31,5 +31,5 @@ ros2 service call /paesano/load_map nav2_msgs/srv/LoadMap "{map_url: '/home/Paes
 Real robot:
 
 ```bash
-ros2 service call /paesano/load_map nav2_msgs/srv/LoadMap "{map_url: '/home/Paesano/ros2_ws_pi/maps/my_map_real.yaml'}"
+ros2 service call /paesano/load_map nav2_msgs/srv/LoadMap "{map_url: '/home/paesano/ros2_ws_pi/maps/my_map_real.yaml'}"
 ```

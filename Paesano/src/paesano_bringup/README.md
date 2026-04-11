@@ -18,4 +18,4 @@ ros2 launch paesano_bringup paesano_bringup.launch.py sim:=false localization_mo
 Default map selection:
 
 - `sim:=true` -> `/home/Paesano/ros2_ws/maps/my_map.yaml`
-- `sim:=false` -> `/home/Paesano/ros2_ws_pi/maps/my_map_real.yaml`
+- `sim:=false` -> `/home/paesano/ros2_ws_pi/maps/my_map_real.yaml`

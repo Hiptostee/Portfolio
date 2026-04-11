@@ -21,7 +21,7 @@ def generate_launch_description():
         default_value=PythonExpression([
             "'/home/Paesano/ros2_ws/maps/my_map.yaml' if '",
             LaunchConfiguration('sim'),
-            "' in ['true', 'True', '1'] else '/home/Paesano/ros2_ws_pi/maps/my_map_real.yaml'",
+            "' in ['true', 'True', '1'] else '/home/paesano/ros2_ws_pi/maps/my_map_real.yaml'",
         ]),
         description='Canonical localization map yaml',
     )
@@ -30,7 +30,7 @@ def generate_launch_description():
         default_value=PythonExpression([
             "'/home/Paesano/ros2_ws/maps/my_map' if '",
             LaunchConfiguration('sim'),
-            "' in ['true', 'True', '1'] else '/home/Paesano/ros2_ws_pi/maps/my_map_real'",
+            "' in ['true', 'True', '1'] else '/home/paesano/ros2_ws_pi/maps/my_map_real'",
         ]),
         description='Canonical map save prefix without extension',
     )
@@ -53,24 +53,13 @@ def generate_launch_description():
         http_host_arg,
         http_port_arg,
         Node(
-            package='paesano_orchestration',
-            executable='orchestration_node',
-            name='paesano_orchestration',
-            output='screen',
-            parameters=[{
-                'sim': ParameterValue(LaunchConfiguration('sim'), value_type=bool),
-                'startup_mode': LaunchConfiguration('startup_mode'),
-                'default_map_yaml': LaunchConfiguration('map_yaml'),
-                'map_save_prefix': LaunchConfiguration('map_save_prefix'),
-            }],
-        ),
-        Node(
             package='paesano_mobile_bridge',
             executable='bridge_node',
             name='paesano_mobile_bridge',
             output='screen',
             parameters=[{
-                'sim': LaunchConfiguration('sim'),
+                'sim': ParameterValue(LaunchConfiguration('sim'), value_type=bool),
+                'startup_mode': LaunchConfiguration('startup_mode'),
                 'default_map_yaml': LaunchConfiguration('map_yaml'),
                 'map_save_prefix': LaunchConfiguration('map_save_prefix'),
                 'http_host': LaunchConfiguration('http_host'),

@@ -42,33 +42,33 @@ foreach(pkg ${GZ_PLUGIN_CANDIDATES})
   endif()
 endforeach()
 
-if(NOT GZ_SIM_TARGET OR NOT GZ_PLUGIN_TARGET OR NOT GZ_MATH_TARGET)
-  message(FATAL_ERROR
-    "Missing Gazebo development packages needed for paesano_kinematic_base. "
-    "Found gz-sim target: ${GZ_SIM_TARGET}; "
+if(GZ_SIM_TARGET AND GZ_PLUGIN_TARGET AND GZ_MATH_TARGET)
+  add_library(paesano_kinematic_base SHARED
+    src/kinematic_base_system.cpp
+  )
+  target_compile_features(paesano_kinematic_base PUBLIC cxx_std_17)
+  ament_target_dependencies(paesano_kinematic_base
+    geometry_msgs
+    rclcpp
+    sensor_msgs
+    std_msgs
+  )
+  target_link_libraries(paesano_kinematic_base
+    ${GZ_SIM_TARGET}::${GZ_SIM_TARGET}
+    ${GZ_PLUGIN_TARGET}::${GZ_PLUGIN_TARGET}
+    ${GZ_MATH_TARGET}::${GZ_MATH_TARGET}
+  )
+
+  install(TARGETS paesano_kinematic_base
+    LIBRARY DESTINATION lib
+  )
+else()
+  message(WARNING
+    "Skipping paesano_kinematic_base build because Gazebo development packages "
+    "were not found. Found gz-sim target: ${GZ_SIM_TARGET}; "
     "found gz-plugin target: ${GZ_PLUGIN_TARGET}; "
     "found gz-math target: ${GZ_MATH_TARGET}.")
 endif()
-
-add_library(paesano_kinematic_base SHARED
-  src/kinematic_base_system.cpp
-)
-target_compile_features(paesano_kinematic_base PUBLIC cxx_std_17)
-ament_target_dependencies(paesano_kinematic_base
-  geometry_msgs
-  rclcpp
-  sensor_msgs
-  std_msgs
-)
-target_link_libraries(paesano_kinematic_base
-  ${GZ_SIM_TARGET}::${GZ_SIM_TARGET}
-  ${GZ_PLUGIN_TARGET}::${GZ_PLUGIN_TARGET}
-  ${GZ_MATH_TARGET}::${GZ_MATH_TARGET}
-)
-
-install(TARGETS paesano_kinematic_base
-  LIBRARY DESTINATION lib
-)
 
 install(DIRECTORY
   config

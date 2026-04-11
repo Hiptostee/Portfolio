@@ -14,5 +14,5 @@ lqr:
     heading_complete_tolerance: 0.01
     q_x: 2.0
     q_y: 5.0
-    q_theta: 12.0
+    q_theta: 1.0
     r_weight: 0.6

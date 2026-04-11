@@ -81,7 +81,7 @@ def generate_launch_description():
     map_yaml_default = PythonExpression([
         "'/home/Paesano/ros2_ws/maps/my_map.yaml' if '",
         LaunchConfiguration('sim'),
-        "' in ['true', 'True', '1'] else '/home/Paesano/ros2_ws_pi/maps/my_map_real.yaml'"
+        "' in ['true', 'True', '1'] else '/home/paesano/ros2_ws_pi/maps/my_map_real.yaml'"
     ])
     map_yaml_arg = DeclareLaunchArgument(
         'map_yaml',

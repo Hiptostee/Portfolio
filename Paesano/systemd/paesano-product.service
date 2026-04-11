@@ -6,14 +6,14 @@ Wants=network-online.target
 [Service]
 Type=simple
 User=paesano
-WorkingDirectory=/home/Paesano/ros2_ws_pi
-ExecStart=/home/Paesano/ros2_ws_pi/scripts/start_paesano_product.sh
+WorkingDirectory=/home/paesano/ros2_ws_pi
+ExecStart=/home/paesano/ros2_ws_pi/scripts/start_paesano_product.sh
 Restart=on-failure
 RestartSec=3
-Environment=WORKSPACE_DIR=/home/Paesano/ros2_ws_pi
+Environment=WORKSPACE_DIR=/home/paesano/ros2_ws_pi
 Environment=STARTUP_MODE=mapping
-Environment=MAP_YAML=/home/Paesano/ros2_ws_pi/maps/my_map_real.yaml
-Environment=MAP_SAVE_PREFIX=/home/Paesano/ros2_ws_pi/maps/my_map_real
+Environment=MAP_YAML=/home/paesano/ros2_ws_pi/maps/my_map_real.yaml
+Environment=MAP_SAVE_PREFIX=/home/paesano/ros2_ws_pi/maps/my_map_real
 Environment=HTTP_HOST=0.0.0.0
 Environment=HTTP_PORT=8000
 

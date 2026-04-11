@@ -2,7 +2,7 @@
 
 set -eo pipefail
 
-WORKSPACE_DIR="${WORKSPACE_DIR:-/home/Paesano/ros2_ws_pi}"
+WORKSPACE_DIR="${WORKSPACE_DIR:-/home/paesano/ros2_ws_pi}"
 ROS_SETUP="${ROS_SETUP:-/opt/ros/jazzy/setup.bash}"
 WS_SETUP="${WS_SETUP:-${WORKSPACE_DIR}/install/setup.bash}"
 MAP_YAML="${MAP_YAML:-${WORKSPACE_DIR}/maps/my_map_real.yaml}"
