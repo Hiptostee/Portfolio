@@ -299,6 +299,28 @@ the increased complexity simply isn't justifiable on a time or budget basis.
 I chose mecanum drive because it provides omnidirectional movement using only four motors, creating a simple yet fully holonomic system. I could have also
 wen't with the simpliest option of a differential drive, however in all honesty I wanted the ability to have a robot that can strafe or move in complex patterns,
 and I thought it would be valuable to learn how to implement the more complex kinematics.
+\noindent In the final real-hardware implementation, the drivetrain no longer uses a
+normalized wheel-mixing approximation. Instead, the high-level motor controller
+interprets \texttt{/cmd\_vel} in SI units and applies geometry-based inverse
+kinematics using the measured platform dimensions:
+\\
+\[
+r = \SI{0.0485}{m}, \qquad
+L = \SI{0.212}{m}, \qquad
+W = \SI{0.194}{m}, \qquad
+R = \frac{L+W}{2} = \SI{0.203}{m}
+\]
+\\
+\noindent For a commanded body-frame twist
+\[
+\mathbf{u} =
+\begin{bmatrix}
+v_x\\
+v_y\\
+\omega
+\end{bmatrix},
+\]
+the wheel rim linear velocities are computed as
 \begin{equation*}
 \begin{bmatrix}
 v_{\mathrm{FL}} \\
@@ -308,30 +330,47 @@ v_{\mathrm{BR}}
 \end{bmatrix}
 =
 \begin{bmatrix}
-1 & -1 & -1 \\
-1 & 1 & 1 \\
-1 & 1 & -1 \\
-1 & -1 & 1
+1 & -1 & -R \\
+1 & 1 & R \\
+1 & 1 & -R \\
+1 & -1 & R
 \end{bmatrix}
 \begin{bmatrix}
-v_y \\
 v_x \\
-\omega_z
+v_y \\
+\omega
 \end{bmatrix}
 \end{equation*}
-
-\begin{equation*}
-\mathbf{v}_{\mathrm{wheel}} \leftarrow \frac{1}{\max\!\left(1,\max_i \left|v_i\right|\right)} \, \mathbf{v}_{\mathrm{wheel}}
-\end{equation*}
-I used a simplified approach to kinematics in which wheel PWM commands
-are generated directly from the commanded velocity input rather than from
-a full geometry-based inverse kinematics model using parameters such as
-wheel radius and horizontal/vertical wheel distances. This approach was chosen for two practical reasons. First, it guarantees
-bounded wheel commands under all requested motions, which improves
-saturation behavior and stability in the motor control module.
-Second, it avoids introducing sensitivity to geometric calibration errors
-in parameters such as wheel radius and chassis dimensions during early
-development.
+\noindent where $v_x$ and $v_y$ are the commanded translational velocities in
+\si{m/s} and $\omega$ is the commanded yaw rate in \si{rad/s}.
+\\
+\\
+\noindent These wheel rim velocities are then converted into encoder tick-rate
+targets using the known encoder resolution of $N_{enc}=2882$ ticks per
+revolution. Since the linear distance traveled per encoder tick is
+\[
+d_{\mathrm{tick}} = \frac{2\pi r}{N_{enc}},
+\]
+the target wheel tick rates become
+\[
+\dot{n}_i = \frac{v_i}{d_{\mathrm{tick}}}
+=
+v_i \frac{N_{enc}}{2\pi r}.
+\]
+\\
+\\
+\noindent To keep the commanded motion within the measured hardware envelope, the
+body-frame command is first clamped to
+\[
+\sqrt{v_x^2 + v_y^2} \le \SI{0.35}{m/s},
+\qquad
+|\omega| \le \SI{1.5}{rad/s}.
+\]
+After inverse kinematics, if any wheel target exceeds the configured maximum of
+\SI{3500}{ticks/s}, all four wheel targets are scaled by the same factor so that
+the requested motion direction is preserved while remaining inside the actuator
+limits. The final tick-rate targets are then normalized to the Pico's signed
+\texttt{int8} command range before being sent over I\textsuperscript{2}C.
 \section{Odometry}
 Wheel odometry provides a local estimate of robot motion by integrating measured wheel velocities over time. This estimate is subject to 
 drift due to wheel slip, friction, noise, and other factors, but it provides a high frequency state estimate that becomes useful for localization later on.
@@ -1130,8 +1169,208 @@ The feedback term drives the robot back toward the spline trajectory points, whi
 
 \section{Experiments}
 \subsection{Velocity and Position Control Performance}
-\subsection{Localization Performance}
+To evaluate Paesano at both the actuator and system level, two experiments were
+conducted on the real hardware platform. The first isolates the drivetrain and
+low-level velocity loop by examining commanded body-frame motion against measured
+response. The second evaluates the full autonomy stack in localization mode by
+measuring how closely the robot follows planned trajectories in the map frame.
+Together these experiments validate both the bottom of the stack and the
+integrated navigation behavior built on top of it.
+\\
+\\
+\noindent For the low-level test, ROS 2 bags were recorded while step-like
+forward, lateral, and rotational commands were applied over multiple command
+magnitudes. The bags included \texttt{/cmd\_vel}, \texttt{/odom},
+\texttt{/odom/filtered}, and \texttt{/wheel\_encoders}. From these logs, rise
+behavior, overshoot, settling, and residual stop error were computed. The
+drivetrain command interface had already been reworked to respect the physical
+geometry of the mecanum platform and to cap body commands to the measured
+hardware envelope, so this experiment reflects the final motor-control
+implementation rather than an earlier normalized-drive prototype.
+
+\begin{table}[H]
+    \centering
+    \caption{Average low-level control metrics across the recorded velocity-control trials.}
+    \label{tab:velocity-control-summary}
+    \small
+    \begin{tabular}{lcccc}
+        \toprule
+        Motion & \shortstack{Mean steady-state\\error} & Mean overshoot & \shortstack{Mean stop\\decay} & \shortstack{Mean encoder\\stop error} \\
+        \midrule
+        Forward & \SI{0.0186}{m/s} & \SI{4.73}{\percent} & \SI{0.20}{s} & \SI{0.0097}{m} \\
+        Lateral & \SI{0.0582}{m/s} & \SI{4.83}{\percent} & \SI{0.25}{s} & \SI{0.0073}{m} \\
+        Rotation & \SI{0.388}{rad/s} & \SI{10.02}{\percent} & \SI{0.22}{s} & N/A \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\noindent The forward and lateral responses were both repeatable across trials,
+with small overshoot and short residual settling after the command returned to
+zero. Forward tracking was the cleanest axis overall. Lateral motion remained
+well controlled but showed slightly larger steady-state deviation, which is
+consistent with the higher slip sensitivity of mecanum strafing. Rotational
+tracking also settled quickly, though the highest tested angular commands showed
+more error than the translational axes. Even so, the post-stop rotational decay
+remained short and consistent, which is the more important behavior for the
+higher-level navigation stack.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{experiments/forward_overlay.png}
+        \caption{Forward velocity tracking.}
+        \label{fig:forward-overlay}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{experiments/forward_stop_error_time.png}
+        \caption{Forward stop error after zero command.}
+        \label{fig:forward-stop-error}
+    \end{subfigure}
+    \caption{Forward-axis low-level control performance. The measured response closely tracks the commanded input, with only a brief braking transient when the command returns to zero.}
+    \label{fig:forward-control-results}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{experiments/lateral_overlay.png}
+        \caption{Lateral velocity tracking.}
+        \label{fig:lateral-overlay}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{experiments/lateral_stop_error_time.png}
+        \caption{Lateral stop error after zero command.}
+        \label{fig:lateral-stop-error}
+    \end{subfigure}
+    \caption{Lateral-axis low-level control performance. Strafing remained stable and repeatable, although slightly less precise than the forward axis.}
+    \label{fig:lateral-control-results}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{experiments/rotate_overlay.png}
+        \caption{Angular velocity tracking.}
+        \label{fig:rotate-overlay}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{experiments/rotate_stop_velocity_time.png}
+        \caption{Angular velocity decay after zero command.}
+        \label{fig:rotate-stop-error}
+    \end{subfigure}
+    \caption{Rotational low-level control performance. The turn response exhibits slightly higher transient error at large commands, but the stop behavior remains sharp and repeatable.}
+    \label{fig:rotation-control-results}
+\end{figure}
+
 \subsection{Trajectory Following Performance}
+\noindent The second experiment evaluated the full autonomy stack in localization
+mode. Three routes were tested: a straight route, a single-turn curve route, and
+a longer multi-segment route through a more cluttered portion of the map. Each
+route was executed three times from a fixed marked start pose, and ROS 2 bags
+were recorded containing \texttt{/path}, \texttt{/estimated\_pose},
+\texttt{/odom/filtered}, \texttt{/cmd\_vel}, and \texttt{/map}. The primary
+metrics were completion time, final position error, final heading error, and
+cross-track error with respect to the planned path.
+\\
+\\
+\noindent This experiment intentionally validates more than just the tracking
+controller. Because the robot is operating in the map frame while using the full
+navigation stack, the results reflect the combined behavior of localization,
+global planning, path pruning, spline generation, and LQR tracking. A separate
+standalone localization benchmark was therefore not included in the final report,
+since route-following accuracy already depends on the pose estimator being
+correct over the full run.
+
+\begin{table}[H]
+    \centering
+    \caption{Average trajectory-following results by route type.}
+    \label{tab:trajectory-summary}
+    \small
+    \begin{tabular}{lccccc}
+        \toprule
+        Route & \shortstack{Mean completion\\time} & \shortstack{Mean final\\position error} & \shortstack{Mean cross-track\\error} & \shortstack{Mean final\\heading error} & Success \\
+        \midrule
+        Straight & \SI{6.11}{s} & \SI{0.0041}{m} & \SI{0.0089}{m} & \SI{0.154}{deg} & 3/3 \\
+        Curve & \SI{18.29}{s} & \SI{0.0041}{m} & \SI{0.0086}{m} & \SI{0.366}{deg} & 3/3 \\
+        Complex & \SI{44.09}{s} & \SI{0.0095}{m} & \SI{0.0087}{m} & \SI{0.270}{deg} & 3/3 \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+\noindent Across all nine recorded navigation runs, the mean cross-track error was
+\SI{0.0088}{m}, the mean final position error was \SI{0.0059}{m}, and every
+trial completed successfully. These values are strong for a student-built indoor
+mobile platform and indicate that the path planner, spline generator, and LQR
+tracker are all operating consistently in the same frame as the localization
+estimate. The straight route produced the smallest directional variation, while
+the curve and complex routes remained nearly identical in mean cross-track error
+despite the larger path length and longer execution time.
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{experiments/straight_overlay.png}
+        \caption{Straight-route planned and actual paths.}
+        \label{fig:straight-overlay}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{experiments/straight_cross_track_error.png}
+        \caption{Straight-route cross-track error over time.}
+        \label{fig:straight-cross-track}
+    \end{subfigure}
+    \caption{Trajectory-following results for the straight route. The actual path remains nearly coincident with the planned reference, and the cross-track error stays small throughout the run.}
+    \label{fig:straight-route-results}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{experiments/curve_overlay.png}
+        \caption{Curve-route planned and actual paths.}
+        \label{fig:curve-overlay}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{experiments/curve_cross_track_error.png}
+        \caption{Curve-route cross-track error over time.}
+        \label{fig:curve-cross-track}
+    \end{subfigure}
+    \caption{Trajectory-following results for the single-turn curve route. The controller remains tightly aligned with the planned reference through the turn.}
+    \label{fig:curve-route-results}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{experiments/complex_overlay.png}
+        \caption{Complex-route planned and actual paths.}
+        \label{fig:complex-overlay}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}{0.49\textwidth}
+        \centering
+        \includegraphics[width=\linewidth]{experiments/complex_cross_track_error.png}
+        \caption{Complex-route cross-track error over time.}
+        \label{fig:complex-cross-track}
+    \end{subfigure}
+    \caption{Trajectory-following results for the complex multi-segment route. Even on the longest path, the measured tracking error remains small relative to the map scale.}
+    \label{fig:complex-route-results}
+\end{figure}
 
 \section{Conclusion and Future Improvements}
 % Add content here
