@@ -59,6 +59,19 @@ namespace mecanum_drive_controller
     ki_hold_ = declare_parameter<double>("ki_hold", 0.0);
     kd_hold_ = declare_parameter<double>("kd_hold", 0.0);
 
+    // Physical parameters used to interpret cmd_vel in SI units.
+    wheel_radius_ = declare_parameter<double>("wheel_radius", 0.0485);
+    base_length_ = declare_parameter<double>("base_length", 0.212);
+    base_width_ = declare_parameter<double>("base_width", 0.194);
+    ticks_per_rev_ = declare_parameter<double>("ticks_per_rev", 2882.0);
+    max_ticks_per_sec_ = declare_parameter<double>("max_ticks_per_sec", 3500.0);
+    max_linear_speed_mps_ = declare_parameter<double>("max_linear_speed_mps", 0.35);
+    max_angular_speed_radps_ = declare_parameter<double>("max_angular_speed_radps", 1.5);
+
+    distance_per_tick_ =
+      (2.0 * M_PI * wheel_radius_) / std::max(ticks_per_rev_, 1e-6);
+    mecanum_radius_ = 0.5 * (base_length_ + base_width_);
+
     // Open the I2C bus and bind it to the Pico address.
     i2c_file_ = open(i2c_device_.c_str(), O_RDWR);
     if (i2c_file_ < 0)
@@ -170,23 +183,46 @@ namespace mecanum_drive_controller
     pub_->publish(msg);
   }
 
-  // Convert a ROS cmd_vel command into normalized mecanum wheel speed commands.
+  // Convert a ROS cmd_vel command in body-frame SI units into wheel tick-rate commands
+  // for the Pico controller.
   void MecanumDriveController::cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
   {
-    double y = msg->linear.x;
-    double x = msg->linear.y;
-    double rx = msg->angular.z;
+    double vx = msg->linear.x;
+    double vy = msg->linear.y;
+    double omega = msg->angular.z;
 
-    double fl = y - x - rx;
-    double fr = y + x + rx;
-    double bl = y + x - rx;
-    double br = y - x +  rx;
+    const double planar_speed = std::hypot(vx, vy);
+    if (planar_speed > max_linear_speed_mps_ && planar_speed > 1e-9) {
+      const double scale = max_linear_speed_mps_ / planar_speed;
+      vx *= scale;
+      vy *= scale;
+    }
+    omega = std::clamp(omega, -max_angular_speed_radps_, max_angular_speed_radps_);
 
-    double maxVal = std::max({std::abs(fl), std::abs(fr), std::abs(bl), std::abs(br), 1.0});
-    fl /= maxVal;
-    fr /= maxVal;
-    bl /= maxVal;
-    br /= maxVal;
+    // Wheel rim linear velocities in m/s.
+    double fl_mps = vx - vy - mecanum_radius_ * omega;
+    double fr_mps = vx + vy + mecanum_radius_ * omega;
+    double bl_mps = vx + vy - mecanum_radius_ * omega;
+    double br_mps = vx - vy + mecanum_radius_ * omega;
+
+    // Convert wheel rim linear velocities into wheel encoder tick rates.
+    const double ticks_per_meter = 1.0 / std::max(distance_per_tick_, 1e-9);
+    double fl_ticks = fl_mps * ticks_per_meter;
+    double fr_ticks = fr_mps * ticks_per_meter;
+    double bl_ticks = bl_mps * ticks_per_meter;
+    double br_ticks = br_mps * ticks_per_meter;
+
+    // Preserve the requested motion direction while respecting the Pico's maximum
+    // representable wheel target.
+    const double max_abs_ticks = std::max({
+      std::abs(fl_ticks), std::abs(fr_ticks), std::abs(bl_ticks), std::abs(br_ticks), 1.0
+    });
+    const double scale =
+      (max_abs_ticks > max_ticks_per_sec_) ? (max_ticks_per_sec_ / max_abs_ticks) : 1.0;
+    fl_ticks *= scale;
+    fr_ticks *= scale;
+    bl_ticks *= scale;
+    br_ticks *= scale;
 
     auto to_i8 = [](double u) -> int8_t
     {
@@ -196,7 +232,28 @@ namespace mecanum_drive_controller
       return (int8_t)v;
     };
 
-    int8_t speeds[4] = {to_i8(fl), to_i8(fr), to_i8(bl), to_i8(br)};
+    const double inv_max_ticks =
+      1.0 / std::max(max_ticks_per_sec_, 1e-6);
+    int8_t speeds[4] = {
+      to_i8(fl_ticks * inv_max_ticks),
+      to_i8(fr_ticks * inv_max_ticks),
+      to_i8(bl_ticks * inv_max_ticks),
+      to_i8(br_ticks * inv_max_ticks)
+    };
+
+    RCLCPP_INFO_THROTTLE(
+      get_logger(),
+      *get_clock(),
+      1000,
+      "cmd_vel vx=%.3f vy=%.3f wz=%.3f | wheel_mps FL=%.3f FR=%.3f BL=%.3f BR=%.3f | "
+      "wheel_ticks FL=%.1f FR=%.1f BL=%.1f BR=%.1f | i2c_cmd FL=%d FR=%d BL=%d BR=%d",
+      vx, vy, omega,
+      fl_mps, fr_mps, bl_mps, br_mps,
+      fl_ticks, fr_ticks, bl_ticks, br_ticks,
+      static_cast<int>(speeds[0]),
+      static_cast<int>(speeds[1]),
+      static_cast<int>(speeds[2]),
+      static_cast<int>(speeds[3]));
 
     if (!i2cWriteI8(REG_MOTOR_SPEEDS, speeds, 4))
       RCLCPP_ERROR(get_logger(), "I2C motor write failed");

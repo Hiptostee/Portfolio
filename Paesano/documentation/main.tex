@@ -94,7 +94,7 @@ Wago Connectors & \$11.95 \\
 
 \subsection{System Overview}
   I designed the system around an architecture that separates high-level processing from low-level and noisy motor control. This makes it so 
-  the high-level compute module to focus on running complex algorithms for state estimation, navigataion, and control, without having to worry about the 
+  the high-level compute module to focus on running complex algorithms for state estimation, navigation, and control, without having to worry about the 
   overhead and timing constraints of high frequency motor control.
   The high-level compute module (Raspberry Pi 5 (RPI5) running Ubuntu LTS 24.04) handles state estimation, navigation, and high-level control and planning, 
   while the motor control module (Raspberry Pi Pico (Pico) and TB6612 Motor Drivers) manages low-level movement 
@@ -221,13 +221,6 @@ The RPI5 reads and writes register-mapped data to exchange control commands and 
     \end{tabularx}
 \end{table}
 
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=0.35\textwidth]{i2c.png}
-    \caption{Schematic of the I\textsuperscript{2}C connection.}
-    \label{fig:i2c-schematic}
-\end{figure}
-
 \subsection{Control Loop Architecture}
 The main control loop of the firmware runs every 0.02s, or at 50Hz. Encoder measurements are used to 
 estimate wheel velocities, which are fed into a cascaded control system. There are two possible modes: drive and hold. In
@@ -240,7 +233,7 @@ commanded to stop. These targets are then tracked by the velocity PID controller
 TB6612 motor drivers. 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=0.58\textwidth]{controltick.png}
+    \includegraphics[width=0.50\textwidth]{controltick.png}
     \caption{Control loop timing diagram.}
     \label{fig:control-loop-timing}
 \end{figure}
@@ -398,8 +391,8 @@ v_{y,\mathrm{body}}
 \end{bmatrix}
 \end{equation*}
 \\
-\noindent The robot pose is then updated by integrating the body velocity in the
-odom frame:
+\noindent "The robot pose is then updated by integrating the body velocity in the
+odom frame:"
 
 \[
 x_{t+1} = x_t + v_{x,\mathrm{odom}}\Delta t

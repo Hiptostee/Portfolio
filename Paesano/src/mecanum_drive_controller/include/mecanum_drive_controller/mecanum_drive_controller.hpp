@@ -31,6 +31,15 @@ namespace mecanum_drive_controller
 
     double kp_{0.0}, ki_{0.0}, kd_{0.0};
     double kp_hold_{0.0}, ki_hold_{0.0}, kd_hold_{0.0};
+    double wheel_radius_{0.0485};
+    double base_length_{0.212};
+    double base_width_{0.194};
+    double ticks_per_rev_{2882.0};
+    double max_ticks_per_sec_{3500.0};
+    double max_linear_speed_mps_{0.35};
+    double max_angular_speed_radps_{1.5};
+    double distance_per_tick_{0.0};
+    double mecanum_radius_{0.0};
 
     int32_t encFL = 0, encFR = 0, encBL = 0, encBR = 0;
 

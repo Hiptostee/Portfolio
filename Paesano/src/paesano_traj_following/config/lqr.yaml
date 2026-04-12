@@ -8,8 +8,8 @@ lqr:
     control_period_ms: 20
     lookahead_points: 1
     final_pose_capture_radius: 0.25
-    max_linear_velocity: 1.0
-    max_angular_velocity: 1.0
+    max_linear_velocity: 0.35
+    max_angular_velocity: 1.5
     path_complete_tolerance: 0.08
     heading_complete_tolerance: 0.01
     q_x: 2.0
