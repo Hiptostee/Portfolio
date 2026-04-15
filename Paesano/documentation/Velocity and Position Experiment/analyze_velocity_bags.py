@@ -64,6 +64,14 @@ def movement_axis_and_target(name: str) -> Tuple[str, str]:
     raise ValueError(f"Unrecognized bag name: {name}")
 
 
+def command_cap_for_movement(movement: str) -> float:
+    if movement in {"forward", "lateral"}:
+        return 0.35
+    if movement == "rotate":
+        return 1.5
+    raise ValueError(f"Unrecognized movement: {movement}")
+
+
 def extract_signal_from_msg(msg, signal: str) -> float:
     if signal == "linear_x":
         return float(msg.linear.x)
@@ -209,12 +217,14 @@ def compute_metrics(name: str, movement: str, signal: str, data: Dict[str, np.nd
     cmd_values = np.array([extract_signal_from_msg(msg, signal) for msg in cmd_msg])
     command = build_piecewise_command(odom_t, cmd_t, cmd_values)
 
-    target = float(np.max(np.abs(command)))
-    if target <= 1e-6:
+    raw_target = float(np.max(np.abs(command)))
+    if raw_target <= 1e-6:
         raise RuntimeError(f"No nonzero target command reconstructed for {name}")
 
-    measured_aligned, command_aligned, target = align_sign(measured, command, cmd_values)
-    step_start_idx, step_end_idx = step_interval(odom_t, command_aligned)
+    measured_aligned, command_aligned, _ = align_sign(measured, command, cmd_values)
+    effective_command_aligned = np.clip(command_aligned, 0.0, command_cap_for_movement(movement))
+    target = float(np.max(effective_command_aligned))
+    step_start_idx, step_end_idx = step_interval(odom_t, effective_command_aligned)
 
     step_times = odom_t[step_start_idx:step_end_idx]
     step_values = measured_aligned[step_start_idx:step_end_idx]
@@ -286,16 +296,59 @@ def compute_metrics(name: str, movement: str, signal: str, data: Dict[str, np.nd
 
 def plot_overlay(movement: str, signal: str, trial_data: List[Tuple[str, Dict[str, np.ndarray]]]) -> None:
     plt.figure(figsize=(10, 5))
-    command_cap = 0.35 if movement in {"forward", "lateral"} else 1.5
+    command_cap = command_cap_for_movement(movement)
     for name, data in trial_data:
         odom_t = data["odom_t"]
         measured = np.array([extract_odom_signal(msg, signal) for msg in data["odom_msg"]])
         cmd_values = np.array([extract_signal_from_msg(msg, signal) for msg in data["cmd_msg"]])
         command = build_piecewise_command(odom_t, data["cmd_t"], cmd_values)
-        measured_aligned, command_aligned, target = align_sign(measured, command, cmd_values)
+        measured_aligned, command_aligned, _ = align_sign(measured, command, cmd_values)
         command_for_plot = np.clip(command_aligned, 0.0, command_cap)
-        plt.plot(odom_t, measured_aligned, alpha=0.8, label=f"{name} measured")
-        plt.step(odom_t, command_for_plot, where="post", linestyle="--", alpha=0.7, label=f"{name} cmd")
+        target = float(np.max(command_for_plot))
+
+        step_start_idx, step_end_idx = step_interval(odom_t, command_for_plot)
+        step_times = odom_t[step_start_idx:step_end_idx]
+        step_values = measured_aligned[step_start_idx:step_end_idx]
+        steady_window_start = float(step_times[0]) + 0.6 * max(float(step_times[-1] - step_times[0]), 1e-6)
+        steady_indices = np.where(step_times >= steady_window_start)[0]
+        steady_state_error = None
+        steady_state_mean = None
+        if len(steady_indices) > 0:
+            steady_state_mean = float(np.mean(step_values[steady_indices]))
+            steady_state_error = float(target - steady_state_mean)
+
+        measured_label = f"{name} measured"
+        if steady_state_error is not None:
+            unit = "m/s" if signal != "angular_z" else "rad/s"
+            measured_label += f" (ss err={steady_state_error:.3f} {unit})"
+
+        measured_line, = plt.plot(odom_t, measured_aligned, alpha=0.8, label=measured_label)
+        cmd_line, = plt.step(odom_t, command_for_plot, where="post", linestyle="--", alpha=0.7, label=f"{name} cmd")
+
+        if steady_state_mean is not None:
+            plt.hlines(
+                steady_state_mean,
+                steady_window_start,
+                float(step_times[-1]),
+                colors=[measured_line.get_color()],
+                linestyles=":",
+                linewidth=1.5,
+                alpha=0.9,
+            )
+
+    handles, labels = plt.gca().get_legend_handles_labels()
+    cmd_handles = [h for h, label in zip(handles, labels) if label.endswith(" cmd")]
+    cmd_labels = [label for label in labels if label.endswith(" cmd")]
+    measured_handles = [h for h, label in zip(handles, labels) if not label.endswith(" cmd")]
+    measured_labels = [label for label in labels if not label.endswith(" cmd")]
+
+    paired_handles = []
+    paired_labels = []
+    for cmd_handle, cmd_label, measured_handle, measured_label in zip(
+        cmd_handles, cmd_labels, measured_handles, measured_labels
+    ):
+        paired_handles.extend([cmd_handle, measured_handle])
+        paired_labels.extend([cmd_label, measured_label])
 
     plt.title(f"{movement.capitalize()} velocity tracking")
     plt.xlabel("Time [s]")
@@ -305,7 +358,7 @@ def plot_overlay(movement: str, signal: str, trial_data: List[Tuple[str, Dict[st
         "angular_z": "Angular velocity [rad/s]",
     }[signal])
     plt.grid(True, alpha=0.3)
-    plt.legend(fontsize=8, ncol=2)
+    plt.legend(paired_handles, paired_labels, fontsize=8, ncol=2)
     plt.tight_layout()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     plt.savefig(OUT_DIR / f"{movement}_overlay.png", dpi=180)
