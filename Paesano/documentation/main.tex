@@ -15,10 +15,13 @@
 \usepackage{needspace}
 \usepackage{longtable}
 \usepackage{tabularx}
+\usepackage{microtype}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{0.7em}
 
 \title{Paesano: Holonomic Autonomous Mobile Robotics Platform\\
-\large Architecture, Estimation, and Control\\
-\large Draft Report, Work in Progress}
+\large Architecture, Estimation, and Control}
 \author{Joseph Marra}
 \date{\today}
 
@@ -38,16 +41,9 @@
 
 
 \section{Introduction}
-This technical report will detail the design, implementation, and testing of Paesano, a holonomic autonomous mobile robotics platform.
-Paesano is built to navigate complex and ambiguous environments using probabilistic state estimation from an Extended Kalman Filter and a Monte Carlo localization algorithm, 
-to follow planned trajectories while being operated and monitored through a mobile application with live telemetry. The hardware and software architecture are designed to be modular and scalable. This
-makes for the possibility of future additions such as higher quality sensors or more advanced control algorithms.
-\\
-\\
-This project was created over the course of two semesters, with the first focused on hardware and firmware foundations, while the second
-focused on state estimation and control algorithms. The following sections will detail the design choices, implementation details,
-and certain testing metrics. My goal of this project was to gain an understanding of full stack robotics, and to create a scalable
-platform that I can always add new features onto, or test new algorithms on.
+This technical report documents the design, implementation, and testing of Paesano, a holonomic autonomous mobile robotics platform. Paesano is intended to navigate indoor environments using probabilistic state estimation, map-based planning, and closed-loop trajectory tracking while being monitored and operated through a mobile application with live telemetry. Both the hardware and software stacks were designed to be modular so that future sensors, estimation methods, or control strategies can be integrated without redesigning the full platform.
+
+The project was developed over two semesters. The first focused on hardware integration, power distribution, and embedded motor-control firmware. The second focused on state estimation, planning, and trajectory tracking. The following sections describe the resulting architecture, the algorithms used in the final system, and the experiments used to evaluate its performance. A central goal of the project was to gain practical experience building a full robotics stack while producing a platform that can continue to support future experimentation.
 \section{Hardware Architecture}
 \subsection{Parts List}
 \noindent Prices shown below are approximate and may fluctuate over time based on
@@ -84,7 +80,7 @@ Wago Connectors & \$11.95 \\
 \bottomrule
 \end{longtable}
 
-\noindent\textbf{Additional Required Tools.}
+\noindent\textbf{Additional Required Tool}
 \begin{itemize}
     \item Assorted screwdrivers
     \item Soldering iron
@@ -93,18 +89,11 @@ Wago Connectors & \$11.95 \\
 \end{itemize}
 
 \subsection{System Overview}
-  I designed the system around an architecture that separates high-level processing from low-level and noisy motor control. This makes it so 
-  the high-level compute module to focus on running complex algorithms for state estimation, navigation, and control, without having to worry about the 
-  overhead and timing constraints of high frequency motor control.
-  The high-level compute module (Raspberry Pi 5 (RPI5) running Ubuntu LTS 24.04) handles state estimation, navigation, and high-level control and planning, 
-  while the motor control module (Raspberry Pi Pico (Pico) and TB6612 Motor Drivers) manages low-level movement 
-  of the drivetrain motors. This separation allows for easy future upgrades or repairs to either section without 
-  significant redesign of the entire system. Below (Figure 1) is a block diagram of the system architecture, 
-  \\
-  \\
-  showing the flow of information and power between components. The high-level compute module receives sensor data, processes it for 
-  state estimation and navigation, and sends control commands to the motor control module, which then actuates the 
-  motors accordingly.
+I designed the system around a clear separation between high-level autonomy and low-level motor control. This allows the high-level compute module to run estimation, planning, navigation, and operator-facing services without also carrying the timing burden of direct motor actuation.
+
+The high-level compute module, a Raspberry Pi 5 running Ubuntu 24.04 LTS, handles state estimation, navigation, trajectory following, and communication with the mobile application. The motor control module, built around a Raspberry Pi Pico and two TB6612 motor drivers, manages deterministic low-level control of the drivetrain. This separation improves modularity, simplifies debugging, and makes future hardware or firmware changes less disruptive to the rest of the platform.
+
+Figure~\ref{fig:system-architecture} shows the resulting system architecture and the primary flow of power and information between components.
 
 \begin{figure}[htbp]
     \centering
@@ -114,24 +103,17 @@ Wago Connectors & \$11.95 \\
 \end{figure}
 
 \subsection{Power Architecture}
-The robot is powered by a 7.4 nominal voltage 2S 5200mAh LiPo battery. This battery directly powers the entire system, acting as the "heart" 
+The robot is powered by a 7.4V nominal 2S 5200mAh LiPo battery. This battery directly powers the entire system, acting as the "heart" 
 of the robot. This battery is chosen for its high energy density and ability to provide the necessary current for all components, especially the motor drivers.
 A dedicated DC-DC converter is used to step down the voltage and amperage to appropriate levels for the RPI5,
 ensuring stable power delivery and preventing brownouts. The motors themselves are powered directly from the 7.4V supply, since they are designed to operate at this voltage.
-\\
-\\
-The Pico is powered from a 5V line in the motor control module. This architecture ensures that transient current spikes from the motors don't affect 
-the RPI5.
+The Pico is powered from a regulated 5V rail within the motor control module so that motor current spikes are less likely to disturb the higher-level compute hardware.
+
 \Needspace{0.7\textheight}
 \subsection{Motor Control Stack}
-The HiWonder chassis originally came with its own motor control module with a PID controller. However, the parts composing it weren't very powerful, and the
-ability to customize the firmware to fit the purposes of this project was nearly impossible. Instead, low-level motor control is handled by a dedicated motor control module built around 
-the Pico and two TB6612 Dual Motor Drivers. 
-\\
-\\
-The motor control module performs real-time control of the 4 DC motors and executes closed-loop control at a fixed update rate of 50Hz. Offloading these control tasks to a microcontroller 
-allows the motor control module to run with deterministic timing, as the Pico contains a real-time operating system, and ensuring the RPI5 uses its computational
-resources on higher level autonomy tasks. Below (Figure 2) is a schematic of the system.
+The HiWonder chassis originally came with its own motor control module and PID controller. However, the available hardware was limited and the firmware was not practical to customize for this project. I therefore designed a dedicated motor control module built around the Pico and two TB6612 dual motor drivers.
+
+This motor control module performs closed-loop control of the four DC motors at a fixed update rate of 50Hz. Offloading these tasks to a microcontroller keeps the low-level loop deterministic and allows the Raspberry Pi 5 to reserve its compute resources for higher-level autonomy tasks. Figure~\ref{fig:motor-control-module} shows the schematic of this subsystem.
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.8\textwidth]{motor_control_module.pdf}
@@ -142,8 +124,8 @@ resources on higher level autonomy tasks. Below (Figure 2) is a schematic of the
 \subsection{Sensor Suite}
 The robot uses a combination of wheel encoders, IMU, and LiDAR for perception and state estimation. A BNO085 IMU provides orientation 
 and angular velocity measurements at approximately 100Hz. IMU data is fused with wheel odometry calculated using wheel encoders in an Extended
-Kalman Filter to produce a smooth local state estimate. A LD19 2D LiDAR sensor provides planar range 
-measurements which is used for mapping and localization. The scan data is produced at approximately 10Hz.
+Kalman Filter to produce a smooth local state estimate. An LD19 2D LiDAR sensor provides planar range 
+measurements which are used for mapping and localization. The scan data is produced at approximately 10Hz.
 \begin{itemize}
     \item IMU Datasheet/Documentation: \url{https://www.adafruit.com/product/4754}
     \item LiDAR Datasheet/Documentation: \url{https://wiki.youyeetoo.com/en/Lidar/D300}
@@ -179,7 +161,7 @@ and a battery compartment in the back. The blue part is a power switch holder, a
 onto the gray mounting plate wherever desired.
 
 \subsection{Design Philosophy}
-The design philosophy of this robot is defined in 5 ideas:
+The design philosophy of this robot is defined by five ideas:
 \begin{itemize}
     \item Modularity
     \item Simplicity
@@ -189,18 +171,13 @@ The design philosophy of this robot is defined in 5 ideas:
 \end{itemize}
 I designed the robot in a way that makes it easy to debug and iterate on. Components are physically accessible and logically separated so 
 that individual parts of the system can be tested or replaced without affecting the entire robot. For example, low-level motor control 
-is handled independently from the high-level compute module, allowing each layer to be developed and debugged separately. I also considered cost effectiveness 
-\\
-\\
-when selecting components, favoring cheaper parts and making them work for my application, but still allowing room for future expansion. At 
-the same time, simplicity was prioritized by avoiding unnecessary complexity and additional hardware when it was not required. This 
-approach results in a system that is practical to develop on, easy to modify, and capable of supporting future improvements.
+is handled independently from high-level compute tasks, allowing each layer to be developed and debugged separately.
+
+I also considered cost effectiveness when selecting components, favoring lower-cost parts where possible while still leaving room for future expansion. At the same time, simplicity was prioritized by avoiding unnecessary hardware and architectural complexity. The result is a platform that is practical to develop on, straightforward to modify, and capable of supporting future improvements.
 
 
 \section{Firmware}
-All of the firmware for this project was written in C++ for its compatibility with the RP2040 microcontroller on the Pico. The firmware is 
-responsible for the real-time motor control, encoder processing, and communication with the RPI5. Because motor control requires consistent timing
-and low latency, the firmware operates completely independent of the RPI5, which runs the high-level tasks.
+All firmware for this project was written in C++ for compatibility with the RP2040 microcontroller on the Pico and for predictable runtime performance. The firmware is responsible for real-time motor control, encoder processing, and communication with the Raspberry Pi 5. Because motor control requires consistent timing and low latency, this layer operates independently of the higher-level ROS2 stack.
 \subsection{Communication Protocol}
 Communication between the RPI5 and the Pico is implemented over I\textsuperscript{2}C, with the RPI5 acting as the bus master and the Pico configured as an I\textsuperscript{2}C slave at address \texttt{0x12}. 
 The RPI5 reads and writes register-mapped data to exchange control commands and telemetry.
@@ -215,7 +192,7 @@ The RPI5 reads and writes register-mapped data to exchange control commands and 
         \midrule
         \texttt{I2C\_ADDR} & \texttt{0x12} & N/A & 7-bit I\textsuperscript{2}C slave address for the Pico. \\
         \texttt{REG\_MOTOR\_SPEEDS} & \texttt{51} & Read & Sets wheel/motor speed targets. \\
-        \texttt{REG\_ENCODERS} & \texttt{60} & Write & Readback register for encoder counts or wheel feedback values. \\
+        \texttt{REG\_ENCODERS} & \texttt{60} & Write & Readback register for encoder counts. \\
         \texttt{REG\_PID\_GAINS} & \texttt{70} & Read & Configuration register for PID gain parameters. \\
         \bottomrule
     \end{tabularx}
@@ -223,17 +200,16 @@ The RPI5 reads and writes register-mapped data to exchange control commands and 
 
 \subsection{Control Loop Architecture}
 The main control loop of the firmware runs every 0.02s, or at 50Hz. Encoder measurements are used to 
-estimate wheel velocities, which are fed into a cascaded control system. There are two possible modes: drive and hold. In
-\\
-\\
-drive mode, the robot will move at the commanded velocity using a velocity PID with 
+estimate wheel velocities, which are fed into a cascaded control system. There are two possible modes: drive and hold.
+
+In drive mode, the robot moves at the commanded velocity using a velocity PID with 
 feedforward compensation. In hold mode (after the robot has been commanded to stop), a position controller 
 generates velocity targets based on the error between the current position and the position at the time the robot was 
-commanded to stop. These targets are then tracked by the velocity PID controller. The resulting PWM signals are sent to the 
+commanded to stop so it remains in place. These targets are then tracked by the velocity PID controller. The resulting PWM signals from either mode are sent to the 
 TB6612 motor drivers. 
 \begin{figure}[htbp]
-    \centering
-    \includegraphics[width=0.50\textwidth]{controltick.png}
+    \centering 
+    \includegraphics[width=0.40\textwidth]{controltick.png}
     \caption{Control loop timing diagram.}
     \label{fig:control-loop-timing}
 \end{figure}
@@ -255,62 +231,40 @@ e_p(t) = p_{\mathrm{ref}}(t) - p(t)
 \begin{equation*}
 v_{\mathrm{ref}}(t) = K_{p,p} e_p(t) + K_{i,p}\operatorname{clip}\!\left(\int_0^t e_p(\tau)\,d\tau,\,-I_{\max,p},\,I_{\max,p}\right) + K_{d,p}\frac{d e_p(t)}{dt}
 \end{equation*}
-
-% Add content here
+\noindent In practice, the velocity controller handles normal motion tracking while the position controller is only engaged after a stop command. This arrangement keeps the robot responsive during motion and reduces residual drift once the commanded velocity returns to zero.
 \section{Software Architecture}
 The software in the high-level compute module, running on the Raspberry Pi 5 (RPI5), is built using the Jazzy Jalisco distribution of ROS2 on Ubuntu 24.04 LTS. ROS2 provides a modular architecture
 that allows complex robotic systems such as this to be composed of smaller independent nodes, communicating over standardized topics. Using ROS2
 provides several advantages for this system. First, it enables clear separation between the various subsystems (state estimation, planning, control, etc.), where each
 system is its own node or series of nodes. Second, the publish-subscribe communication model used by ROS2 topics makes it simple to route sensor data and commands between nodes.
-\\
-\\
-In this system, sensor measurements such as wheel encoder data, IMU readings, and LiDAR scans are published on dedicated topics and used by estimation nodes that fuse these measurements
-to produce a consistent state estimate of the robot. Higher level nodes for navigation and trajectory following use this state estimation. Robot commands are eventually
-published as velocity commands which are sent to the motor control module to convert them into actual motor actuation commands.
+
+In this system, sensor measurements such as wheel encoder data, IMU readings, and LiDAR scans are published on dedicated topics and consumed by estimation nodes that fuse them into a consistent robot state estimate. Higher-level nodes for navigation and trajectory following use that estimate to generate motion commands, which are ultimately published as body-frame velocity commands and sent to the motor control module for actuation.
 
 \begin{figure}[htbp]
     \centering
-    \includegraphics[width=.92\textwidth]{softarch.png}
+    \includegraphics[width=0.99\textwidth]{softarch.png}
     \caption{Software architecture overview.}
     \label{fig:software-architecture}
 \end{figure}
 
-\noindent
-\begin{minipage}[t]{0.6\textwidth}
-\vspace{0pt}
-The TF frame tree defines the relationships between the robot base (base\_link), odometry frame (odom), map frame (map), and onboard sensors (base\_laser, imu\_link).
-These transforms are used by localization, navigation, and control nodes so pose estimates and commands remain consistent
-across the full software stack.
-\end{minipage}\hfill
-\begin{minipage}[t]{0.2\textwidth}
-\vspace{0pt}
-\centering
-\includegraphics[width=\linewidth]{tf.png}
-\captionof{figure}{TF frame relationships used by the system.}
-\label{fig:tf-frames}
-\end{minipage}
+The TF frame tree defines the relationships between the robot base (\texttt{base\_link}), odometry frame (\texttt{odom}), map frame (\texttt{map}), and onboard sensors (\texttt{base\_laser}, \texttt{imu\_link}). These transforms are used by localization, navigation, and control nodes so that pose estimates and commands remain consistent across the full software stack.
 
 \section{Kinematics}
 To achieve holonomic motion, the robot uses a mecanum wheel drivetrain. Alternative systems such as swerve drive offer superior traction, efficiency, and 
 high speed performance, but it also requires additional steering actuators and more complex mechanical control systems. For my purposes, 
 the increased complexity simply isn't justifiable on a time or budget basis. 
-\\
-\\
-I chose mecanum drive because it provides omnidirectional movement using only four motors, creating a simple yet fully holonomic system. I could have also
-wen't with the simpliest option of a differential drive, however in all honesty I wanted the ability to have a robot that can strafe or move in complex patterns,
-and I thought it would be valuable to learn how to implement the more complex kinematics.
+
+I chose mecanum drive because it provides omnidirectional movement using only four drive motors, yielding a mechanically simple but fully holonomic platform. A differential-drive robot would have been simpler, but it would not have supported lateral motion or the broader kinematic and control challenges that motivated this project.
 \noindent In the final real-hardware implementation, the drivetrain no longer uses a
 normalized wheel-mixing approximation. Instead, the high-level motor controller
 interprets \texttt{/cmd\_vel} in SI units and applies geometry-based inverse
 kinematics using the measured platform dimensions:
-\\
 \[
 r = \SI{0.0485}{m}, \qquad
 L = \SI{0.212}{m}, \qquad
 W = \SI{0.194}{m}, \qquad
 R = \frac{L+W}{2} = \SI{0.203}{m}
 \]
-\\
 \noindent For a commanded body-frame twist
 \[
 \mathbf{u} =
@@ -343,8 +297,7 @@ v_y \\
 \end{equation*}
 \noindent where $v_x$ and $v_y$ are the commanded translational velocities in
 \si{m/s} and $\omega$ is the commanded yaw rate in \si{rad/s}.
-\\
-\\
+
 \noindent These wheel rim velocities are then converted into encoder tick-rate
 targets using the known encoder resolution of $N_{enc}=2882$ ticks per
 revolution. Since the linear distance traveled per encoder tick is
@@ -357,8 +310,7 @@ the target wheel tick rates become
 =
 v_i \frac{N_{enc}}{2\pi r}.
 \]
-\\
-\\
+
 \noindent To keep the commanded motion within the measured hardware envelope, the
 body-frame command is first clamped to
 \[
@@ -523,7 +475,7 @@ y_t \\
 The motion model uses odometry increments to propagate each particle.
 First, the odometry displacement is rotated into the robot body frame:
 \\
-\begin{equation}
+\begin{equation*}
 \begin{bmatrix}
 \Delta x_{body}\\
 \Delta y_{body}
@@ -537,14 +489,14 @@ First, the odometry displacement is rotated into the robot body frame:
 \Delta x_{odom}\\
 \Delta y_{odom}
 \end{bmatrix}
-\end{equation}
+\end{equation*}
 \\
 \noindent where \(\theta_{odom,t-1}\) is the odometry heading at time \(t-1\).
 \\
 \\
 \noindent Next, that body-frame displacement is rotated into the frame of the particle:
 \\
-\begin{equation}
+\begin{equation*}
 \begin{bmatrix}
 \Delta x_{part}\\
 \Delta y_{part}
@@ -558,15 +510,15 @@ First, the odometry displacement is rotated into the robot body frame:
 \Delta x_{body}\\
 \Delta y_{body}
 \end{bmatrix}
-\end{equation}
+\end{equation*}
 \\
 \noindent The particle state is then updated as
 \\
-\begin{align}
+\begin{align*}
 x_t &= x_{t-1} + \Delta x_{part} \\
 y_t &= y_{t-1} + \Delta y_{part} \\
 \theta_t &= \theta_{t-1} + \Delta \theta_{odom}
-\end{align}
+\end{align*}
 \\
 \noindent To model uncertainty in the propagated particle state, the motion model
 is represented as a 3D Gaussian with covariance
@@ -582,12 +534,12 @@ is represented as a 3D Gaussian with covariance
 \noindent Conditioned on the previous particle state and the measured odometry increment,
 the propagated particle state is modeled as a Gaussian random variable centered at the
 propagated mean pose:
-\begin{equation}
+\begin{equation*}
 p(w_t \mid u_t, w_{t-1}) \propto
 \exp\left(
 -\frac{1}{2}(w_t-\mu_t)^T \Sigma_t^{-1}(w_t-\mu_t)
 \right)
-\end{equation}
+\end{equation*}
 where
 \[
 \mu_t =
@@ -601,11 +553,11 @@ where
 \\
 \\
 \noindent A sampled particle state is then generated as
-\begin{equation}
+\begin{equation*}
 \hat{w}_t = \mu_t + \epsilon_t,
 \qquad
 \epsilon_t \sim \mathcal{N}(0,\Sigma_t).
-\end{equation}
+\end{equation*}
 
 \subsubsection{Measurement Model (Likelihood Field Model)}
 
@@ -1148,11 +1100,9 @@ The final control law combines this feedback with a feedforward term ($\mathbf{u
 The feedback term drives the robot back toward the spline trajectory points, while the feedforward term provides the nominal velocity required to traverse the path. This ensures that the robot does not merely react to errors but actively tracks the geometry of the intended path.
 \section{Mobile Application}
 \noindent Paesano is operated through a custom iOS application that serves as the primary user interface for robot interaction. Rather than relying on terminal commands or ad hoc ROS tooling during normal use, the app exposes the robot's current state, map data, and navigation controls in a single interface designed for real-time operation.
-\\
-\\
+
 \noindent The application connects directly to the robot over the local network using a manually entered IP address or hostname. Once connected, it uses HTTP endpoints for discrete actions such as mode switching, goal submission, map saving, and navigation pause or cancel requests. A WebSocket connection is used in parallel to stream state updates and map revisions back to the phone so the interface can update continuously without requiring constant manual refresh.
-\\
-\\
+
 \noindent The mobile interface is organized around the robot's high-level operating modes:
 \begin{itemize}
     \item \textbf{Mapping mode:} Provides joystick-based teleoperation for manual exploration while showing the occupancy map live. The user can save the resulting map directly from the application once sufficient coverage has been achieved.
@@ -1168,25 +1118,17 @@ The feedback term drives the robot back toward the spline trajectory points, whi
 \end{figure}
 
 \section{Experiments}
+To evaluate Paesano at both the low-level control and high-level autonomy levels, I conducted two experiments. The first isolates drivetrain command tracking and stop behavior. The second evaluates the full autonomy stack by measuring how closely the robot follows planned trajectories in the map frame. Together, these experiments validate the platform from motor control through navigation execution.
 \subsection{Velocity and Position Control Performance}
-To evaluate Paesano at both the actuator and system level, two experiments were
-conducted on the real hardware platform. The first isolates the drivetrain and
-low-level velocity loop by examining commanded body-frame motion against measured
-response. The second evaluates the full autonomy stack in localization mode by
-measuring how closely the robot follows planned trajectories in the map frame.
-Together these experiments validate both the bottom of the stack and the
-integrated navigation behavior built on top of it.
-\\
-\\
-\noindent For the low-level test, ROS 2 bags were recorded while step-like
-forward, lateral, and rotational commands were applied over multiple command
-magnitudes. The bags included \texttt{/cmd\_vel}, \texttt{/odom},
+For the low-level velocity and position control tests, ROS2 bags were recorded
+while forward, lateral, and rotational commands were applied over multiple
+different magnitudes. The bags included \texttt{/cmd\_vel}, \texttt{/odom},
 \texttt{/odom/filtered}, and \texttt{/wheel\_encoders}. From these logs, rise
-behavior, overshoot, settling, and residual stop error were computed. The
-drivetrain command interface had already been reworked to respect the physical
-geometry of the mecanum platform and to cap body commands to the measured
-hardware envelope, so this experiment reflects the final motor-control
-implementation rather than an earlier normalized-drive prototype.
+behavior, overshoot, settling, and residual stop error were observed. When a
+historical test bag contained a command larger than the final enforced
+controller limit, the analysis treated that command as the corresponding
+effective cap of \SI{0.35}{m/s} for translation or \SI{1.5}{rad/s} for
+rotation.
 
 \begin{table}[H]
     \centering
@@ -1197,20 +1139,23 @@ implementation rather than an earlier normalized-drive prototype.
         \toprule
         Motion & \shortstack{Mean steady-state\\error} & Mean overshoot & \shortstack{Mean stop\\decay} & \shortstack{Mean encoder\\stop error} \\
         \midrule
-        Forward & \SI{0.0186}{m/s} & \SI{4.73}{\percent} & \SI{0.20}{s} & \SI{0.0097}{m} \\
-        Lateral & \SI{0.0582}{m/s} & \SI{4.83}{\percent} & \SI{0.25}{s} & \SI{0.0073}{m} \\
-        Rotation & \SI{0.388}{rad/s} & \SI{10.02}{\percent} & \SI{0.22}{s} & N/A \\
+        Forward & \SI{-0.0067}{m/s} & \SI{5.79}{\percent} & \SI{0.35}{s} & \SI{0.0097}{m} \\
+        Lateral & \SI{-0.0056}{m/s} & \SI{5.66}{\percent} & \SI{0.25}{s} & \SI{0.0073}{m} \\
+        Rotation & \SI{-0.0245}{rad/s} & \SI{11.06}{\percent} & \SI{0.33}{s} & N/A \\
         \bottomrule
     \end{tabular}
 \end{table}
 
-\noindent The forward and lateral responses were both repeatable across trials,
+\noindent The forward and lateral responses were consistent across trials,
 with small overshoot and short residual settling after the command returned to
-zero. Forward tracking was the cleanest axis overall. Lateral motion remained
-well controlled but showed slightly larger steady-state deviation, which is
-consistent with the higher slip sensitivity of mecanum strafing. Rotational
-tracking also settled quickly, though the highest tested angular commands showed
-more error than the translational axes. Even so, the post-stop rotational decay
+zero. Forward tracking was the cleanest overall, with a mean steady-state error
+of \SI{-0.0067}{m/s}, indicating that the measured forward speed settled only
+slightly above the effective command. Lateral motion remained similarly well
+controlled, with a mean steady-state error of \SI{-0.0056}{m/s}, although its
+stop-position behavior still reflected the higher slip sensitivity of mecanum
+strafing. Rotational tracking also settled quickly, with a mean steady-state
+error of \SI{-0.0245}{rad/s}. This negative sign again indicates mild
+overtracking rather than underspeed. Even so, the post-stop rotational decay
 remained short and consistent, which is the more important behavior for the
 higher-level navigation stack.
 
@@ -1280,8 +1225,7 @@ were recorded containing \texttt{/path}, \texttt{/estimated\_pose},
 \texttt{/odom/filtered}, \texttt{/cmd\_vel}, and \texttt{/map}. The primary
 metrics were completion time, final position error, final heading error, and
 cross-track error with respect to the planned path.
-\\
-\\
+
 \noindent This experiment intentionally validates more than just the tracking
 controller. Because the robot is operating in the map frame while using the full
 navigation stack, the results reflect the combined behavior of localization,
@@ -1373,6 +1317,10 @@ despite the larger path length and longer execution time.
 \end{figure}
 
 \section{Conclusion and Future Improvements}
-% Add content here
+Paesano demonstrates that a modest-cost holonomic platform can support a complete autonomy stack spanning embedded motor control, probabilistic state estimation, map-based planning, trajectory generation, and operator interaction through a mobile application. Architecturally, the project separates deterministic low-level actuation from higher-level computation on the Raspberry Pi 5, which simplified development and made the system easier to debug and extend.
+
+The experimental results support that architecture. At the low level, the drivetrain exhibited repeatable command tracking with small steady-state error, modest overshoot, and short post-stop decay across forward, lateral, and rotational motion. At the system level, the robot followed planned map-frame trajectories with a mean cross-track error of \SI{0.0088}{m}, a mean final position error of \SI{0.0059}{m}, and successful completion of all recorded navigation runs. These results indicate that the estimation, planning, and control layers are operating consistently within the same frame and within the practical limits of the hardware.
+
+The most important future improvements are now incremental rather than architectural. On the hardware side, the platform would benefit from a higher quality LiDAR, a more rigid mechanical structure, and more complete electrical packaging. On the software side, the most promising extensions are improved localization robustness in ambiguous environments, richer navigation behaviors, and broader benchmarking under more varied conditions. Because the current design is modular at both the firmware and ROS2 levels, those future improvements can be integrated without restructuring the full system.
 
 \end{document}
