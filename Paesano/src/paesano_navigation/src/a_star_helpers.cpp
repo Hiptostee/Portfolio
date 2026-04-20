@@ -210,7 +210,7 @@ nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) c
       return path;
     }
 
-    // Dense sampling of Catmull-Rom segments to approximate a smooth curve.
+    // Dense sampling of centripetal Catmull-Rom segments to approximate a smooth curve.
     std::vector<InternalPoint> dense_points;
     double total_dist = 0.0;
 
@@ -270,6 +270,7 @@ nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) c
 
     const double goal_yaw = tf2::getYaw(path.poses.back().pose.orientation);
 
+    // Orient each pose to face the next one, with the final pose oriented toward the goal.
     for (size_t i = 0; i < smooth_path.poses.size(); ++i) {
       double yaw;
       if (i < smooth_path.poses.size() - 1) {
