@@ -242,7 +242,7 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 
       // for each particle, we accumulate the log likelihood of all the valid beams. 
       // This gives us the overall likelihood of the observed laser scan given the particle's pose, 
-      // which we will use to update the particle's weight. Becuase we are in log space, we sum the log probabilities instead of 
+      // which we will use to update the particle's weight. Because we are in log space, we sum the log probabilities instead of 
       // multiplying the probabilities directly, which helps prevent numerical underflow when dealing with many beams.
       acc += log_p;
     }
