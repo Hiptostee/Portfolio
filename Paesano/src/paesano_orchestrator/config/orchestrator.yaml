@@ -1,0 +1,17 @@
+orchestrator:
+  ros__parameters:
+    # Local costmap dimensions — 6 m × 6 m at 0.05 m/cell → 120×120 cells
+    local_map_size_m: 6.0
+    local_map_resolution_m: 0.05
+
+    # Inflate each LiDAR hit by this radius (should be >= robot radius)
+    obstacle_radius_m: 0.25
+
+    # Number of upcoming path waypoints to check for obstacles on each tick
+    path_blocked_lookahead: 5
+
+    # Stop tracking and transition to GOAL_REACHED when within this distance (m)
+    goal_tolerance_m: 0.15
+
+    # Tick rate in milliseconds
+    tick_period_ms: 100

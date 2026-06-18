@@ -20,14 +20,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from geometry_msgs.msg import PoseStamped, Twist
 from nav_msgs.msg import OccupancyGrid, Odometry, Path as NavPath
 from pydantic import BaseModel
-from rclpy.action import ActionClient
 from rclpy.executors import MultiThreadedExecutor
 from rclpy.node import Node
 from rclpy.qos import QoSDurabilityPolicy, QoSProfile, QoSReliabilityPolicy
 from std_msgs.msg import Bool
 from std_srvs.srv import Trigger
-
-from paesano_navigation.action import AStar
 
 
 class BridgeError(RuntimeError):
@@ -88,7 +85,6 @@ class PaesanoBridgeNode(Node):
         self.map_save_prefix = Path(
             str(self.declare_parameter('map_save_prefix', self.default_map_save_prefix()).value)
         )
-        self.a_star_action_name = str(self.declare_parameter('a_star_action_name', '/a_star').value)
         self.stop_service_name = str(self.declare_parameter('stop_service_name', '/lqr/stop').value)
         self.teleop_timeout_ms = int(self.declare_parameter('teleop_timeout_ms', 250).value)
         self.navigation_state_stale_timeout_sec = float(
@@ -112,7 +108,7 @@ class PaesanoBridgeNode(Node):
             ),
         )
         self.stop_client = self.create_client(Trigger, self.stop_service_name)
-        self.a_star_client = ActionClient(self, AStar, self.a_star_action_name)
+        self.nav_goal_pub = self.create_publisher(PoseStamped, '/navigation/goal', 1)
 
         state_qos = QoSProfile(
             depth=1,
@@ -271,36 +267,20 @@ class PaesanoBridgeNode(Node):
         with self.state_lock:
             if self.current_mode != 'localization':
                 raise BridgeError('Point goals are only available in localization mode.')
-
-        if not self.a_star_client.wait_for_server(timeout_sec=2.0):
-            raise BridgeError('A* action server is not available.')
-
-        goal_msg = AStar.Goal()
-        goal_msg.goal.header.frame_id = 'map'
-        goal_msg.goal.header.stamp = self.get_clock().now().to_msg()
-        goal_msg.goal.pose.position.x = float(x_m)
-        goal_msg.goal.pose.position.y = float(y_m)
-        goal_msg.goal.pose.orientation.w = 1.0
-
-        send_future = self.a_star_client.send_goal_async(goal_msg)
-        goal_handle = self._await_future(send_future, 5.0)
-        if goal_handle is None or not goal_handle.accepted:
-            raise BridgeError('Path rejected.')
-
-        result_future = goal_handle.get_result_async()
-        result = self._await_future(result_future, 10.0)
-        if result is None or not result.result.success:
-            raise BridgeError('Whoops! I cannot navigate there.')
-
-        with self.state_lock:
             self.last_navigation_goal = (x_m, y_m)
-            self.last_planned_path_msg = result.result.path
-            self.current_path_msg = result.result.path
             self.paused_path_msg = None
             self.is_paused = False
-            self.is_navigating = True
+
+        goal_msg = PoseStamped()
+        goal_msg.header.frame_id = 'map'
+        goal_msg.header.stamp = self.get_clock().now().to_msg()
+        goal_msg.pose.position.x = float(x_m)
+        goal_msg.pose.position.y = float(y_m)
+        goal_msg.pose.orientation.w = 1.0
+        self.nav_goal_pub.publish(goal_msg)
+
         self._mark_revision()
-        return {'success': True, 'path_points': len(result.result.path.poses)}
+        return {'success': True, 'message': 'Goal sent to orchestrator'}
 
     def pause_navigation(self) -> Dict[str, Any]:
         with self.state_lock:
