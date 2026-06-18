@@ -205,6 +205,83 @@ No static map involvement — this detects only dynamic obstacles not present wh
 
 ---
 
+## Roadmap
+
+Features planned for future branches. Each one slots into the orchestrator without
+changing tick() — they either publish to `/navigation/goal` like any other goal source,
+or add a new state to the switch.
+
+### Depth Camera — 3D Obstacle Detection
+
+**Problem:** LiDAR is a 2D horizontal slice. Objects at chest height with nothing at floor
+level (chairs, tables, people's torsos) are invisible to the current local costmap.
+
+**Plan:** Mount an Intel RealSense D435i (or similar). Its ROS2 driver publishes a point
+cloud. A small filter node crops it to a height band around the robot, projects surviving
+points down to 2D, and passes them into `LocalMap::updateFromScan` (or a new
+`updateFromPointCloud` method with identical cell-marking logic). The orchestrator's
+`isPathBlocked` check then covers 3D obstacles automatically — no other changes needed.
+
+---
+
+### Autonomous Frontier Exploration
+
+**Problem:** Mapping a large unknown space currently requires manually driving the robot or
+pre-programming waypoints.
+
+**Plan:** Add a `paesano_explorer` package. The node subscribes to `/map` (the live
+occupancy grid from slam_toolbox) and `/orchestrator/state`. A *frontier* is any free cell
+adjacent to an unknown cell — the boundary of explored space. When the orchestrator returns
+to `IDLE`, the explorer:
+
+1. Scans the occupancy grid for frontier cells
+2. Clusters nearby frontiers into candidate regions
+3. Picks the nearest / largest region centroid as the next goal
+4. Publishes it to `/navigation/goal`
+
+The orchestrator handles navigation normally. If A* fails (unreachable frontier), the
+orchestrator returns to `IDLE` and the explorer blacklists that frontier and picks another.
+Exploration ends when no frontiers remain.
+
+Zero changes to the orchestrator, LQR, or localization. Works only in mapping mode
+(slam_toolbox is actively building the map); localization mode against a pre-built map has
+no unknown cells so no frontiers — that's expected.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ Explorer node                                                       │
+│                                                                     │
+│  /map ──► find_frontiers() ──► cluster ──► pick_best() ──►         │
+│  /orchestrator/state == IDLE                  /navigation/goal      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Semantic Control
+
+**Problem:** Navigation goals are raw coordinates. Higher-level commands like
+"go to the kitchen" or voice input require a translation layer.
+
+**Plan:** Add a `paesano_semantic` package. The simplest version is a YAML file of named
+waypoints (`kitchen: [2.3, 1.1]`, `door: [0.0, 4.5]`) and a node that accepts string
+commands and publishes the matching `PoseStamped` to `/navigation/goal`.
+
+A more capable version feeds voice or text input through a small LLM (local via llama.cpp
+or a remote API call) that parses intent, resolves a location, and publishes the goal.
+The orchestrator never changes — it just sees another goal on `/navigation/goal`.
+
+For more complex multi-step instructions ("patrol between A and B until I say stop"),
+add a `PATROLLING` state to the orchestrator tick:
+
+```cpp
+case State::PATROLLING:
+    if (goalReached()) { send_astar_goal(next_waypoint()); }
+    break;
+```
+
+---
+
 ## Bringup
 
 Add the orchestrator component to the ROS2 component container in
