@@ -53,6 +53,9 @@ install(TARGETS ${PROJECT_NAME}_components
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME}
 )
+install(TARGETS orchestrator
+  DESTINATION lib/${PROJECT_NAME}
+)
 install(DIRECTORY include/
   DESTINATION include
 )

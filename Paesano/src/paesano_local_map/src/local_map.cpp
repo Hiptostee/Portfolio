@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <limits>
 
 namespace paesano_local_map
 {
@@ -79,7 +78,7 @@ bool LocalMap::isPathBlocked(
   std::size_t from_index,
   int lookahead_n) const
 {
-  if (path.poses.empty()) {
+  if (path.poses.empty() || lookahead_n <= 0) {
     return false;
   }
 
@@ -95,7 +94,10 @@ bool LocalMap::isPathBlocked(
       path.poses[i].pose.position.x,
       path.poses[i].pose.position.y,
       cx, cy);
-    if (inBounds(cx, cy) && grid_[static_cast<std::size_t>(cy * side_cells_ + cx)]) {
+    if (!inBounds(cx, cy)) {
+      return true;  // waypoint outside local map window — treat as unknown/blocked
+    }
+    if (grid_[static_cast<std::size_t>(cy * side_cells_ + cx)]) {
       return true;
     }
   }
@@ -104,8 +106,8 @@ bool LocalMap::isPathBlocked(
 
 void LocalMap::worldToCell(double wx, double wy, int & cx, int & cy) const
 {
-  cx = static_cast<int>((wx - origin_x_) / resolution_m_);
-  cy = static_cast<int>((wy - origin_y_) / resolution_m_);
+  cx = static_cast<int>(std::floor((wx - origin_x_) / resolution_m_));
+  cy = static_cast<int>(std::floor((wy - origin_y_) / resolution_m_));
 }
 
 bool LocalMap::inBounds(int cx, int cy) const

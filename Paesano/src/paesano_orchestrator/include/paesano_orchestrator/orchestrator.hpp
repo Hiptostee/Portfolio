@@ -35,7 +35,7 @@ private:
   bool goalReached() const;
   void transition(State next);
   void lqr_stop();
-  void send_astar_goal(const geometry_msgs::msg::PoseStamped & goal);
+  bool send_astar_goal(const geometry_msgs::msg::PoseStamped & goal);
   void advancePathIndex();
 
   // ── Topic callbacks ────────────────────────────────────────────────────────
@@ -55,7 +55,6 @@ private:
   rclcpp_action::Client<AStar>::SharedPtr            astar_client_;
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr  lqr_stop_client_;
 
-  rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr    path_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr  state_pub_;
 
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr goal_sub_;

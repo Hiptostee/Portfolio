@@ -22,8 +22,6 @@ Orchestrator::Orchestrator(const rclcpp::NodeOptions & options)
   lookahead_n_      = declare_parameter<int>   ("path_blocked_lookahead", 5);
   const int tick_ms = declare_parameter<int>   ("tick_period_ms",         100);
 
-  path_pub_  = create_publisher<nav_msgs::msg::Path>(
-    "/path", rclcpp::QoS(1).transient_local().reliable());
   state_pub_ = create_publisher<std_msgs::msg::String>("/orchestrator/state", 10);
 
   goal_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
@@ -130,11 +128,11 @@ void Orchestrator::lqr_stop()
     std::make_shared<std_srvs::srv::Trigger::Request>());
 }
 
-void Orchestrator::send_astar_goal(const geometry_msgs::msg::PoseStamped & goal)
+bool Orchestrator::send_astar_goal(const geometry_msgs::msg::PoseStamped & goal)
 {
-  if (!astar_client_->wait_for_action_server(std::chrono::seconds(1))) {
-    RCLCPP_WARN(get_logger(), "A* action server not available");
-    return;
+  if (!astar_client_->action_server_is_ready()) {
+    RCLCPP_WARN(get_logger(), "A* action server not ready");
+    return false;
   }
 
   AStar::Goal goal_msg;
@@ -147,6 +145,7 @@ void Orchestrator::send_astar_goal(const geometry_msgs::msg::PoseStamped & goal)
     std::bind(&Orchestrator::goalResultCallback, this, std::placeholders::_1);
 
   astar_client_->async_send_goal(goal_msg, opts);
+  return true;
 }
 
 void Orchestrator::advancePathIndex()
@@ -178,14 +177,17 @@ void Orchestrator::goalCallback(geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
   current_goal_ = *msg;
   path_index_ = 0;
-  send_astar_goal(current_goal_);
+  if (!send_astar_goal(current_goal_)) {
+    RCLCPP_WARN(get_logger(), "Dropping goal — A* not available");
+    return;
+  }
   transition(State::PLANNING);
 }
 
 void Orchestrator::poseCallback(geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
   current_pose_ = *msg;
-  if (state_ == State::NAVIGATING || state_ == State::REPLANNING) {
+  if (state_ == State::NAVIGATING) {
     advancePathIndex();
   }
 }
@@ -234,8 +236,6 @@ void Orchestrator::goalResultCallback(const GoalHandleAStar::WrappedResult & res
 
   current_path_ = result.result->path;
   path_index_ = 0;
-  // Republish so LQR gets it via transient_local even if it starts after A*
-  path_pub_->publish(current_path_);
   transition(State::NAVIGATING);
 }
 
