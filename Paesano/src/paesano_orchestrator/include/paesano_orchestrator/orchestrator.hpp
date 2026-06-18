@@ -71,6 +71,7 @@ private:
   // ── Navigation state ──────────────────────────────────────────────────────
   State       state_          = State::IDLE;
   bool        is_navigating_  = false;
+  bool        lqr_started_    = false;  // true once LQR confirms it's tracking
   std::size_t path_index_     = 0;
 
   geometry_msgs::msg::PoseStamped current_goal_;

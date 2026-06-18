@@ -66,13 +66,22 @@ void Orchestrator::tick()
       break;
 
     case State::NAVIGATING:
-      if (!is_navigating_) {
+      // Wait for LQR to confirm it's tracking before watching for it to stop.
+      // Without this, the first tick after entering NAVIGATING would see
+      // is_navigating_=false (LQR hasn't started yet) and bail to IDLE.
+      if (is_navigating_) {
+        lqr_started_ = true;
+      }
+      if (lqr_started_ && !is_navigating_) {
         // LQR stopped externally (user cancel / pause)
         transition(State::IDLE);
       } else if (local_map_.isPathBlocked(current_path_, path_index_, lookahead_n_)) {
         lqr_stop();
-        send_astar_goal(current_goal_);
-        transition(State::REPLANNING);
+        if (!send_astar_goal(current_goal_)) {
+          transition(State::IDLE);
+        } else {
+          transition(State::REPLANNING);
+        }
       } else if (goalReached()) {
         lqr_stop();
         transition(State::GOAL_REACHED);
@@ -130,7 +139,7 @@ void Orchestrator::lqr_stop()
 
 bool Orchestrator::send_astar_goal(const geometry_msgs::msg::PoseStamped & goal)
 {
-  if (!astar_client_->action_server_is_ready()) {
+  if (!astar_client_->wait_for_action_server(std::chrono::nanoseconds(0))) {
     RCLCPP_WARN(get_logger(), "A* action server not ready");
     return false;
   }
@@ -236,6 +245,7 @@ void Orchestrator::goalResultCallback(const GoalHandleAStar::WrappedResult & res
 
   current_path_ = result.result->path;
   path_index_ = 0;
+  lqr_started_ = false;
   transition(State::NAVIGATING);
 }
 
