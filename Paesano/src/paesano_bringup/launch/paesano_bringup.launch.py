@@ -23,6 +23,12 @@ def generate_launch_description():
         'ld19.launch.py'
     )
 
+    local_costmap_launch = os.path.join(
+        get_package_share_directory('paesano_local_map'),
+        'launch',
+        'local_map.launch.py'
+    )
+
     mecanum_drive_launch = os.path.join(
         get_package_share_directory('mecanum_drive_controller'),
         'launch',
@@ -126,6 +132,10 @@ def generate_launch_description():
         PythonLaunchDescriptionSource(odom_node_launch)
     )
 
+    local_map_launch_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(local_costmap_launch)
+    )
+
     localization_node_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(localization_node_launch),
         launch_arguments={
@@ -167,6 +177,7 @@ def generate_launch_description():
         odom_node_launch_node,
         mapping_launch_node,
         localization_node_launch_node,
+        local_map_launch_node,
         navigation_launch_node,
         traj_following_launch_node,
     ])
