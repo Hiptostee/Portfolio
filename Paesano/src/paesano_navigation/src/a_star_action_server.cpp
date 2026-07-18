@@ -1,5 +1,4 @@
 #include <functional>
-#include <thread>
 
 #include "rclcpp_components/register_node_macro.hpp"
 #include "paesano_navigation/a_star_action_server.hpp"
@@ -74,30 +73,34 @@ rclcpp_action::CancelResponse AStarActionServer::handle_cancel(
 
 void AStarActionServer::handleMap(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
 {
-  current_map_ = *msg;
-  have_map_ = true;
-  planner_.setMap(current_map_);
-  inflated_map_publisher_->publish(planner_.getInflatedMap());
+  nav_msgs::msg::OccupancyGrid inflated_map;
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    current_map_ = *msg;
+    have_map_ = true;
+    planner_.setMap(current_map_);
+    inflated_map = planner_.getInflatedMap();
+  }
+  inflated_map_publisher_->publish(inflated_map);
   RCLCPP_INFO(
     get_logger(),
     "Received map for a_star planner: %u x %u at %.3f m/cell, published inflated map to '%s'",
-    current_map_.info.width,
-    current_map_.info.height,
-    current_map_.info.resolution,
+    msg->info.width,
+    msg->info.height,
+    msg->info.resolution,
     get_parameter("inflated_map_topic").as_string().c_str());
 }
 
 void AStarActionServer::handlePose(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
 {
+  std::lock_guard<std::mutex> lock(state_mutex_);
   current_pose_ = *msg;
   have_pose_ = true;
 }
 
 void AStarActionServer::handle_accepted(const std::shared_ptr<GoalHandleAStar> goal_handle)
 {
-  std::thread(
-    std::bind(&AStarActionServer::execute, this, std::placeholders::_1),
-    goal_handle).detach();
+  execute(goal_handle);
 }
 
 void AStarActionServer::execute(const std::shared_ptr<GoalHandleAStar> goal_handle)
@@ -108,7 +111,19 @@ void AStarActionServer::execute(const std::shared_ptr<GoalHandleAStar> goal_hand
   feedback->status = "Planning request received";
   goal_handle->publish_feedback(feedback);
 
-  if (!have_map_) {
+  geometry_msgs::msg::PoseStamped current_pose;
+  AStarPlanner planner;
+  bool have_map = false;
+  bool have_pose = false;
+  {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+    have_map = have_map_;
+    have_pose = have_pose_;
+    current_pose = current_pose_;
+    planner = planner_;
+  }
+
+  if (!have_map) {
     feedback->status = "No map received yet";
     goal_handle->publish_feedback(feedback);
 
@@ -119,7 +134,7 @@ void AStarActionServer::execute(const std::shared_ptr<GoalHandleAStar> goal_hand
     return;
   }
 
-  if (!have_pose_) {
+  if (!have_pose) {
     feedback->status = "No current pose received yet";
     goal_handle->publish_feedback(feedback);
 
@@ -130,7 +145,7 @@ void AStarActionServer::execute(const std::shared_ptr<GoalHandleAStar> goal_hand
     return;
   }
   auto result = std::make_shared<AStarAction::Result>();
-  result->path = planner_.plan(current_pose_, goal->goal);
+  result->path = planner.plan(current_pose, goal->goal);
   result->success = !result->path.poses.empty();
 
   if (result->success) {

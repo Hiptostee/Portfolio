@@ -5,6 +5,50 @@
 #include "shared.hpp"
 #include "i2c_iface.hpp"
 
+static void pack_i32_le(uint8_t *out, int idx, int32_t v)
+{
+  out[idx + 0] = (uint8_t)(v & 0xFF);
+  out[idx + 1] = (uint8_t)((v >> 8) & 0xFF);
+  out[idx + 2] = (uint8_t)((v >> 16) & 0xFF);
+  out[idx + 3] = (uint8_t)((v >> 24) & 0xFF);
+}
+
+static bool writeTelemetry(
+  volatile int32_t &target_pos,
+  volatile int32_t &position,
+  volatile int32_t &error,
+  volatile int32_t &pwm)
+{
+  int32_t tp, p, e, u;
+  noInterrupts();
+  tp = target_pos;
+  p = position;
+  e = error;
+  u = pwm;
+  interrupts();
+
+  uint8_t out[16];
+  pack_i32_le(out, 0, tp);
+  pack_i32_le(out, 4, p);
+  pack_i32_le(out, 8, e);
+  pack_i32_le(out, 12, u);
+  Wire1.write(out, 16);
+  return true;
+}
+
+static void drain_extra_bytes(int count, const char *context)
+{
+  if (count > 0)
+  {
+    Serial.print("I2C extra bytes for ");
+    Serial.print(context);
+    Serial.print(": ");
+    Serial.println(count);
+  }
+  while (count-- > 0)
+    (void)Wire1.read();
+}
+
 static void onReceive(int n)
 {
   if (n <= 0)
@@ -50,9 +94,7 @@ static void onReceive(int n)
     }
     interrupts();
 
-    int rem = n - 4;
-    while (rem-- > 0)
-      (void)Wire1.read();
+    drain_extra_bytes(n - 4, "motor speeds");
     return;
   }
 
@@ -74,12 +116,12 @@ static void onReceive(int n)
     kd_q_hold = kd_hold_temp;
     interrupts();
 
-    int rem = n - 12;
-    while (rem-- > 0)
-      (void)Wire1.read();
+    drain_extra_bytes(n - 12, "PID gains");
     return;
   }
 
+  Serial.print("I2C unknown register write: ");
+  Serial.println(currentReg);
   while (n-- > 0)
     (void)Wire1.read();
 }
@@ -97,47 +139,33 @@ static void onRequest()
     interrupts();
 
     uint8_t out[16];
-    auto pack32 = [&](int idx, int32_t v)
-    {
-      out[idx + 0] = (uint8_t)(v & 0xFF);
-      out[idx + 1] = (uint8_t)((v >> 8) & 0xFF);
-      out[idx + 2] = (uint8_t)((v >> 16) & 0xFF);
-      out[idx + 3] = (uint8_t)((v >> 24) & 0xFF);
-    };
-    pack32(0, fl);
-    pack32(4, fr);
-    pack32(8, bl);
-    pack32(12, br);
+    pack_i32_le(out, 0, fl);
+    pack_i32_le(out, 4, fr);
+    pack_i32_le(out, 8, bl);
+    pack_i32_le(out, 12, br);
     Wire1.write(out, 16);
     return;
   }
 
-  if (currentReg == REG_TELEM_FL)
-  {
-    int32_t tp, p, e, u;
-    noInterrupts();
-    tp = tele_tpos_fl;
-    p = tele_pos_fl;
-    e = tele_err_fl;
-    u = tele_pwm_fl;
-    interrupts();
-
-    uint8_t out[16];
-    auto pack32 = [&](int idx, int32_t v)
-    {
-      out[idx + 0] = (uint8_t)(v & 0xFF);
-      out[idx + 1] = (uint8_t)((v >> 8) & 0xFF);
-      out[idx + 2] = (uint8_t)((v >> 16) & 0xFF);
-      out[idx + 3] = (uint8_t)((v >> 24) & 0xFF);
-    };
-    pack32(0, tp);
-    pack32(4, p);
-    pack32(8, e);
-    pack32(12, u);
-    Wire1.write(out, 16);
+  if (currentReg == REG_TELEM_FL) {
+    writeTelemetry(tele_tpos_fl, tele_pos_fl, tele_err_fl, tele_pwm_fl);
+    return;
+  }
+  if (currentReg == REG_TELEM_FR) {
+    writeTelemetry(tele_tpos_fr, tele_pos_fr, tele_err_fr, tele_pwm_fr);
+    return;
+  }
+  if (currentReg == REG_TELEM_BL) {
+    writeTelemetry(tele_tpos_bl, tele_pos_bl, tele_err_bl, tele_pwm_bl);
+    return;
+  }
+  if (currentReg == REG_TELEM_BR) {
+    writeTelemetry(tele_tpos_br, tele_pos_br, tele_err_br, tele_pwm_br);
     return;
   }
 
+  Serial.print("I2C unknown register read: ");
+  Serial.println(currentReg);
   Wire1.write((uint8_t)0);
 }
 

@@ -2,6 +2,9 @@ imu_covariances:
   ros__parameters:
     imu_input_topic: "/imu"
     imu_output_topic: "/imu_with_covariances"
+    ignore_variance: 1000000.0
+    yaw_stddev: 0.005
+    gyro_z_stddev: 0.0025
 
 particle_filter:
   ros__parameters:
@@ -41,3 +44,5 @@ map_loader_service:
     global_load_map_service: "/paesano/load_map"
     load_map_service: "/paesano/load_map"
     map_topic: "/map"
+    map_server_wait_timeout_ms: 2000
+    map_server_response_timeout_ms: 10000

@@ -17,8 +17,10 @@ private:
 
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr imu_subscription_;
   rclcpp::Publisher<sensor_msgs::msg::Imu>::SharedPtr imu_publisher_;
+  double ignore_variance_{1e6};
+  double yaw_stddev_{0.005};
+  double gyro_z_stddev_{0.0025};
 };
 } // namespace covariances_on_imu
 
 #endif // COVARIANCES_ON_IMU_HPP
-

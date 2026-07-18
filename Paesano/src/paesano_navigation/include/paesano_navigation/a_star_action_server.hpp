@@ -2,6 +2,7 @@
 #define PAESANO_NAVIGATION__A_STAR_ACTION_SERVER_HPP_
 
 #include <memory>
+#include <mutex>
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "nav_msgs/msg/occupancy_grid.hpp"
@@ -33,6 +34,7 @@ private:
   geometry_msgs::msg::PoseStamped current_pose_;
   bool have_map_{false};
   bool have_pose_{false};
+  std::mutex state_mutex_;
 
   rclcpp_action::GoalResponse handle_goal(
     const rclcpp_action::GoalUUID & uuid,

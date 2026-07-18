@@ -1,35 +1,12 @@
 #include <cmath>
 #include <limits>
-#include <queue>
+#include <set>
+#include <utility>
 
 #include "paesano_navigation/a_star.hpp"
 
 namespace paesano_navigation
 {
-
-// Define properties for the open_set.
-namespace
-{
-
-struct OpenSetEntry
-{
-  size_t index;
-  double f_score;
-};
-
-struct OpenSetCompare
-{
-  bool operator()(const OpenSetEntry & lhs, const OpenSetEntry & rhs) const
-  {
-    return lhs.f_score > rhs.f_score;
-  }
-};
-
-struct InternalPoint {
-    double x, y, dist;
-};
-
-}  // namespace
 
 // This is the main function where A* is ran.
 nav_msgs::msg::Path AStarPlanner::plan(
@@ -74,25 +51,32 @@ nav_msgs::msg::Path AStarPlanner::plan(
   const size_t goal_index = toIndex(goal_cell);
   const double inf = std::numeric_limits<double>::infinity();
 
-  // Set up the open_set which is a min heap of all the nodes we can possibly visit.
-  std::priority_queue<OpenSetEntry, std::vector<OpenSetEntry>, OpenSetCompare> open_set;
+  // Set up the open_set ordered by lowest f-score. Existing entries are erased
+  // before score updates, so the set does not accumulate stale duplicates.
+  std::set<std::pair<double, size_t>> open_set;
 
   // Set up the closed_set which is the nodes we have already finalized and don't want to check again.
-  std::vector<bool> closed(cell_count, false);
+  closed_.assign(cell_count, 0);
   
   // Set up the came_from vector which maps the current index with the neighbor it came from.
-  std::vector<int> came_from(cell_count, -1);
+  came_from_.assign(cell_count, kNoParent);
 
   // Scores (f = g (cost to get to where it is) + h (heuristic cost))
-  std::vector<double> g_score(cell_count, inf);
-  std::vector<double> h_score(cell_count, inf);
-  std::vector<double> f_score(cell_count, inf);
+  g_score_.assign(cell_count, inf);
+  h_score_.resize(cell_count);
+
+  for (size_t index = 0; index < cell_count; ++index) {
+    const Coordinate cell{
+      static_cast<int>(index % width),
+      static_cast<int>(index / width)
+    };
+    h_score_[index] = heuristic(cell, goal_cell);
+  }
 
   // Initialize the scores of the start index.
-  g_score[start_index] = 0.0;
-  h_score[start_index] = heuristic(start_cell, goal_cell);
-  f_score[start_index] = h_score[start_index];
-  open_set.push(OpenSetEntry{start_index, f_score[start_index]});
+  g_score_[start_index] = 0.0;
+  open_set.emplace(h_score_[start_index], start_index);
+  neighbors_.reserve(8);
 
   /* This is the main while loop of the algorithm. While there are more nodes to explore (or within the loop the goal 
      hasn't been reached), continue.
@@ -100,23 +84,22 @@ nav_msgs::msg::Path AStarPlanner::plan(
   while (!open_set.empty()) {
 
     // Pop the lowest cost node from the open set.
-    const OpenSetEntry current_entry = open_set.top();
-    open_set.pop();
+    const size_t current_index = open_set.begin()->second;
+    open_set.erase(open_set.begin());
 
-    // If the node has a worse score than what we've already recorded, or if we have already finalized the node, skip it.
-    const size_t current_index = current_entry.index;
-    if (current_entry.f_score > f_score[current_index] || closed[current_index]) {
+    // If we have already finalized the node, skip it.
+    if (closed_[current_index]) {
       continue;
     }
 
     // If the node is the goal, return the path to get to it.
     if (current_index == goal_index) {
-      return buildPathMessage(path.header, start_cell, goal_cell, goal.pose, came_from);
+      return buildPathMessage(path.header, start_cell, goal_cell, goal.pose, came_from_);
     }
 
 
     // Add the recently popped lowest cost node to the closed set.
-    closed[current_index] = true;
+    closed_[current_index] = 1;
 
     // Convert the index into a coordinate in the grid we can run A* on.
     const Coordinate current{
@@ -126,9 +109,10 @@ nav_msgs::msg::Path AStarPlanner::plan(
 
 
     // Loop through each of the neighbors of the most recently popped lowest cost node.
-    for (const Coordinate & neighbor : getNeighbors(current)) {
+    getNeighbors(current, neighbors_);
+    for (const Coordinate & neighbor : neighbors_) {
       const size_t neighbor_index = toIndex(neighbor);
-      if (closed[neighbor_index]) {
+      if (closed_[neighbor_index]) {
         continue;
       }
 
@@ -140,17 +124,18 @@ nav_msgs::msg::Path AStarPlanner::plan(
       if (!std::isfinite(obstacle_penalty)) {
         continue;
       }
-      const double tentative_g = g_score[current_index] + step_cost + obstacle_penalty;
+      const double tentative_g = g_score_[current_index] + step_cost + obstacle_penalty;
 
       /* If the tentative g cost is lower than what we have previously calculated for this node, then update its total score,
          add it to the open set, and update the came_from vector. 
       */
-      if (tentative_g < g_score[neighbor_index]) {
-        came_from[neighbor_index] = static_cast<int>(current_index);
-        g_score[neighbor_index] = tentative_g;
-        h_score[neighbor_index] = heuristic(neighbor, goal_cell);
-        f_score[neighbor_index] = g_score[neighbor_index] + h_score[neighbor_index];
-        open_set.push(OpenSetEntry{neighbor_index, f_score[neighbor_index]});
+      if (tentative_g < g_score_[neighbor_index]) {
+        if (std::isfinite(g_score_[neighbor_index])) {
+          open_set.erase({g_score_[neighbor_index] + h_score_[neighbor_index], neighbor_index});
+        }
+        came_from_[neighbor_index] = current_index;
+        g_score_[neighbor_index] = tentative_g;
+        open_set.emplace(g_score_[neighbor_index] + h_score_[neighbor_index], neighbor_index);
       }
     }
   }

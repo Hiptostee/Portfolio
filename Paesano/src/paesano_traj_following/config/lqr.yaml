@@ -2,11 +2,13 @@ lqr:
   ros__parameters:
     estimated_pose_topic: "/estimated_pose"
     path_topic: "/path"
+    local_map_topic: "/local_map"
     cmd_vel_topic: "/cmd_vel"
     navigation_state_topic: "/is_navigating"
     stop_service_name: "/lqr/stop"
     control_period_ms: 20
     lookahead_points: 1
+    dare_max_iterations: 1000
     final_pose_capture_radius: 0.25
     max_linear_velocity: 0.35
     max_angular_velocity: 1.5
@@ -16,3 +18,11 @@ lqr:
     q_y: 5.0
     q_theta: 1.0
     r_weight: 0.6
+    feedforward_heading_gain: 0.5
+    max_tracking_error: 1.0
+    dare_convergence_tolerance: 0.000001
+    dynamic_obstacle_stop_enabled: true
+    local_map_occupied_threshold: 50
+    local_map_obstacle_check_distance: 0.8
+    local_map_path_corridor_radius: 0.18
+    local_map_path_sample_step: 0.05

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstdint>
 
 #include "nav_msgs/msg/odometry.hpp"
@@ -18,6 +19,7 @@ private:
 
   rclcpp::Subscription<std_msgs::msg::Int32MultiArray>::SharedPtr sub_;
   rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+  nav_msgs::msg::Odometry odom_msg_;
 
   bool initialized_{false};
   int32_t last_fl_{0};
@@ -33,6 +35,8 @@ private:
   double half_length_{0.0};
   double half_width_{0.0};
   double wheel_radius_{0.0};
+  std::array<double, 36> pose_covariance_{};
+  std::array<double, 36> twist_covariance_{};
 
   std::string encoder_topic_{"/wheel_encoders"};
   std::string odom_topic_{"/odom"};

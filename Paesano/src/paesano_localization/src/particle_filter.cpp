@@ -36,8 +36,10 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
   // max random particle percent when localization is robot; tuned based on how much random injection is needed for the robot to recover when lost. 
   // if you set this too high, the particles will be too scattered and the localization will be unstable. if you set this too low, the robot will take too long to recover when lost. 
   // ideally this should be at least as high as the expected percentage of particles that would be in the wrong cluster when the robot is lost.
-  num_random_max_ = std::clamp(static_cast<int>(declare_parameter<int>("num_random_max", 50)), 0, 100); 
-  if (num_random_max_ < num_random_) num_random_max_ = num_random_;
+  num_random_max_ = std::clamp(
+    static_cast<int>(declare_parameter<int>("num_random_max", 50)),
+    num_random_,
+    100);
 
   // gain for dynamically adjusting random particle injection based on scan matching success; tuned based on how quickly you want the random injection to adapt when the robot gets lost or recovers.
   random_adapt_gain_ = std::max(0.0, declare_parameter<double>("random_adapt_gain", 1.0));
@@ -65,6 +67,10 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
   z_hit_ = declare_parameter<double>("z_hit", 0.7);
   z_rand_ = declare_parameter<double>("z_rand", 0.3);
   sigma_hit_ = std::max(1e-6, declare_parameter<double>("sigma_hit", 0.10));
+  log_norm_ = -std::log(std::sqrt(2.0 * M_PI) * sigma_hit_);
+  inv_2sigma2_ = 1.0 / (2.0 * sigma_hit_ * sigma_hit_);
+  log_z_hit_ = std::log(std::max(z_hit_, 1e-12));
+  log_z_rand_ = std::log(std::max(z_rand_, 1e-12));
   alpha_fast_ = std::clamp(declare_parameter<double>("alpha_fast", 0.1), 0.0, 1.0);
   alpha_slow_ = std::clamp(declare_parameter<double>("alpha_slow", 0.01), 0.0, 1.0);
 
@@ -79,9 +85,9 @@ ParticleFilter::ParticleFilter(const rclcpp::NodeOptions &options)
   // and particles_theta_initial_. The weights are initialized uniformly. This random initialization allows the particle filter to cover
   particles_.resize(static_cast<size_t>(num_particles_));
   for (auto &p : particles_) {
-    p.x = randomUniform(-particles_x_initial_, particles_x_initial_);
-    p.y = randomUniform(-particles_y_initial_, particles_y_initial_);
-    p.theta = randomUniform(-particles_theta_initial_, particles_theta_initial_);
+    p.x = init_x_ + randomUniform(-particles_x_initial_, particles_x_initial_);
+    p.y = init_y_ + randomUniform(-particles_y_initial_, particles_y_initial_);
+    p.theta = wrapAngle(init_yaw_ + randomUniform(-particles_theta_initial_, particles_theta_initial_));
     p.weight = 1.0 / static_cast<double>(num_particles_);
   }
 
@@ -273,14 +279,6 @@ void ParticleFilter::scanCallback(const sensor_msgs::msg::LaserScan::SharedPtr m
   // 1) measurement update
   score(msg);
 
-  // 2) publish map->odom using current particle estimate
-  broadCastMapToOdomTf(rclcpp::Time(msg->header.stamp));
-
-  // 3) publish estimated pose (map->base) as weighted mean
-  geometry_msgs::msg::PoseStamped est_pose;
-  est_pose.header = msg->header;
-  est_pose.header.frame_id = "map";
-
   double est_x = 0.0, est_y = 0.0;
   double sum_sin = 0.0, sum_cos = 0.0;
   for (const auto &p : particles_) {
@@ -290,6 +288,14 @@ void ParticleFilter::scanCallback(const sensor_msgs::msg::LaserScan::SharedPtr m
     sum_cos += std::cos(p.theta) * p.weight;
   }
   const double est_yaw = std::atan2(sum_sin, sum_cos);
+
+  // 2) publish map->odom using current particle estimate
+  broadCastMapToOdomTf(rclcpp::Time(msg->header.stamp), est_x, est_y, est_yaw);
+
+  // 3) publish estimated pose (map->base) as weighted mean
+  geometry_msgs::msg::PoseStamped est_pose;
+  est_pose.header = msg->header;
+  est_pose.header.frame_id = "map";
 
   tf2::Quaternion q;
   q.setRPY(0.0, 0.0, est_yaw);
@@ -317,12 +323,12 @@ void ParticleFilter::globalLocalization()
   const double ox = map_.info.origin.position.x;
   const double oy = map_.info.origin.position.y;
   const double res = map_.info.resolution;
-  const double map_width_m = map_.info.width * map_.info.resolution;
-  const double map_height_m = map_.info.height * map_.info.resolution;
   const int width = static_cast<int>(map_.info.width);
   const int height = static_cast<int>(map_.info.height);
 
   // Collect all free cells
+  free_cells_.clear();
+  free_cells_.reserve(static_cast<size_t>(width) * static_cast<size_t>(height));
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
       const size_t idx = static_cast<size_t>(y) * width + x;

@@ -40,6 +40,12 @@ def generate_launch_description():
         'mapping.launch.py'
     )
 
+    local_map_launch = os.path.join(
+        get_package_share_directory('paesano_local_map'),
+        'launch',
+        'local_map.launch.py'
+    )
+
     robot_description = ParameterValue(
         Command([
             FindExecutable(name='xacro'), ' ', xacro_file, ' ',
@@ -147,6 +153,12 @@ def generate_launch_description():
         condition=UnlessCondition(localization_mode_enabled),
     )
 
+    local_map_node_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(local_map_launch),
+        launch_arguments={'sim': sim}.items(),
+        condition=IfCondition(localization_mode_enabled),
+    )
+
     navigation_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(navigation_launch),
         launch_arguments={'sim': sim}.items(),
@@ -189,5 +201,6 @@ def generate_launch_description():
         mapping_node_launch,
         navigation_launch_node,
         traj_following_launch_node,
+        local_map_node_launch,
         bridge,
     ])

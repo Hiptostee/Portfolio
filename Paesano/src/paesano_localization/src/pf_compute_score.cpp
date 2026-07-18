@@ -98,25 +98,31 @@ void ParticleFilter::rebuildDistanceField()
     return;
   }
 
-  std::vector<double> col_sq_dist(cell_count, kHugeSquaredDistanceCells);
-  std::vector<double> row_sq_dist(cell_count, kHugeSquaredDistanceCells);
+  col_sq_dist_.assign(cell_count, kHugeSquaredDistanceCells);
+  row_sq_dist_.assign(cell_count, kHugeSquaredDistanceCells);
 
   const int max_dim = std::max(width, height);
-  std::vector<double> f(static_cast<size_t>(max_dim));
-  std::vector<double> d(static_cast<size_t>(max_dim));
-  std::vector<int> v(static_cast<size_t>(max_dim));
-  std::vector<double> z(static_cast<size_t>(max_dim + 1));
+  distance_transform_f_.resize(static_cast<size_t>(max_dim));
+  distance_transform_d_.resize(static_cast<size_t>(max_dim));
+  distance_transform_v_.resize(static_cast<size_t>(max_dim));
+  distance_transform_z_.resize(static_cast<size_t>(max_dim + 1));
 
   // Pass 1: column transform.
   for (int x = 0; x < width; ++x) {
     for (int y = 0; y < height; ++y) {
       const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
-      f[static_cast<size_t>(y)] = (map_.data[idx] >= kOccupiedThreshold) ? 0.0 : kHugeSquaredDistanceCells;
+      distance_transform_f_[static_cast<size_t>(y)] =
+        (map_.data[idx] >= kOccupiedThreshold) ? 0.0 : kHugeSquaredDistanceCells;
     }
-    distanceTransform1D(f, height, d, v, z);
+    distanceTransform1D(
+      distance_transform_f_,
+      height,
+      distance_transform_d_,
+      distance_transform_v_,
+      distance_transform_z_);
     for (int y = 0; y < height; ++y) {
       const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
-      col_sq_dist[idx] = d[static_cast<size_t>(y)];
+      col_sq_dist_[idx] = distance_transform_d_[static_cast<size_t>(y)];
     }
   }
 
@@ -124,18 +130,23 @@ void ParticleFilter::rebuildDistanceField()
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
       const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
-      f[static_cast<size_t>(x)] = col_sq_dist[idx];
+      distance_transform_f_[static_cast<size_t>(x)] = col_sq_dist_[idx];
     }
-    distanceTransform1D(f, width, d, v, z);
+    distanceTransform1D(
+      distance_transform_f_,
+      width,
+      distance_transform_d_,
+      distance_transform_v_,
+      distance_transform_z_);
     for (int x = 0; x < width; ++x) {
       const size_t idx = static_cast<size_t>(y) * static_cast<size_t>(width) + static_cast<size_t>(x);
-      row_sq_dist[idx] = d[static_cast<size_t>(x)];
+      row_sq_dist_[idx] = distance_transform_d_[static_cast<size_t>(x)];
     }
   }
 
   distance_field_m_.resize(cell_count);
   for (size_t i = 0; i < cell_count; i++){
-    distance_field_m_[i] = static_cast<float>(std::sqrt(row_sq_dist[i]) * res);
+    distance_field_m_[i] = static_cast<float>(std::sqrt(row_sq_dist_[i]) * res);
   }
   have_distance_field_ = true;
 }
@@ -170,37 +181,32 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 
   const double rmax = msg->range_max;
 
-  // sigma is the std of the gaussian in the likelihood field model.
-  const double sigma = std::max(sigma_hit_, 1e-6);
-
   // Precompute the inverse of the max range for the random endpoint model. This is used to compute the likelihood of a random 
   // measurement, which is part of the beam model to account for unexpected obstacles or sensor noise.
   const double inv_zmax = 1.0 / std::max(rmax, 1e-6);
 
-  // Precompute constants
-  const double log_norm = -std::log(std::sqrt(2.0 * M_PI) * sigma);  // Gaussian normalizer
-  const double inv_2sigma2 = 1.0 / (2.0 * sigma * sigma); // Inverse of 2*sigma^2 for the Gaussian exponent
-
-  // Precompute log probabilities for the hit and random components of the beam model. This allows us to compute the likelihood of each measurement more efficiently during the scoring of particles.
-  const double log_z_hit  = std::log(std::max(z_hit_, 1e-12));
-  const double log_z_rand = std::log(std::max(z_rand_, 1e-12));
+  // Precompute the random component for this scan. The remaining likelihood
+  // constants depend only on node parameters and are cached at construction.
   const double log_rand   = std::log(inv_zmax);
+  const double log_p_rand = log_z_rand_ + log_rand;
 
   // base->lidar extrinsic
   double b2l_x = 0.0, b2l_y = 0.0, b2l_yaw = 0.0;
   const bool have_extrinsic = lookupBaseToLidar(b2l_x, b2l_y, b2l_yaw);
 
-  size_t valid_beam_count = 0;
+  valid_beam_indices_.clear();
+  valid_beam_indices_.reserve((msg->ranges.size() + static_cast<size_t>(beam_stride_) - 1) /
+    static_cast<size_t>(beam_stride_));
   for (size_t i = 0; i < msg->ranges.size(); i += static_cast<size_t>(beam_stride_)) {
     const double range = msg->ranges[i];
     if (!std::isfinite(range)) continue;
     if (range < msg->range_min) continue;
     if (range >= rmax * 0.99) continue;
-    ++valid_beam_count;
+    valid_beam_indices_.push_back(i);
   }
-  if (valid_beam_count == 0) return;
+  if (valid_beam_indices_.empty()) return;
 
-  std::vector<double> logw(particles_.size(), 0.0);
+  log_weights_.assign(particles_.size(), 0.0);
 
   // For each particle, compute the likelihood of the observed laser scan given the particle's pose. 
   // This is done by iterating over the laser scan beams, computing the expected endpoint of each beam based on the 
@@ -212,15 +218,7 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
     const Particle &p = particles_[pi];
     double acc = 0.0;
 
-    for (size_t i = 0; i < msg->ranges.size(); i += static_cast<size_t>(beam_stride_)) {
-      const double range = msg->ranges[i];
-
-      // Skip invalid + max-range (usually no information for endpoint model)
-      if (!std::isfinite(range)) continue;
-      if (range < msg->range_min) continue;
-      if (range >= rmax * 0.99) continue;
-
-
+    for (const size_t i : valid_beam_indices_) {
       // Compute the expected endpoint of the laser beam for this particle and beam index, 
       // and look up the distance to the nearest obstacle at that endpoint using the distance field. 
       // This distance is then used to compute the likelihood of the observed range measurement given the particle's pose.
@@ -229,16 +227,11 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
       const double d = distanceToNearestObstacle(endpoint.first, endpoint.second);
 
       // log p_hit = log(z_hit * N(d; 0, sigma^2)) = log(z_hit) + log(N(d; 0, sigma^2))
-      const double log_p_hit = log_z_hit + log_norm - (d * d) * inv_2sigma2;
+      const double log_p_hit = log_z_hit_ + log_norm_ - (d * d) * inv_2sigma2_;
 
-      // log p_rand = log(z_rand * 1/zmax)
-      const double log_p_rand = log_z_rand + log_rand;
-
-      // this is the log-sum-max-trick to compute log(p_hit + p_rand) in a numerically stable way
-      // log(p_hit + p_rand) = log( exp(log_p_hit) + exp(log_p_rand) ) = m + log( exp(log_p_hit - m) + exp(log_p_rand - m) ), 
-      // where m = max(log_p_hit, log_p_rand)
+      // Log-sum-exp for two terms, using log1p to avoid one exp call.
       const double m = std::max(log_p_hit, log_p_rand);
-      const double log_p = m + std::log(std::exp(log_p_hit - m) + std::exp(log_p_rand - m));
+      const double log_p = m + std::log1p(std::exp(std::min(log_p_hit, log_p_rand) - m));
 
       // for each particle, we accumulate the log likelihood of all the valid beams. 
       // This gives us the overall likelihood of the observed laser scan given the particle's pose, 
@@ -247,13 +240,13 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
       acc += log_p;
     }
 
-    logw[pi] = acc;
+    log_weights_[pi] = acc;
   }
 
   // Normalize weights with log-sum-exp
-  const double max_logw = *std::max_element(logw.begin(), logw.end());
+  const double max_logw = *std::max_element(log_weights_.begin(), log_weights_.end());
   double sum_exp_shifted = 0.0;
-  for (const double lw : logw) sum_exp_shifted += std::exp(lw - max_logw);
+  for (const double lw : log_weights_) sum_exp_shifted += std::exp(lw - max_logw);
 
   if (sum_exp_shifted > 0.0) {
     // Calculate the likelihood of the scan given the particle distribution, which is used for adaptive resampling.
@@ -263,7 +256,7 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
 
     // The scan quality is a measure of how well the current particle distribution explains the observed laser scan.
     const double scan_quality =
-        std::exp(log_mean_likelihood / static_cast<double>(valid_beam_count));
+        std::exp(log_mean_likelihood / static_cast<double>(valid_beam_indices_.size()));
 
 
     // Update the running averages of the scan quality for the adaptive resampling.
@@ -291,7 +284,7 @@ void ParticleFilter::score(const sensor_msgs::msg::LaserScan::SharedPtr msg)
   // prevent particle deprivation.
   double total = 0.0;
   for (size_t i = 0; i < particles_.size(); ++i) {
-    particles_[i].weight *= std::exp(logw[i] - max_logw);
+    particles_[i].weight *= std::exp(log_weights_[i] - max_logw);
     total += particles_[i].weight;
   }
 

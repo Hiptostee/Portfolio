@@ -6,6 +6,7 @@
 
 #include "geometry_msgs/msg/pose_stamped.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "nav_msgs/msg/occupancy_grid.hpp"
 #include "nav_msgs/msg/path.hpp"
 #include "rclcpp/rclcpp.hpp"
 #include "std_msgs/msg/bool.hpp"
@@ -23,6 +24,11 @@ public:
 
   Matrix3d solveDare(Matrix3d A, Matrix3d B, Matrix3d Q, Matrix3d R);
   Vector3d calculateError(const Pose & current_pose, const Pose & target_pose);
+  Vector3d calculateError(
+    const Pose & current_pose,
+    const Pose & target_pose,
+    double cos_th,
+    double sin_th);
   double wrapAngle(double a) const;
   std::size_t findClosestIndex(
     const Pose & robot_pose,
@@ -33,29 +39,37 @@ private:
   void lqrLoop();
   void estimatedPoseCallback(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void pathCallback(const nav_msgs::msg::Path::SharedPtr msg);
+  void localMapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
   void handleStop(
     const std::shared_ptr<std_srvs::srv::Trigger::Request> request,
     std::shared_ptr<std_srvs::srv::Trigger::Response> response);
   Pose poseStampedToPose(const geometry_msgs::msg::PoseStamped & pose_stamped) const;
   void publishZeroVelocity();
   void stopTracking(const char * reason);
+  bool isPathBlockedByLocalMap(const Pose & current_pose, std::size_t target_idx) const;
+  bool hasOccupiedCellNear(double world_x, double world_y) const;
+  bool worldToLocalMapCell(double world_x, double world_y, int & cell_x, int & cell_y) const;
   Eigen::Matrix3d K;
 
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr estimated_pose_sub_;
   rclcpp::Subscription<nav_msgs::msg::Path>::SharedPtr path_sub_;
+  rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr local_map_sub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr nav_status_pub_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_service_;
 
   rclcpp::TimerBase::SharedPtr timer_;
   geometry_msgs::msg::PoseStamped current_estimated_pose_msg_;
+  nav_msgs::msg::OccupancyGrid latest_local_map_;
   std::vector<Pose> current_path_;
   std::size_t current_path_index_{0};
   bool have_estimated_pose_{false};
   bool have_path_{false};
+  bool have_local_map_{false};
   bool initialized_{false};
   int control_period_ms_{20};
   int lookahead_points_{1};
+  int dare_max_iterations_{1000};
   double final_pose_capture_radius_{0.25};
   double max_linear_velocity_{0.6};
   double max_angular_velocity_{0.6};
@@ -65,6 +79,14 @@ private:
   double q_y_{75.0};
   double q_theta_{12.0};
   double r_weight_{0.5};
+  double feedforward_heading_gain_{0.5};
+  double max_tracking_error_{1.0};
+  double dare_convergence_tolerance_{1e-6};
+  bool dynamic_obstacle_stop_enabled_{true};
+  int local_map_occupied_threshold_{50};
+  double local_map_obstacle_check_distance_{0.8};
+  double local_map_path_corridor_radius_{0.18};
+  double local_map_path_sample_step_{0.05};
 
 };
 

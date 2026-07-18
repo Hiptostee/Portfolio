@@ -4,7 +4,8 @@
 #include "rclcpp_components/register_node_macro.hpp"
 #include "std_msgs/msg/int32_multi_array.hpp"
 
-#include <cmath>  
+#include <algorithm>
+#include <cmath>
 #include <functional>
 
 namespace odom_node
@@ -19,6 +20,14 @@ OdomNode::OdomNode(const rclcpp::NodeOptions & options)
   const double base_length = declare_parameter<double>("base_length", 0.212);
   const double base_width = declare_parameter<double>("base_width", 0.194);
   const double ticks_per_rev = declare_parameter<double>("ticks_per_rev", 2882.0);
+  x_ = declare_parameter<double>("initial_x", 0.0);
+  y_ = declare_parameter<double>("initial_y", 0.0);
+  theta_ = declare_parameter<double>("initial_theta", 0.0);
+  const double covariance_base = declare_parameter<double>("covariance_base", 0.5);
+  const double covariance_y_multiplier = declare_parameter<double>("covariance_y_multiplier", 10.0);
+  const double pose_to_twist_covariance_scale =
+    declare_parameter<double>("pose_to_twist_covariance_scale", 0.5);
+  const double ignored_axis_covariance = declare_parameter<double>("ignored_axis_covariance", 1e6);
   
   // Topic and frame name declarations.
   encoder_topic_ = declare_parameter<std::string>("encoder_topic", "/wheel_encoders");
@@ -29,7 +38,33 @@ OdomNode::OdomNode(const rclcpp::NodeOptions & options)
   // Physical Constants.
   half_length_ = base_length / 2.0;
   half_width_ = base_width / 2.0;
-  distance_per_tick_ = (2.0 * 3.141592653589793 * wheel_radius_) / ticks_per_rev;
+  distance_per_tick_ = (2.0 * M_PI * wheel_radius_) / std::max(ticks_per_rev, 1e-6);
+
+  const double covariance_base_sq = covariance_base * covariance_base;
+  pose_covariance_.fill(0.0);
+  pose_covariance_[0] = pose_to_twist_covariance_scale * covariance_base_sq;
+  pose_covariance_[7] =
+    covariance_y_multiplier * pose_to_twist_covariance_scale * covariance_base_sq;
+  pose_covariance_[14] = ignored_axis_covariance;
+  pose_covariance_[21] = ignored_axis_covariance;
+  pose_covariance_[28] = ignored_axis_covariance;
+  pose_covariance_[35] =
+    covariance_y_multiplier * covariance_y_multiplier *
+    pose_to_twist_covariance_scale * covariance_base_sq;
+
+  twist_covariance_.fill(0.0);
+  twist_covariance_[0] = covariance_base_sq;
+  twist_covariance_[7] = covariance_y_multiplier * covariance_base_sq;
+  twist_covariance_[14] = ignored_axis_covariance;
+  twist_covariance_[21] = ignored_axis_covariance;
+  twist_covariance_[28] = ignored_axis_covariance;
+  twist_covariance_[35] =
+    covariance_y_multiplier * covariance_y_multiplier * covariance_base_sq;
+
+  odom_msg_.header.frame_id = odom_frame_;
+  odom_msg_.child_frame_id = base_frame_;
+  odom_msg_.pose.covariance = pose_covariance_;
+  odom_msg_.twist.covariance = twist_covariance_;
 
   // Encoder topic subscriber.
   sub_ = create_subscription<std_msgs::msg::Int32MultiArray>(
@@ -80,7 +115,7 @@ void OdomNode::odomCallback(const std_msgs::msg::Int32MultiArray::SharedPtr msg)
   last_time_ = current_time;
 
   // Guard dt
-  if (!(dt > 0.0) || !std::isfinite(dt)) {
+  if (dt <= 0.0 || !std::isfinite(dt)) {
     return;
   }
 
@@ -113,48 +148,23 @@ void OdomNode::odomCallback(const std_msgs::msg::Int32MultiArray::SharedPtr msg)
   theta_ += omega * dt;
 
   // populate odom message
-  nav_msgs::msg::Odometry odom_msg;
-  odom_msg.header.stamp = current_time;
-  odom_msg.header.frame_id = odom_frame_;
-  odom_msg.child_frame_id = base_frame_;
+  odom_msg_.header.stamp = current_time;
 
-  odom_msg.pose.pose.position.x = x_;
-  odom_msg.pose.pose.position.y = y_;
-  odom_msg.pose.pose.position.z = 0.0;
+  odom_msg_.pose.pose.position.x = x_;
+  odom_msg_.pose.pose.position.y = y_;
+  odom_msg_.pose.pose.position.z = 0.0;
 
-  odom_msg.pose.pose.orientation.x = 0.0;
-  odom_msg.pose.pose.orientation.y = 0.0;
-  odom_msg.pose.pose.orientation.z = std::sin(theta_ / 2.0);
-  odom_msg.pose.pose.orientation.w = std::cos(theta_ / 2.0);
+  odom_msg_.pose.pose.orientation.x = 0.0;
+  odom_msg_.pose.pose.orientation.y = 0.0;
+  odom_msg_.pose.pose.orientation.z = std::sin(theta_ / 2.0);
+  odom_msg_.pose.pose.orientation.w = std::cos(theta_ / 2.0);
 
   // publish twist in base_link frame
-  odom_msg.twist.twist.linear.x  = vx_body;
-  odom_msg.twist.twist.linear.y  = vy_body;
-  odom_msg.twist.twist.angular.z = omega;
+  odom_msg_.twist.twist.linear.x = vx_body;
+  odom_msg_.twist.twist.linear.y = vy_body;
+  odom_msg_.twist.twist.angular.z = omega;
 
-  const double base   = 0.5;  
-  const double mag = 10.0;
-  const double pos_to_vel = 0.5;
-  const double IGN = 1e6;
-
-  // Pose covariance (6x6 row-major: x y z roll pitch yaw)
-  for (double &c : odom_msg.pose.covariance) c = 0.0;
-  odom_msg.pose.covariance[0]  = pos_to_vel * (base * base);
-  odom_msg.pose.covariance[7]  = mag * pos_to_vel * (base * base);
-  odom_msg.pose.covariance[14] = IGN;
-  odom_msg.pose.covariance[21] = IGN;
-  odom_msg.pose.covariance[28] = IGN;
-  odom_msg.pose.covariance[35] = mag * mag * pos_to_vel * (base * base);
-
-  for (double &c : odom_msg.twist.covariance) c = 0.0;
-  odom_msg.twist.covariance[0]  = (base * base);
-  odom_msg.twist.covariance[7]  = mag * (base * base);
-  odom_msg.twist.covariance[14] = IGN;
-  odom_msg.twist.covariance[21] = IGN;
-  odom_msg.twist.covariance[28] = IGN;
-  odom_msg.twist.covariance[35] = mag * mag * (base * base);
-
-  odom_pub_->publish(odom_msg);
+  odom_pub_->publish(odom_msg_);
 }
 }
 

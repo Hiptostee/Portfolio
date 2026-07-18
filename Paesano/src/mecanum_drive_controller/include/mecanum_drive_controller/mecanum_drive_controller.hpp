@@ -39,11 +39,13 @@ namespace mecanum_drive_controller
     double max_linear_speed_mps_{0.35};
     double max_angular_speed_radps_{1.5};
     double distance_per_tick_{0.0};
+    double ticks_per_meter_{0.0};
+    double inv_max_ticks_per_sec_{0.0};
     double mecanum_radius_{0.0};
 
     int32_t encFL = 0, encFR = 0, encBL = 0, encBR = 0;
 
-    int i2c_file_;
+    int i2c_file_{-1};
     rclcpp::Publisher<std_msgs::msg::Int32MultiArray>::SharedPtr pub_;
     rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
     rclcpp::TimerBase::SharedPtr encoder_timer_;

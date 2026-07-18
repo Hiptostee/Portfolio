@@ -1,6 +1,8 @@
 #include <algorithm>
 #include <array>
+#include <cassert>
 #include <cmath>
+#include <iterator>
 #include <limits>
 #include <queue>
 #include <stdexcept>
@@ -23,6 +25,50 @@ struct InternalPoint
   double y;
   double dist;
 };
+
+double pointDistance(
+  const geometry_msgs::msg::Point & a,
+  const geometry_msgs::msg::Point & b)
+{
+  return std::hypot(b.x - a.x, b.y - a.y);
+}
+
+geometry_msgs::msg::Point blendPoint(
+  const geometry_msgs::msg::Point & a,
+  const geometry_msgs::msg::Point & b,
+  double ta,
+  double tb,
+  double time)
+{
+  geometry_msgs::msg::Point result;
+  const double denom = std::max(tb - ta, 1e-6);
+  result.x = ((tb - time) / denom) * a.x + ((time - ta) / denom) * b.x;
+  result.y = ((tb - time) / denom) * a.y + ((time - ta) / denom) * b.y;
+  result.z = 0.0;
+  return result;
+}
+
+geometry_msgs::msg::Point catmullRomWithTimes(
+  const geometry_msgs::msg::Point & p0,
+  const geometry_msgs::msg::Point & p1,
+  const geometry_msgs::msg::Point & p2,
+  const geometry_msgs::msg::Point & p3,
+  double t0,
+  double t1,
+  double t2,
+  double t3,
+  double t)
+{
+  const double time = t1 + std::clamp(t, 0.0, 1.0) * (t2 - t1);
+
+  const geometry_msgs::msg::Point a1 = blendPoint(p0, p1, t0, t1, time);
+  const geometry_msgs::msg::Point a2 = blendPoint(p1, p2, t1, t2, time);
+  const geometry_msgs::msg::Point a3 = blendPoint(p2, p3, t2, t3, time);
+  const geometry_msgs::msg::Point b1 = blendPoint(a1, a2, t0, t2, time);
+  const geometry_msgs::msg::Point b2 = blendPoint(a2, a3, t1, t3, time);
+
+  return blendPoint(b1, b2, t1, t2, time);
+}
 
 }  // namespace
 
@@ -55,10 +101,6 @@ bool AStarPlanner::isCellTraversable(const Coordinate & cell) const
 {
   if (!isInBounds(cell)) {
     throw std::out_of_range("Grid cell is out of bounds");
-  }
-
-  if (map_inflated_.data.size() != map_.data.size()) {
-    return false;
   }
 
   return map_inflated_.data[toIndex(cell)] < 100;
@@ -166,42 +208,12 @@ geometry_msgs::msg::Point AStarPlanner::catmullRom(
   const geometry_msgs::msg::Point & p3,
   double t) const
 {
-    const auto distance = [](
-      const geometry_msgs::msg::Point & a,
-      const geometry_msgs::msg::Point & b) -> double
-    {
-      return std::hypot(b.x - a.x, b.y - a.y);
-    };
-
-    const auto blend = [](
-      const geometry_msgs::msg::Point & a,
-      const geometry_msgs::msg::Point & b,
-      double ta,
-      double tb,
-      double time) -> geometry_msgs::msg::Point
-    {
-      geometry_msgs::msg::Point result;
-      const double denom = std::max(tb - ta, 1e-6);
-      result.x = ((tb - time) / denom) * a.x + ((time - ta) / denom) * b.x;
-      result.y = ((tb - time) / denom) * a.y + ((time - ta) / denom) * b.y;
-      result.z = 0.0;
-      return result;
-    };
-
     constexpr double alpha = 0.5;
     const double t0 = 0.0;
-    const double t1 = t0 + std::pow(std::max(distance(p0, p1), 1e-6), alpha);
-    const double t2 = t1 + std::pow(std::max(distance(p1, p2), 1e-6), alpha);
-    const double t3 = t2 + std::pow(std::max(distance(p2, p3), 1e-6), alpha);
-    const double time = t1 + std::clamp(t, 0.0, 1.0) * (t2 - t1);
-
-    const geometry_msgs::msg::Point a1 = blend(p0, p1, t0, t1, time);
-    const geometry_msgs::msg::Point a2 = blend(p1, p2, t1, t2, time);
-    const geometry_msgs::msg::Point a3 = blend(p2, p3, t2, t3, time);
-    const geometry_msgs::msg::Point b1 = blend(a1, a2, t0, t2, time);
-    const geometry_msgs::msg::Point b2 = blend(a2, a3, t1, t3, time);
-
-    return blend(b1, b2, t1, t2, time);
+    const double t1 = t0 + std::pow(std::max(pointDistance(p0, p1), 1e-6), alpha);
+    const double t2 = t1 + std::pow(std::max(pointDistance(p1, p2), 1e-6), alpha);
+    const double t3 = t2 + std::pow(std::max(pointDistance(p2, p3), 1e-6), alpha);
+    return catmullRomWithTimes(p0, p1, p2, p3, t0, t1, t2, t3, t);
 }
 
 // Apply the spline to the path.
@@ -211,7 +223,9 @@ nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) c
     }
 
     // Dense sampling of centripetal Catmull-Rom segments to approximate a smooth curve.
+    constexpr int samples_per_segment = 100;
     std::vector<InternalPoint> dense_points;
+    dense_points.reserve(path.poses.size() * samples_per_segment + 1);
     double total_dist = 0.0;
 
     for (size_t i = 0; i < path.poses.size() - 1; ++i) {
@@ -219,11 +233,16 @@ nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) c
       const auto p2 = path.poses[i + 1].pose.position;
       const auto p0 = (i == 0) ? p1 : path.poses[i - 1].pose.position;
       const auto p3 = (i + 2 < path.poses.size()) ? path.poses[i + 2].pose.position : p2;
+      constexpr double alpha = 0.5;
+      const double t0 = 0.0;
+      const double t1 = t0 + std::pow(std::max(pointDistance(p0, p1), 1e-6), alpha);
+      const double t2 = t1 + std::pow(std::max(pointDistance(p1, p2), 1e-6), alpha);
+      const double t3 = t2 + std::pow(std::max(pointDistance(p2, p3), 1e-6), alpha);
 
-      const int samples_per_segment = 100;
       for (int s = 0; s < samples_per_segment; ++s) {
         const double t = static_cast<double>(s) / samples_per_segment;
-        const geometry_msgs::msg::Point cur = catmullRom(p0, p1, p2, p3, t);
+        const geometry_msgs::msg::Point cur =
+          catmullRomWithTimes(p0, p1, p2, p3, t0, t1, t2, t3, t);
 
         if (!dense_points.empty()) {
           const double dx = cur.x - dense_points.back().x;
@@ -246,12 +265,17 @@ nav_msgs::msg::Path AStarPlanner::applySpline(const nav_msgs::msg::Path& path) c
     nav_msgs::msg::Path smooth_path;
     smooth_path.header = path.header;
     const double target_spacing = 0.05;
-    size_t dense_idx = 0;
 
     for (double s = 0.0; s <= total_dist; s += target_spacing) {
-      while (dense_idx < dense_points.size() - 2 && dense_points[dense_idx + 1].dist < s) {
-        ++dense_idx;
-      }
+      const auto upper = std::lower_bound(
+        dense_points.begin() + 1,
+        dense_points.end(),
+        s,
+        [](const InternalPoint & point, double distance) {
+          return point.dist < distance;
+        });
+      const size_t dense_idx =
+        static_cast<size_t>(std::distance(dense_points.begin(), upper)) - 1;
 
       const InternalPoint p_a = dense_points[dense_idx];
       const InternalPoint p_b = dense_points[dense_idx + 1];
@@ -341,60 +365,68 @@ double AStarPlanner::heuristic(const Coordinate & a, const Coordinate & b) const
 std::vector<Coordinate> AStarPlanner::getNeighbors(const Coordinate & cell) const
 {
   std::vector<Coordinate> neighbors;
+  getNeighbors(cell, neighbors);
+  return neighbors;
+}
+
+void AStarPlanner::getNeighbors(const Coordinate & cell, std::vector<Coordinate> & neighbors) const
+{
+  neighbors.clear();
+  neighbors.reserve(8);
+
   const Coordinate up{cell.x, cell.y + 1};
   const Coordinate down{cell.x, cell.y - 1};
   const Coordinate right{cell.x + 1, cell.y};
   const Coordinate left{cell.x - 1, cell.y};
 
-  if (isInBounds(up) && isCellTraversable(up)) {
+  const bool up_clear = isInBounds(up) && isCellTraversable(up);
+  const bool down_clear = isInBounds(down) && isCellTraversable(down);
+  const bool left_clear = isInBounds(left) && isCellTraversable(left);
+  const bool right_clear = isInBounds(right) && isCellTraversable(right);
+
+  if (up_clear) {
     neighbors.push_back(up);
   }
-  if (isInBounds(down) && isCellTraversable(down)) {
+  if (down_clear) {
     neighbors.push_back(down);
   }
-  if (isInBounds(left) && isCellTraversable(left)) {
+  if (left_clear) {
     neighbors.push_back(left);
   }
-  if (isInBounds(right) && isCellTraversable(right)) {
+  if (right_clear) {
     neighbors.push_back(right);
   }
 
   const Coordinate top_left{cell.x - 1, cell.y + 1};
   if (isInBounds(top_left) && isCellTraversable(top_left) &&
-      isInBounds(left) && isCellTraversable(left) &&
-      isInBounds(up) && isCellTraversable(up)) {
+      left_clear && up_clear) {
     neighbors.push_back(top_left);
   }
 
   const Coordinate top_right{cell.x + 1, cell.y + 1};
   if (isInBounds(top_right) && isCellTraversable(top_right) &&
-      isInBounds(right) && isCellTraversable(right) &&
-      isInBounds(up) && isCellTraversable(up)) {
+      right_clear && up_clear) {
     neighbors.push_back(top_right);
   }
 
   const Coordinate bottom_left{cell.x - 1, cell.y - 1};
   if (isInBounds(bottom_left) && isCellTraversable(bottom_left) &&
-      isInBounds(left) && isCellTraversable(left) &&
-      isInBounds(down) && isCellTraversable(down)) {
+      left_clear && down_clear) {
     neighbors.push_back(bottom_left);
   }
 
   const Coordinate bottom_right{cell.x + 1, cell.y - 1};
   if (isInBounds(bottom_right) && isCellTraversable(bottom_right) &&
-      isInBounds(right) && isCellTraversable(right) &&
-      isInBounds(down) && isCellTraversable(down)) {
+      right_clear && down_clear) {
     neighbors.push_back(bottom_right);
   }
-
-  return neighbors;
 }
 
 // Walk backward through the parent links and rebuild the final cell path.
 std::vector<Coordinate> AStarPlanner::reconstructPath(
   const Coordinate & start,
   const Coordinate & goal,
-  const std::vector<int> & came_from) const
+  const std::vector<std::size_t> & came_from) const
 {
   if (!isMapValid() || !isInBounds(start) || !isInBounds(goal)) {
     return {};
@@ -407,21 +439,20 @@ std::vector<Coordinate> AStarPlanner::reconstructPath(
   }
 
   std::vector<Coordinate> path;
-  const int start_index = static_cast<int>(toIndex(start));
-  int current_index = static_cast<int>(toIndex(goal));
+  const size_t start_index = toIndex(start);
+  size_t current_index = toIndex(goal);
 
-  while (current_index != -1) {
-    const size_t current = static_cast<size_t>(current_index);
+  while (current_index != kNoParent) {
     path.push_back(Coordinate{
-      static_cast<int>(current % width),
-      static_cast<int>(current / width)
+      static_cast<int>(current_index % width),
+      static_cast<int>(current_index / width)
     });
 
     if (current_index == start_index) {
       break;
     }
 
-    current_index = came_from[current];
+    current_index = came_from[current_index];
   }
 
   if (path.empty() || path.back().x != start.x || path.back().y != start.y) {
@@ -438,7 +469,7 @@ nav_msgs::msg::Path AStarPlanner::buildPathMessage(
   const Coordinate & start,
   const Coordinate & goal,
   const geometry_msgs::msg::Pose & goal_pose,
-  const std::vector<int> & came_from) const
+  const std::vector<std::size_t> & came_from) const
 {
   const std::vector<Coordinate> coordinates = reconstructPath(start, goal, came_from);
 
@@ -461,6 +492,7 @@ void AStarPlanner::setMap(const nav_msgs::msg::OccupancyGrid & map)
 {
   map_ = map;
   buildInflatedMap();
+  assert(!isMapValid() || map_inflated_.data.size() == map_.data.size());
 }
 
 // Update the obstacle inflation radius used during traversability checks.

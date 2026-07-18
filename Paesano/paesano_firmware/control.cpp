@@ -7,8 +7,39 @@
 #include "pid_velocity.hpp"
 #include "control.hpp"
 
+namespace
+{
+constexpr int kCommandLimit = 127;
+
+bool velocity_initialized = false;
+int32_t last_fl = 0;
+int32_t last_fr = 0;
+int32_t last_bl = 0;
+int32_t last_br = 0;
+
+int clampCommand(int value)
+{
+  if (value > kCommandLimit)
+    return kCommandLimit;
+  if (value < -kCommandLimit)
+    return -kCommandLimit;
+  return value;
+}
+
+int velocityToCommand(float velocity)
+{
+  constexpr float ticks_per_cmd = MAX_TICKS_S / (float)kCommandLimit;
+  return clampCommand((int)lroundf(velocity / ticks_per_cmd));
+}
+}  // namespace
+
 void controlInit()
 {
+  velocity_initialized = false;
+  last_fl = 0;
+  last_fr = 0;
+  last_bl = 0;
+  last_br = 0;
 }
 
 void controlTick()
@@ -19,11 +50,17 @@ void controlTick()
     return;
   lastMs = now;
 
+  bool reset_hold = false;
+  noInterrupts();
   if (hold_reset_req)
   {
-    noInterrupts();
     hold_reset_req = false;
-    interrupts();
+    reset_hold = true;
+  }
+  interrupts();
+
+  if (reset_hold)
+  {
     resetHoldPIDStates();
   }
 
@@ -49,28 +86,25 @@ void controlTick()
   interrupts();
 
   // velocity estimate (ticks/sec)
-  static bool init = false;
-  static int32_t lastFL = 0, lastFR = 0, lastBL = 0, lastBR = 0;
-
-  if (!init)
+  if (!velocity_initialized)
   {
-    lastFL = eFL;
-    lastFR = eFR;
-    lastBL = eBL;
-    lastBR = eBR;
-    init = true;
+    last_fl = eFL;
+    last_fr = eFR;
+    last_bl = eBL;
+    last_br = eBR;
+    velocity_initialized = true;
     return;
   }
 
-  int32_t dFL = eFL - lastFL;
-  int32_t dFR = eFR - lastFR;
-  int32_t dBL = eBL - lastBL;
-  int32_t dBR = eBR - lastBR;
+  int32_t dFL = eFL - last_fl;
+  int32_t dFR = eFR - last_fr;
+  int32_t dBL = eBL - last_bl;
+  int32_t dBR = eBR - last_br;
 
-  lastFL = eFL;
-  lastFR = eFR;
-  lastBL = eBL;
-  lastBR = eBR;
+  last_fl = eFL;
+  last_fr = eFR;
+  last_bl = eBL;
+  last_br = eBR;
 
   float vFL = dFL / DT;
   float vFR = dFR / DT;
@@ -88,29 +122,10 @@ void controlTick()
     float vtBL = computeHoldVelocity(tBL, eBL, holdBL, kp_hold, ki_hold, kd_hold);
     float vtBR = computeHoldVelocity(tBR, eBR, holdBR, kp_hold, ki_hold, kd_hold);
 
-    const float ticks_per_cmd = MAX_TICKS_S / 127.0f;
-
-    int cFL = (int)lroundf(vtFL / ticks_per_cmd);
-    int cFR = (int)lroundf(vtFR / ticks_per_cmd);
-    int cBL = (int)lroundf(vtBL / ticks_per_cmd);
-    int cBR = (int)lroundf(vtBR / ticks_per_cmd);
-
-    if (cFL > 127)
-      cFL = 127;
-    if (cFL < -127)
-      cFL = -127;
-    if (cFR > 127)
-      cFR = 127;
-    if (cFR < -127)
-      cFR = -127;
-    if (cBL > 127)
-      cBL = 127;
-    if (cBL < -127)
-      cBL = -127;
-    if (cBR > 127)
-      cBR = 127;
-    if (cBR < -127)
-      cBR = -127;
+    int cFL = velocityToCommand(vtFL);
+    int cFR = velocityToCommand(vtFR);
+    int cBL = velocityToCommand(vtBL);
+    int cBR = velocityToCommand(vtBR);
 
     noInterrupts();
     cmdFL = (int8_t)cFL;
@@ -121,6 +136,15 @@ void controlTick()
     tele_tpos_fl = tFL;
     tele_pos_fl = eFL;
     tele_err_fl = (tFL - eFL);
+    tele_tpos_fr = tFR;
+    tele_pos_fr = eFR;
+    tele_err_fr = (tFR - eFR);
+    tele_tpos_bl = tBL;
+    tele_pos_bl = eBL;
+    tele_err_bl = (tBL - eBL);
+    tele_tpos_br = tBR;
+    tele_pos_br = eBR;
+    tele_err_br = (tBR - eBR);
     interrupts();
   }
   else
@@ -129,6 +153,15 @@ void controlTick()
     tele_tpos_fl = 0;
     tele_pos_fl = eFL;
     tele_err_fl = 0;
+    tele_tpos_fr = 0;
+    tele_pos_fr = eFR;
+    tele_err_fr = 0;
+    tele_tpos_bl = 0;
+    tele_pos_bl = eBL;
+    tele_err_bl = 0;
+    tele_tpos_br = 0;
+    tele_pos_br = eBR;
+    tele_err_br = 0;
     interrupts();
   }
 

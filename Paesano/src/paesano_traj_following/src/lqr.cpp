@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <functional>
 
 #include "rclcpp_components/register_node_macro.hpp"
@@ -17,6 +18,8 @@ LQR::LQR(const rclcpp::NodeOptions & options)
     declare_parameter<std::string>("estimated_pose_topic", "/estimated_pose");
   const std::string path_topic =
     declare_parameter<std::string>("path_topic", "/path");
+  const std::string local_map_topic =
+    declare_parameter<std::string>("local_map_topic", "/local_map");
   const std::string cmd_vel_topic =
     declare_parameter<std::string>("cmd_vel_topic", "/cmd_vel");
   const std::string navigation_state_topic =
@@ -26,6 +29,9 @@ LQR::LQR(const rclcpp::NodeOptions & options)
 
   control_period_ms_ = declare_parameter<int>("control_period_ms", 20);
   lookahead_points_ = declare_parameter<int>("lookahead_points", 1);
+  const int dare_max_iterations_param =
+    static_cast<int>(declare_parameter<int>("dare_max_iterations", 1000));
+  dare_max_iterations_ = std::max(1, dare_max_iterations_param);
   final_pose_capture_radius_ = declare_parameter<double>("final_pose_capture_radius", 0.25);
   max_linear_velocity_ = declare_parameter<double>("max_linear_velocity", 0.6);
   max_angular_velocity_ = declare_parameter<double>("max_angular_velocity", 0.6);
@@ -35,6 +41,26 @@ LQR::LQR(const rclcpp::NodeOptions & options)
   q_y_ = declare_parameter<double>("q_y", 75.0);
   q_theta_ = declare_parameter<double>("q_theta", 12.0);
   r_weight_ = declare_parameter<double>("r_weight", 0.5);
+  feedforward_heading_gain_ = declare_parameter<double>("feedforward_heading_gain", 0.5);
+  max_tracking_error_ = declare_parameter<double>("max_tracking_error", 1.0);
+  dare_convergence_tolerance_ = std::max(
+    0.0,
+    declare_parameter<double>("dare_convergence_tolerance", 1e-6));
+  dynamic_obstacle_stop_enabled_ =
+    declare_parameter<bool>("dynamic_obstacle_stop_enabled", dynamic_obstacle_stop_enabled_);
+  local_map_occupied_threshold_ =
+    std::clamp(static_cast<int>(declare_parameter<int>(
+      "local_map_occupied_threshold", local_map_occupied_threshold_)), 1, 100);
+  local_map_obstacle_check_distance_ = std::max(
+    0.0,
+    declare_parameter<double>(
+      "local_map_obstacle_check_distance", local_map_obstacle_check_distance_));
+  local_map_path_corridor_radius_ = std::max(
+    0.0,
+    declare_parameter<double>("local_map_path_corridor_radius", local_map_path_corridor_radius_));
+  local_map_path_sample_step_ = std::max(
+    0.01,
+    declare_parameter<double>("local_map_path_sample_step", local_map_path_sample_step_));
 
   estimated_pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
     estimated_pose_topic, 10, std::bind(&LQR::estimatedPoseCallback, this, std::placeholders::_1));
@@ -43,6 +69,9 @@ LQR::LQR(const rclcpp::NodeOptions & options)
     path_topic,
     rclcpp::QoS(1).transient_local().reliable(),
     std::bind(&LQR::pathCallback, this, std::placeholders::_1));
+
+  local_map_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(
+    local_map_topic, 10, std::bind(&LQR::localMapCallback, this, std::placeholders::_1));
 
   cmd_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic, 10);
 
@@ -57,9 +86,10 @@ LQR::LQR(const rclcpp::NodeOptions & options)
 
   RCLCPP_INFO(
     get_logger(),
-    "LQR node ready: estimated_pose_topic='%s', path_topic='%s', cmd_vel_topic='%s', stop_service='%s'",
+    "LQR node ready: estimated_pose_topic='%s', path_topic='%s', local_map_topic='%s', cmd_vel_topic='%s', stop_service='%s'",
     estimated_pose_topic.c_str(),
     path_topic.c_str(),
+    local_map_topic.c_str(),
     cmd_vel_topic.c_str(),
     stop_service_name.c_str());
 }
@@ -109,6 +139,14 @@ void LQR::lqrLoop()
   
   // Update Path Tracking
   current_path_index_ = findClosestIndex(current_pose, current_path_, current_path_index_);
+  const Pose closest_pose = current_path_[current_path_index_];
+  const double tracking_error = std::hypot(
+    closest_pose.x - current_pose.x,
+    closest_pose.y - current_pose.y);
+  if (tracking_error > max_tracking_error_) {
+    stopTracking("Tracking error exceeded max_tracking_error. Stopping.");
+    return;
+  }
   
   const std::size_t target_idx = near_final_pose ?
     (current_path_.size() - 1) :
@@ -117,9 +155,21 @@ void LQR::lqrLoop()
       current_path_.size() - 1);
   const Pose target_pose = current_path_[target_idx];
   const bool targeting_final_pose = (target_idx >= current_path_.size() - 1);
+  const double cos_th = std::cos(current_pose.theta);
+  const double sin_th = std::sin(current_pose.theta);
+
+  if (dynamic_obstacle_stop_enabled_ && isPathBlockedByLocalMap(current_pose, target_idx)) {
+    publishZeroVelocity();
+    RCLCPP_WARN_THROTTLE(
+      get_logger(),
+      *get_clock(),
+      1000,
+      "Dynamic obstacle on local path. Holding position.");
+    return;
+  }
   
   // Feedback.
-  const Vector3d error = calculateError(current_pose, target_pose);
+  const Vector3d error = calculateError(current_pose, target_pose, cos_th, sin_th);
   const Vector3d control = K * error;
   const std::size_t next_idx = std::min(target_idx + 1, current_path_.size() - 1);
 
@@ -141,13 +191,11 @@ void LQR::lqrLoop()
     const double ff_speed = std::min(0.35, max_linear_velocity_);
     const double world_vx = ff_speed * (segment_dx / segment_norm);
     const double world_vy = ff_speed * (segment_dy / segment_norm);
-    const double cos_th = std::cos(current_pose.theta);
-    const double sin_th = std::sin(current_pose.theta);
     const double segment_yaw = std::atan2(segment_dy, segment_dx);
 
     feedforward << world_vx * cos_th + world_vy * sin_th,
                    -world_vx * sin_th + world_vy * cos_th,
-                   0.5 * wrapAngle(segment_yaw - current_pose.theta);
+                   feedforward_heading_gain_ * wrapAngle(segment_yaw - current_pose.theta);
   }
 
   const Vector3d total_control = control + feedforward;
@@ -225,6 +273,12 @@ void LQR::pathCallback(const nav_msgs::msg::Path::SharedPtr msg)
   current_path_index_ = 0; 
   have_path_ = !current_path_.empty();
   RCLCPP_INFO(get_logger(), "New Path Received: %zu points. Starting tracking.", current_path_.size());
+}
+
+void LQR::localMapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
+{
+  latest_local_map_ = *msg;
+  have_local_map_ = true;
 }
 
 } // namespace lqr

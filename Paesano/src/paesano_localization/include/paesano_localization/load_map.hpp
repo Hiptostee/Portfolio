@@ -4,9 +4,12 @@
 #include <nav2_msgs/srv/load_map.hpp>
 #include <nav_msgs/msg/occupancy_grid.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <rclcpp/executors/single_threaded_executor.hpp>
 
+#include <chrono>
 #include <memory>
 #include <string>
+#include <thread>
 
 namespace paesano_localization
 {
@@ -15,6 +18,7 @@ class MapLoaderService : public rclcpp::Node
 {
 public:
   explicit MapLoaderService(const rclcpp::NodeOptions &options);
+  ~MapLoaderService() override;
 
 private:
   using LoadMap = nav2_msgs::srv::LoadMap;
@@ -24,10 +28,16 @@ private:
       std::shared_ptr<LoadMap::Response> response);
 
   std::string map_server_service_name_;
+  std::chrono::milliseconds service_wait_timeout_{2000};
+  std::chrono::milliseconds response_timeout_{10000};
 
   rclcpp::Service<LoadMap>::SharedPtr load_map_service_;
   rclcpp::Service<LoadMap>::SharedPtr load_map_private_service_;
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr map_publisher_;
+  std::shared_ptr<rclcpp::Node> helper_node_;
+  rclcpp::Client<LoadMap>::SharedPtr helper_client_;
+  rclcpp::executors::SingleThreadedExecutor helper_executor_;
+  std::thread helper_executor_thread_;
 };
 
 } // namespace paesano_localization

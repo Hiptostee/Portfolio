@@ -50,7 +50,11 @@ bool ParticleFilter::lookupBaseToLidar(double &x, double &y, double &yaw)
   }
 }
 
-void ParticleFilter::broadCastMapToOdomTf(const rclcpp::Time &stamp)
+void ParticleFilter::broadCastMapToOdomTf(
+  const rclcpp::Time &stamp,
+  double est_x,
+  double est_y,
+  double est_yaw)
 {
   if (!tf_broadcaster_) return;
   if (!initialized_particles_) return;
@@ -58,17 +62,6 @@ void ParticleFilter::broadCastMapToOdomTf(const rclcpp::Time &stamp)
   const double odom_x = last_odom_x_;
   const double odom_y = last_odom_y_;
   const double odom_yaw = last_odom_yaw_;
-
-  // map->base estimated from particles (weighted mean)
-  double est_x = 0.0, est_y = 0.0;
-  double sum_sin = 0.0, sum_cos = 0.0;
-  for (const auto &p : particles_) {
-    est_x += p.x * p.weight;
-    est_y += p.y * p.weight;
-    sum_sin += std::sin(p.theta) * p.weight;
-    sum_cos += std::cos(p.theta) * p.weight;
-  }
-  const double est_yaw = std::atan2(sum_sin, sum_cos);
 
   tf2::Transform map_to_base;
   map_to_base.setOrigin(tf2::Vector3(est_x, est_y, 0.0));

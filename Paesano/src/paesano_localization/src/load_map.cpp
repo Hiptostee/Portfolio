@@ -3,7 +3,9 @@
 #include <rclcpp/executors/single_threaded_executor.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 
+#include <algorithm>
 #include <chrono>
+#include <future>
 
 namespace paesano_localization
 {
@@ -19,9 +21,24 @@ MapLoaderService::MapLoaderService(const rclcpp::NodeOptions &options)
       declare_parameter<std::string>("load_map_service", "~/load_map");
   const auto map_topic =
       declare_parameter<std::string>("map_topic", "/map");
+  const int map_server_wait_timeout_ms =
+      static_cast<int>(declare_parameter<int>("map_server_wait_timeout_ms", 2000));
+  const int map_server_response_timeout_ms =
+      static_cast<int>(declare_parameter<int>("map_server_response_timeout_ms", 10000));
+  service_wait_timeout_ =
+      std::chrono::milliseconds(std::max(1, map_server_wait_timeout_ms));
+  response_timeout_ =
+      std::chrono::milliseconds(std::max(1, map_server_response_timeout_ms));
 
   map_publisher_ = create_publisher<nav_msgs::msg::OccupancyGrid>(
       map_topic, rclcpp::QoS(1).transient_local().reliable());
+  helper_node_ = std::make_shared<rclcpp::Node>("map_loader_service_helper");
+  helper_client_ = helper_node_->create_client<LoadMap>(map_server_service_name_);
+  helper_executor_.add_node(helper_node_);
+  helper_executor_thread_ = std::thread([this]() {
+    helper_executor_.spin();
+  });
+
   load_map_service_ = create_service<LoadMap>(
       global_service_name,
       std::bind(
@@ -48,6 +65,14 @@ MapLoaderService::MapLoaderService(const rclcpp::NodeOptions &options)
       map_server_service_name_.c_str());
 }
 
+MapLoaderService::~MapLoaderService()
+{
+  helper_executor_.cancel();
+  if (helper_executor_thread_.joinable()) {
+    helper_executor_thread_.join();
+  }
+}
+
 void MapLoaderService::handleLoadMap(
     const std::shared_ptr<LoadMap::Request> request,
     std::shared_ptr<LoadMap::Response> response)
@@ -58,12 +83,7 @@ void MapLoaderService::handleLoadMap(
     return;
   }
 
-  auto helper_node = std::make_shared<rclcpp::Node>("map_loader_service_helper");
-  auto helper_client = helper_node->create_client<LoadMap>(map_server_service_name_);
-  rclcpp::executors::SingleThreadedExecutor helper_executor;
-  helper_executor.add_node(helper_node);
-
-  if (!helper_client->wait_for_service(std::chrono::seconds(2))) {
+  if (!helper_client_->wait_for_service(service_wait_timeout_)) {
     RCLCPP_ERROR(
         get_logger(),
         "Nav2 map server service '%s' is unavailable.",
@@ -74,11 +94,9 @@ void MapLoaderService::handleLoadMap(
 
   auto forward_req = std::make_shared<LoadMap::Request>();
   forward_req->map_url = request->map_url;
-  auto future = helper_client->async_send_request(forward_req);
+  auto future = helper_client_->async_send_request(forward_req);
 
-  const auto status = helper_executor.spin_until_future_complete(
-      future, std::chrono::seconds(10));
-  if (status != rclcpp::FutureReturnCode::SUCCESS) {
+  if (future.wait_for(response_timeout_) != std::future_status::ready) {
     RCLCPP_ERROR(get_logger(), "Timed out calling Nav2 load_map service.");
     response->result = LoadMap::Response::RESULT_UNDEFINED_FAILURE;
     return;

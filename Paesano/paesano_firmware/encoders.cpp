@@ -1,28 +1,29 @@
 #include <Arduino.h>
+#if defined(ARDUINO_ARCH_RP2040)
+#include "hardware/gpio.h"
+#endif
+
 #include "config.hpp"
 #include "shared.hpp"
 #include "encoders.hpp"
 
-static inline void isrFL()
+static inline void updateEncoder(uint8_t pinA, uint8_t pinB, int8_t direction, volatile int32_t &encoder)
 {
-  bool a = digitalRead(FL_ENC_A), b = digitalRead(FL_ENC_B);
-  encFL += (a == b ? +1 : -1) * ENC_DIR_FL;
+#if defined(ARDUINO_ARCH_RP2040)
+  const uint32_t gpio = gpio_get_all();
+  const bool a = (gpio & (1u << pinA)) != 0;
+  const bool b = (gpio & (1u << pinB)) != 0;
+#else
+  const bool a = digitalRead(pinA);
+  const bool b = digitalRead(pinB);
+#endif
+  encoder += (a == b ? +1 : -1) * direction;
 }
-static inline void isrFR()
-{
-  bool a = digitalRead(FR_ENC_A), b = digitalRead(FR_ENC_B);
-  encFR += (a == b ? +1 : -1) * ENC_DIR_FR;
-}
-static inline void isrBL()
-{
-  bool a = digitalRead(BL_ENC_A), b = digitalRead(BL_ENC_B);
-  encBL += (a == b ? +1 : -1) * ENC_DIR_BL;
-}
-static inline void isrBR()
-{
-  bool a = digitalRead(BR_ENC_A), b = digitalRead(BR_ENC_B);
-  encBR += (a == b ? +1 : -1) * ENC_DIR_BR;
-}
+
+static inline void isrFL() { updateEncoder(FL_ENC_A, FL_ENC_B, ENC_DIR_FL, encFL); }
+static inline void isrFR() { updateEncoder(FR_ENC_A, FR_ENC_B, ENC_DIR_FR, encFR); }
+static inline void isrBL() { updateEncoder(BL_ENC_A, BL_ENC_B, ENC_DIR_BL, encBL); }
+static inline void isrBR() { updateEncoder(BR_ENC_A, BR_ENC_B, ENC_DIR_BR, encBR); }
 
 void encodersInit()
 {

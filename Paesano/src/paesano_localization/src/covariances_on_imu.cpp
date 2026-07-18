@@ -1,5 +1,6 @@
 #include "paesano_localization/covariances_on_imu.hpp"
 
+#include <array>
 #include <sensor_msgs/msg/imu.hpp>
 #include <cmath>
 #include "rclcpp_components/register_node_macro.hpp"
@@ -12,6 +13,9 @@ CovariancesOnImu::CovariancesOnImu(const rclcpp::NodeOptions &options)
 {
   const auto imu_input_topic  = declare_parameter<std::string>("imu_input_topic",  "/imu");
   const auto imu_output_topic = declare_parameter<std::string>("imu_output_topic", "/imu_with_covariances");
+  ignore_variance_ = declare_parameter<double>("ignore_variance", 1e6);
+  yaw_stddev_ = declare_parameter<double>("yaw_stddev", 0.005);
+  gyro_z_stddev_ = declare_parameter<double>("gyro_z_stddev", 0.0025);
 
   imu_publisher_ = create_publisher<sensor_msgs::msg::Imu>(
       imu_output_topic,
@@ -23,9 +27,9 @@ CovariancesOnImu::CovariancesOnImu(const rclcpp::NodeOptions &options)
       std::bind(&CovariancesOnImu::handleImu, this, std::placeholders::_1));
 }
 
-static inline void fill_cov(double cov[9], double value)
+static inline void fill_cov(std::array<double, 9> & cov, double value)
 {
-  for (int i = 0; i < 9; ++i) cov[i] = value;
+  cov.fill(value);
 }
 
 void CovariancesOnImu::handleImu(const sensor_msgs::msg::Imu::SharedPtr msg)
@@ -34,46 +38,41 @@ void CovariancesOnImu::handleImu(const sensor_msgs::msg::Imu::SharedPtr msg)
 
   sensor_msgs::msg::Imu out = *msg;
 
-  // -----------------------------
-  // Tune these as needed
-  // -----------------------------
   // "Ignore" variance (very large => EKF effectively ignores that axis)
-  constexpr double VAR_IGNORE = 1e6;
+  const double var_ignore = ignore_variance_;
 
   // Yaw: don't make it too tiny if you don't have a magnetometer (drift is real).
   // Start around ~3-5 degrees stddev.
-  constexpr double yaw_std = 0.005;                // rad (~4 degrees)
-  constexpr double var_yaw = yaw_std * yaw_std;   // ~0.0049
+  const double var_yaw = yaw_stddev_ * yaw_stddev_;
 
   // Gyro z: typical indoor bot; start around 0.02 rad/s stddev
-  constexpr double gyroz_std = 0.0025;                 // rad/s
-  constexpr double var_gyroz = gyroz_std * gyroz_std; // 0.0004
+  const double var_gyroz = gyro_z_stddev_ * gyro_z_stddev_;
 
   out.header.frame_id = "imu_link"; // preserve frame_id
 
   // -----------------------------
   // ORIENTATION covariance (roll, pitch ignored; yaw used)
   // -----------------------------
-  fill_cov(out.orientation_covariance.data(), 0.0);
-  out.orientation_covariance[0] = VAR_IGNORE; // roll
-  out.orientation_covariance[4] = VAR_IGNORE; // pitch
+  fill_cov(out.orientation_covariance, 0.0);
+  out.orientation_covariance[0] = var_ignore; // roll
+  out.orientation_covariance[4] = var_ignore; // pitch
   out.orientation_covariance[8] = var_yaw;    // yaw
 
   // -----------------------------
   // ANGULAR VELOCITY covariance (wx, wy ignored; wz used)
   // -----------------------------
-  fill_cov(out.angular_velocity_covariance.data(), 0.0);
-  out.angular_velocity_covariance[0] = VAR_IGNORE; // wx
-  out.angular_velocity_covariance[4] = VAR_IGNORE; // wy
+  fill_cov(out.angular_velocity_covariance, 0.0);
+  out.angular_velocity_covariance[0] = var_ignore; // wx
+  out.angular_velocity_covariance[4] = var_ignore; // wy
   out.angular_velocity_covariance[8] = var_gyroz;  // wz
 
   // -----------------------------
   // LINEAR ACCELERATION covariance (ignore all)
   // -----------------------------
-  fill_cov(out.linear_acceleration_covariance.data(), 0.0);
-  out.linear_acceleration_covariance[0] = VAR_IGNORE; // ax
-  out.linear_acceleration_covariance[4] = VAR_IGNORE; // ay
-  out.linear_acceleration_covariance[8] = VAR_IGNORE; // az (ignore for now)
+  fill_cov(out.linear_acceleration_covariance, 0.0);
+  out.linear_acceleration_covariance[0] = var_ignore; // ax
+  out.linear_acceleration_covariance[4] = var_ignore; // ay
+  out.linear_acceleration_covariance[8] = var_ignore; // az (ignore for now)
 
   // Optional: sanity check against NaN/Inf (prevents EKF blowups)
   auto finite9 = [](const std::array<double, 9> &c) {
@@ -90,17 +89,17 @@ void CovariancesOnImu::handleImu(const sensor_msgs::msg::Imu::SharedPtr msg)
     for (auto &c : out.angular_velocity_covariance) c = 0.0;
     for (auto &c : out.linear_acceleration_covariance) c = 0.0;
 
-    out.orientation_covariance[0] = VAR_IGNORE;
-    out.orientation_covariance[4] = VAR_IGNORE;
+    out.orientation_covariance[0] = var_ignore;
+    out.orientation_covariance[4] = var_ignore;
     out.orientation_covariance[8] = var_yaw;
 
-    out.angular_velocity_covariance[0] = VAR_IGNORE;
-    out.angular_velocity_covariance[4] = VAR_IGNORE;
+    out.angular_velocity_covariance[0] = var_ignore;
+    out.angular_velocity_covariance[4] = var_ignore;
     out.angular_velocity_covariance[8] = var_gyroz;
 
-    out.linear_acceleration_covariance[0] = VAR_IGNORE;
-    out.linear_acceleration_covariance[4] = VAR_IGNORE;
-    out.linear_acceleration_covariance[8] = VAR_IGNORE;
+    out.linear_acceleration_covariance[0] = var_ignore;
+    out.linear_acceleration_covariance[4] = var_ignore;
+    out.linear_acceleration_covariance[8] = var_ignore;
   }
 
   imu_publisher_->publish(out);

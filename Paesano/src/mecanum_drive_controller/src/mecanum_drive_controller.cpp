@@ -8,11 +8,12 @@
 #include <cstring>
 
 #include <algorithm>
+#include <cerrno>
 #include <cmath>
 #include <cstdint>
 #include <functional>
 #include <chrono>
-#include <vector>
+#include <stdexcept>
 
 #define REG_MOTOR_SPEEDS 51 // write 4x int8: FL,FR,BL,BR
 #define REG_ENCODERS 60     // read 16 bytes: 4x int32 LE: FL,FR,BL,BR
@@ -70,15 +71,23 @@ namespace mecanum_drive_controller
 
     distance_per_tick_ =
       (2.0 * M_PI * wheel_radius_) / std::max(ticks_per_rev_, 1e-6);
+    ticks_per_meter_ = 1.0 / std::max(distance_per_tick_, 1e-9);
+    inv_max_ticks_per_sec_ = 1.0 / std::max(max_ticks_per_sec_, 1e-6);
     mecanum_radius_ = 0.5 * (base_length_ + base_width_);
 
     // Open the I2C bus and bind it to the Pico address.
     i2c_file_ = open(i2c_device_.c_str(), O_RDWR);
-    if (i2c_file_ < 0)
+    if (i2c_file_ < 0) {
       RCLCPP_FATAL(get_logger(), "Failed to open %s", i2c_device_.c_str());
+      throw std::runtime_error("failed to open I2C device");
+    }
 
-    if (ioctl(i2c_file_, I2C_SLAVE, i2c_address_) < 0)
+    if (ioctl(i2c_file_, I2C_SLAVE, i2c_address_) < 0) {
       RCLCPP_FATAL(get_logger(), "Failed to set I2C addr 0x%02x", i2c_address_);
+      close(i2c_file_);
+      i2c_file_ = -1;
+      throw std::runtime_error("failed to set I2C slave address");
+    }
 
     // Push the configured gains once at startup.
     sendPidToPico();
@@ -116,19 +125,25 @@ namespace mecanum_drive_controller
   // Write a signed byte block to a Pico register over I2C.
   bool MecanumDriveController::i2cWriteI8(uint8_t reg, const int8_t *data, size_t len)
   {
-    std::vector<uint8_t> buf(len + 1);
+    if (len > 12) {
+      return false;
+    }
+    uint8_t buf[13];
     buf[0] = reg;
     std::memcpy(&buf[1], data, len);
-    return (write(i2c_file_, buf.data(), buf.size()) == (ssize_t)buf.size());
+    return (write(i2c_file_, buf, len + 1) == static_cast<ssize_t>(len + 1));
   }
 
   // Write an unsigned byte block to a Pico register over I2C.
   bool MecanumDriveController::i2cWriteU8(uint8_t reg, const uint8_t *data, size_t len)
   {
-    std::vector<uint8_t> buf(len + 1);
+    if (len > 12) {
+      return false;
+    }
+    uint8_t buf[13];
     buf[0] = reg;
     std::memcpy(&buf[1], data, len);
-    return (write(i2c_file_, buf.data(), buf.size()) == (ssize_t)buf.size());
+    return (write(i2c_file_, buf, len + 1) == static_cast<ssize_t>(len + 1));
   }
 
   // Pack the configured PID gains and send them to the Pico controller.
@@ -158,7 +173,7 @@ namespace mecanum_drive_controller
     if (!i2cWriteU8(REG_PID_GAINS, gains, 12))
       RCLCPP_ERROR(get_logger(), "Failed to write PID gains");
 
-    RCLCPP_WARN(get_logger(),
+    RCLCPP_INFO(get_logger(),
                 "Sent PID to Pico: kp=%.6f ki=%.8f kd=%.6f | kp_hold=%.6f ki_hold=%.8f kd_hold=%.6f",
                 kp_, ki_, kd_, kp_hold_, ki_hold_, kd_hold_);
   }
@@ -169,7 +184,10 @@ namespace mecanum_drive_controller
     uint8_t raw[16];
     if (!i2cReadArray(REG_ENCODERS, raw, sizeof(raw)))
     {
-      RCLCPP_WARN_THROTTLE(get_logger(), *get_clock(), 2000, "Encoder read failed");
+      RCLCPP_WARN_THROTTLE(
+        get_logger(), *get_clock(), 2000,
+        "Encoder read failed on %s at address 0x%02x: errno=%d (%s)",
+        i2c_device_.c_str(), i2c_address_, errno, std::strerror(errno));
       return;
     }
 
@@ -206,11 +224,10 @@ namespace mecanum_drive_controller
     double br_mps = vx - vy + mecanum_radius_ * omega;
 
     // Convert wheel rim linear velocities into wheel encoder tick rates.
-    const double ticks_per_meter = 1.0 / std::max(distance_per_tick_, 1e-9);
-    double fl_ticks = fl_mps * ticks_per_meter;
-    double fr_ticks = fr_mps * ticks_per_meter;
-    double bl_ticks = bl_mps * ticks_per_meter;
-    double br_ticks = br_mps * ticks_per_meter;
+    double fl_ticks = fl_mps * ticks_per_meter_;
+    double fr_ticks = fr_mps * ticks_per_meter_;
+    double bl_ticks = bl_mps * ticks_per_meter_;
+    double br_ticks = br_mps * ticks_per_meter_;
 
     // Preserve the requested motion direction while respecting the Pico's maximum
     // representable wheel target.
@@ -226,22 +243,20 @@ namespace mecanum_drive_controller
 
     auto to_i8 = [](double u) -> int8_t
     {
-      u = std::max(-1.0, std::min(1.0, u));
+      u = std::clamp(u, -1.0, 1.0);
       int v = (int)std::lround(u * 127.0);
-      v = std::max(-127, std::min(127, v));
+      v = std::clamp(v, -127, 127);
       return (int8_t)v;
     };
 
-    const double inv_max_ticks =
-      1.0 / std::max(max_ticks_per_sec_, 1e-6);
     int8_t speeds[4] = {
-      to_i8(fl_ticks * inv_max_ticks),
-      to_i8(fr_ticks * inv_max_ticks),
-      to_i8(bl_ticks * inv_max_ticks),
-      to_i8(br_ticks * inv_max_ticks)
+      to_i8(fl_ticks * inv_max_ticks_per_sec_),
+      to_i8(fr_ticks * inv_max_ticks_per_sec_),
+      to_i8(bl_ticks * inv_max_ticks_per_sec_),
+      to_i8(br_ticks * inv_max_ticks_per_sec_)
     };
 
-    RCLCPP_INFO_THROTTLE(
+    RCLCPP_DEBUG_THROTTLE(
       get_logger(),
       *get_clock(),
       1000,

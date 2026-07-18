@@ -14,6 +14,7 @@
 #include <tf2_ros/transform_broadcaster.h>
 #include <random>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace paesano_localization
@@ -42,7 +43,7 @@ namespace paesano_localization
     void score(const sensor_msgs::msg::LaserScan::SharedPtr msg);
     void rebuildDistanceField();
     double distanceToNearestObstacle(double map_x, double map_y) const;
-    void broadCastMapToOdomTf(const rclcpp::Time &stamp);
+    void broadCastMapToOdomTf(const rclcpp::Time &stamp, double est_x, double est_y, double est_yaw);
     void systematicResample();
     void roughen();
     double effectiveSampleSize() const;
@@ -60,11 +61,19 @@ namespace paesano_localization
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
     nav_msgs::msg::OccupancyGrid map_;
     std::vector<float> distance_field_m_;
+    std::vector<double> col_sq_dist_;
+    std::vector<double> row_sq_dist_;
+    std::vector<double> distance_transform_f_;
+    std::vector<double> distance_transform_d_;
+    std::vector<int> distance_transform_v_;
+    std::vector<double> distance_transform_z_;
     rclcpp::Time last_odom_time_;
     std::unique_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     std::mt19937 rng_;
+    std::uniform_real_distribution<double> uniform_dist_{0.0, 1.0};
+    std::normal_distribution<double> normal_dist_{0.0, 1.0};
     bool have_map_ = false;
     bool have_distance_field_ = false;
     bool is_navigating_ = false;
@@ -90,6 +99,10 @@ namespace paesano_localization
     double sigma_hit_;
     double z_hit_;
     double z_rand_;
+    double log_norm_;
+    double inv_2sigma2_;
+    double log_z_hit_;
+    double log_z_rand_;
     double w_fast_ = 0.0;
     double w_slow_ = 0.0;
     bool weight_averages_initialized_ = false;
@@ -101,6 +114,8 @@ namespace paesano_localization
     std::string base_frame_{"base_link"};
     std::string lidar_frame_{"base_laser"};
     std::vector<std::pair<double,double>> free_cells_;
+    std::vector<double> log_weights_;
+    std::vector<size_t> valid_beam_indices_;
   };
 }
 

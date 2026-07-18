@@ -8,3 +8,10 @@ odom_node:
     odom_topic: "/odom"
     odom_frame: "odom"
     base_frame: "base_link"
+    initial_x: 0.0
+    initial_y: 0.0
+    initial_theta: 0.0
+    covariance_base: 0.5
+    covariance_y_multiplier: 10.0
+    pose_to_twist_covariance_scale: 0.5
+    ignored_axis_covariance: 1000000.0
