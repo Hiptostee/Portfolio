@@ -56,6 +56,7 @@ private:
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr local_map_sub_;
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_pub_;
   rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr nav_status_pub_;
+  rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr obstacle_blocked_pub_;
   rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr stop_service_;
 
   rclcpp::TimerBase::SharedPtr timer_;
@@ -87,6 +88,7 @@ private:
   double local_map_obstacle_check_distance_{0.8};
   double local_map_path_corridor_radius_{0.18};
   double local_map_path_sample_step_{0.05};
+  std::string dynamic_obstacle_blocked_topic_{"/dynamic_obstacle_blocked"};
 
 };
 

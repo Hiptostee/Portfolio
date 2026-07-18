@@ -1,0 +1,5 @@
+orchestrator_node:
+  ros__parameters:
+    blocked_replan_delay_sec: 5.0
+    occupied_threshold: 50
+    goal_tolerance_m: 0.15

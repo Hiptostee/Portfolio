@@ -102,6 +102,7 @@ class PaesanoBridgeNode(Node):
         )
 
         self.cmd_vel_pub = self.create_publisher(Twist, '/cmd_vel', 10)
+        self.navigation_goal_pub = self.create_publisher(PoseStamped, '/navigation/goal', 10)
         self.path_resume_pub = self.create_publisher(
             NavPath,
             '/path',
@@ -272,35 +273,23 @@ class PaesanoBridgeNode(Node):
             if self.current_mode != 'localization':
                 raise BridgeError('Point goals are only available in localization mode.')
 
-        if not self.a_star_client.wait_for_server(timeout_sec=2.0):
-            raise BridgeError('A* action server is not available.')
-
-        goal_msg = AStar.Goal()
-        goal_msg.goal.header.frame_id = 'map'
-        goal_msg.goal.header.stamp = self.get_clock().now().to_msg()
-        goal_msg.goal.pose.position.x = float(x_m)
-        goal_msg.goal.pose.position.y = float(y_m)
-        goal_msg.goal.pose.orientation.w = 1.0
-
-        send_future = self.a_star_client.send_goal_async(goal_msg)
-        goal_handle = self._await_future(send_future, 5.0)
-        if goal_handle is None or not goal_handle.accepted:
-            raise BridgeError('Path rejected.')
-
-        result_future = goal_handle.get_result_async()
-        result = self._await_future(result_future, 10.0)
-        if result is None or not result.result.success:
-            raise BridgeError('Whoops! I cannot navigate there.')
+        goal_msg = PoseStamped()
+        goal_msg.header.frame_id = 'map'
+        goal_msg.header.stamp = self.get_clock().now().to_msg()
+        goal_msg.pose.position.x = float(x_m)
+        goal_msg.pose.position.y = float(y_m)
+        goal_msg.pose.orientation.w = 1.0
+        self.navigation_goal_pub.publish(goal_msg)
 
         with self.state_lock:
             self.last_navigation_goal = (x_m, y_m)
-            self.last_planned_path_msg = result.result.path
-            self.current_path_msg = result.result.path
+            self.last_planned_path_msg = None
+            self.current_path_msg = None
             self.paused_path_msg = None
             self.is_paused = False
             self.is_navigating = True
         self._mark_revision()
-        return {'success': True, 'path_points': len(result.result.path.poses)}
+        return {'success': True, 'path_points': 0}
 
     def pause_navigation(self) -> Dict[str, Any]:
         with self.state_lock:

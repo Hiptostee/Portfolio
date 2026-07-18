@@ -22,6 +22,7 @@ lqr:
     max_tracking_error: 1.0
     dare_convergence_tolerance: 0.000001
     dynamic_obstacle_stop_enabled: true
+    dynamic_obstacle_blocked_topic: "/dynamic_obstacle_blocked"
     local_map_occupied_threshold: 50
     local_map_obstacle_check_distance: 0.8
     local_map_path_corridor_radius: 0.18

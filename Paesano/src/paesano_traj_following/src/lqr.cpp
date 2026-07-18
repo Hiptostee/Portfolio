@@ -26,6 +26,8 @@ LQR::LQR(const rclcpp::NodeOptions & options)
     declare_parameter<std::string>("navigation_state_topic", "/is_navigating");
   const std::string stop_service_name =
     declare_parameter<std::string>("stop_service_name", "/lqr/stop");
+  dynamic_obstacle_blocked_topic_ = declare_parameter<std::string>(
+    "dynamic_obstacle_blocked_topic", dynamic_obstacle_blocked_topic_);
 
   control_period_ms_ = declare_parameter<int>("control_period_ms", 20);
   lookahead_points_ = declare_parameter<int>("lookahead_points", 1);
@@ -76,6 +78,7 @@ LQR::LQR(const rclcpp::NodeOptions & options)
   cmd_pub_ = create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic, 10);
 
   nav_status_pub_ = create_publisher<std_msgs::msg::Bool>(navigation_state_topic, 10);
+  obstacle_blocked_pub_ = create_publisher<std_msgs::msg::Bool>(dynamic_obstacle_blocked_topic_, 10);
   stop_service_ = create_service<std_srvs::srv::Trigger>(
     stop_service_name,
     std::bind(&LQR::handleStop, this, std::placeholders::_1, std::placeholders::_2));
@@ -158,7 +161,12 @@ void LQR::lqrLoop()
   const double cos_th = std::cos(current_pose.theta);
   const double sin_th = std::sin(current_pose.theta);
 
-  if (dynamic_obstacle_stop_enabled_ && isPathBlockedByLocalMap(current_pose, target_idx)) {
+  const bool path_blocked =
+    dynamic_obstacle_stop_enabled_ && isPathBlockedByLocalMap(current_pose, target_idx);
+  auto obstacle_blocked_msg = std_msgs::msg::Bool();
+  obstacle_blocked_msg.data = path_blocked;
+  obstacle_blocked_pub_->publish(obstacle_blocked_msg);
+  if (path_blocked) {
     publishZeroVelocity();
     RCLCPP_WARN_THROTTLE(
       get_logger(),
@@ -234,6 +242,8 @@ void LQR::stopTracking(const char * reason)
   current_path_index_ = 0;
   have_path_ = false;
   publishZeroVelocity();
+  auto obstacle_blocked_msg = std_msgs::msg::Bool();
+  obstacle_blocked_pub_->publish(obstacle_blocked_msg);
 
   auto nav_msg = std_msgs::msg::Bool();
   nav_msg.data = false;

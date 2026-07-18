@@ -56,7 +56,6 @@ def generate_launch_description():
         'launch',
         'lqr.launch.py'
     )
-
     mapping_launch = os.path.join(
         get_package_share_directory('paesano_mapping'),
         'launch',
@@ -157,6 +156,18 @@ def generate_launch_description():
         launch_arguments={'sim': sim}.items(),
         condition=IfCondition(localization_mode_enabled),
     )
+    orchestrator_node = Node(
+        package='paesano_orchestrator',
+        executable='orchestrator_node',
+        name='orchestrator_node',
+        output='screen',
+        parameters=[{
+            'blocked_replan_delay_sec': 5.0,
+            'occupied_threshold': 50,
+            'goal_tolerance_m': 0.15,
+        }],
+        condition=IfCondition(localization_mode_enabled),
+    )
 
     mapping_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(mapping_launch),
@@ -180,4 +191,5 @@ def generate_launch_description():
         local_map_launch_node,
         navigation_launch_node,
         traj_following_launch_node,
+        orchestrator_node,
     ])
