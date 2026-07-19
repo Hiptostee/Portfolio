@@ -42,7 +42,7 @@ struct FailedGoal
 struct SelectionParameters
 {
   double goal_standoff_m{0.30};
-  double blacklist_radius_m{0.50};
+  double blacklist_radius_m{0.30};
   double information_gain_weight{1.0};
   double distance_weight{1.0};
   int occupied_threshold{50};

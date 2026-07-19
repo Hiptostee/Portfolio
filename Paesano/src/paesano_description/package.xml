@@ -21,8 +21,13 @@
   <exec_depend>robot_state_publisher</exec_depend>
   <exec_depend>ros_gz_bridge</exec_depend>
   <exec_depend>ros_gz_sim</exec_depend>
+  <exec_depend>paesano_explorer</exec_depend>
+  <exec_depend>paesano_local_map</exec_depend>
   <exec_depend>paesano_localization</exec_depend>
   <exec_depend>paesano_mapping</exec_depend>
+  <exec_depend>paesano_navigation</exec_depend>
+  <exec_depend>paesano_orchestrator</exec_depend>
+  <exec_depend>paesano_traj_following</exec_depend>
   <exec_depend>tf2_ros</exec_depend>
   <exec_depend>xacro</exec_depend>
 

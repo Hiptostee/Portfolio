@@ -8,6 +8,13 @@ Robot description, simulation assets, Gazebo bridge config, and kinematic base p
 ros2 launch paesano_description paesano_description.launch.py sim:=true localization_mode:=false
 ```
 
+Autonomous exploration in Gazebo:
+
+```bash
+ros2 launch paesano_description paesano_description.launch.py \
+  sim:=true localization_mode:=false auto_explore:=true
+```
+
 ## Important assets
 
 - robot model: `urdf/paesano.xacro`

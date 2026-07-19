@@ -14,6 +14,24 @@ Read the documents relevant to the task before editing:
 Do not mark a plan or audit item complete merely because code was written. Satisfy its stated
 acceptance condition or describe what remains unverified.
 
+## New Rules from Joseph
+
+When Joseph gives a new durable rule about this repository, architecture, workflow, safety,
+documentation, or how agents should operate, update `AGENTS.md` during the same task so future
+agents receive it too.
+
+Keep the rule concise and place it in the most relevant section. Do not record secrets, private
+credentials, or clearly temporary one-command instructions in `AGENTS.md`.
+
+When work reveals a known issue that will remain unfixed, add it to `AUDITS.md`:
+
+- Major: can break, deadlock, or misrepresent autonomous behavior.
+- Medium: needed for a dependable demonstration or maintainable workflow.
+- Minor: cleanup, diagnostics, visualization, or documentation quality.
+
+Keep audit entries personal and simple. Use descriptive names and short explanations, not IDs,
+formal risk templates, or checkbox lists.
+
 ## Project Context
 
 Paesano is a custom indoor mecanum-drive robot built on ROS 2 Jazzy. The repository contains the
@@ -73,6 +91,10 @@ localization_mode:=false auto_explore:=true
 localization_mode:=true auto_explore:=false
   Saved-map particle-filter localization, A*, LQR, and orchestrator.
 ```
+
+Use `paesano_bringup.launch.py` for hardware and `paesano_description.launch.py` for Gazebo. Both
+currently compose the runtime stack independently, so keep their mode and `auto_explore`
+conditions synchronized when changing launch behavior.
 
 During mapping, `slam_toolbox` owns `map -> odom`. During saved-map localization, the particle
 filter owns `map -> odom`. Never launch two publishers for that transform.

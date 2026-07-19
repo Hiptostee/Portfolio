@@ -39,6 +39,16 @@ def generate_launch_description():
         'launch',
         'mapping.launch.py'
     )
+    orchestrator_launch = os.path.join(
+        get_package_share_directory('paesano_orchestrator'),
+        'launch',
+        'orchestrator.launch.py'
+    )
+    explorer_launch = os.path.join(
+        get_package_share_directory('paesano_explorer'),
+        'launch',
+        'explorer.launch.py'
+    )
 
     local_map_launch = os.path.join(
         get_package_share_directory('paesano_local_map'),
@@ -64,6 +74,11 @@ def generate_launch_description():
         default_value='false',
         description='true: run particle filter; false: run slam_toolbox'
     )
+    auto_explore_arg = DeclareLaunchArgument(
+        'auto_explore',
+        default_value='false',
+        description='true: autonomously explore while slam_toolbox builds the map'
+    )
     map_yaml_arg = DeclareLaunchArgument(
         'map_yaml',
         default_value='/home/Paesano/ros2_ws/maps/my_map.yaml',
@@ -71,10 +86,23 @@ def generate_launch_description():
     )
     sim = LaunchConfiguration('sim')
     localization_mode = LaunchConfiguration('localization_mode')
+    auto_explore = LaunchConfiguration('auto_explore')
     map_yaml = LaunchConfiguration('map_yaml')
     localization_mode_enabled = PythonExpression([
         "'",
         localization_mode,
+        "'.lower() in ['true', '1', 'yes', 'on']"
+    ])
+    navigation_enabled = PythonExpression([
+        "'", localization_mode,
+        "'.lower() in ['true', '1', 'yes', 'on'] or '",
+        auto_explore,
+        "'.lower() in ['true', '1', 'yes', 'on']"
+    ])
+    mapping_auto_explore_enabled = PythonExpression([
+        "'", localization_mode,
+        "'.lower() not in ['true', '1', 'yes', 'on'] and '",
+        auto_explore,
         "'.lower() in ['true', '1', 'yes', 'on']"
     ])
 
@@ -149,26 +177,44 @@ def generate_launch_description():
     )
     mapping_node_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(mapping_launch),
-        launch_arguments={'sim': sim}.items(),
+        launch_arguments={
+            'sim': sim,
+            'auto_explore': auto_explore,
+        }.items(),
         condition=UnlessCondition(localization_mode_enabled),
     )
 
     local_map_node_launch = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(local_map_launch),
         launch_arguments={'sim': sim}.items(),
-        condition=IfCondition(localization_mode_enabled),
+        condition=IfCondition(navigation_enabled),
     )
 
     navigation_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(navigation_launch),
         launch_arguments={'sim': sim}.items(),
-        condition=IfCondition(localization_mode_enabled),
+        condition=IfCondition(navigation_enabled),
     )
 
     traj_following_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(traj_following_launch),
         launch_arguments={'sim': sim}.items(),
-        condition=IfCondition(localization_mode_enabled),
+        condition=IfCondition(navigation_enabled),
+    )
+
+    orchestrator_launch_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(orchestrator_launch),
+        launch_arguments={'sim': sim}.items(),
+        condition=IfCondition(navigation_enabled),
+    )
+
+    explorer_launch_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(explorer_launch),
+        launch_arguments={
+            'sim': sim,
+            'auto_explore': auto_explore,
+        }.items(),
+        condition=IfCondition(mapping_auto_explore_enabled),
     )
 
 
@@ -190,6 +236,7 @@ def generate_launch_description():
     return LaunchDescription([
         sim_arg,
         localization_mode_arg,
+        auto_explore_arg,
         map_yaml_arg,
         bridge_yaml,
         gazebo,
@@ -201,6 +248,8 @@ def generate_launch_description():
         mapping_node_launch,
         navigation_launch_node,
         traj_following_launch_node,
+        orchestrator_launch_node,
+        explorer_launch_node,
         local_map_node_launch,
         bridge,
     ])
