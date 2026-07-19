@@ -35,6 +35,7 @@ void Orchestrator::tick()
   const bool blocked_long_enough =
     state_ == State::WAITING && blocked_ &&
     (now() - blocked_since_).seconds() >= delay_;
+
   if (blocked_long_enough) {
     if (stop_client_->service_is_ready()) {
       auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
@@ -52,10 +53,12 @@ void Orchestrator::tick()
     std::hypot(
       pose_.pose.position.x - goal_.pose.position.x,
       pose_.pose.position.y - goal_.pose.position.y) < goal_tolerance_;
+
   if (goal_reached) {
     have_goal_ = false;
     state_ = State::IDLE;
     publishState();
+    publishResult("SUCCEEDED");
   }
 }
 

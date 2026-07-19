@@ -61,6 +61,16 @@ def generate_launch_description():
         'launch',
         'mapping.launch.py'
     )
+    orchestrator_launch = os.path.join(
+        get_package_share_directory('paesano_orchestrator'),
+        'launch',
+        'orchestrator.launch.py'
+    )
+    explorer_launch = os.path.join(
+        get_package_share_directory('paesano_explorer'),
+        'launch',
+        'explorer.launch.py'
+    )
 
     robot_description_file = os.path.join(
         get_package_share_directory('paesano_description'),
@@ -83,6 +93,11 @@ def generate_launch_description():
         default_value='false',
         description='false: mapping with slam_toolbox, true: localization with particle filter'
     )
+    auto_explore_arg = DeclareLaunchArgument(
+        'auto_explore',
+        default_value='false',
+        description='true: autonomously explore while slam_toolbox builds the map'
+    )
     map_yaml_default = PythonExpression([
         "'/home/Paesano/ros2_ws/maps/my_map.yaml' if '",
         LaunchConfiguration('sim'),
@@ -96,10 +111,23 @@ def generate_launch_description():
     imu_input_topic = LaunchConfiguration('imu_input_topic')
     sim = LaunchConfiguration('sim')
     localization_mode = LaunchConfiguration('localization_mode')
+    auto_explore = LaunchConfiguration('auto_explore')
     map_yaml = LaunchConfiguration('map_yaml')
     localization_mode_enabled = PythonExpression([
         "'",
         localization_mode,
+        "'.lower() in ['true', '1', 'yes', 'on']"
+    ])
+    navigation_enabled = PythonExpression([
+        "'", localization_mode,
+        "'.lower() in ['true', '1', 'yes', 'on'] or '",
+        auto_explore,
+        "'.lower() in ['true', '1', 'yes', 'on']"
+    ])
+    mapping_auto_explore_enabled = PythonExpression([
+        "'", localization_mode,
+        "'.lower() not in ['true', '1', 'yes', 'on'] and '",
+        auto_explore,
         "'.lower() in ['true', '1', 'yes', 'on']"
     ])
 
@@ -148,31 +176,36 @@ def generate_launch_description():
     navigation_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(navigation_launch),
         launch_arguments={'sim': sim}.items(),
-        condition=IfCondition(localization_mode_enabled),
+        condition=IfCondition(navigation_enabled),
     )
 
     traj_following_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(traj_following_launch),
         launch_arguments={'sim': sim}.items(),
-        condition=IfCondition(localization_mode_enabled),
+        condition=IfCondition(navigation_enabled),
     )
-    orchestrator_node = Node(
-        package='paesano_orchestrator',
-        executable='orchestrator_node',
-        name='orchestrator_node',
-        output='screen',
-        parameters=[{
-            'blocked_replan_delay_sec': 5.0,
-            'occupied_threshold': 50,
-            'goal_tolerance_m': 0.15,
-        }],
-        condition=IfCondition(localization_mode_enabled),
+    orchestrator_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(orchestrator_launch),
+        launch_arguments={'sim': sim}.items(),
+        condition=IfCondition(navigation_enabled),
     )
 
     mapping_launch_node = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(mapping_launch),
-        launch_arguments={'sim': sim}.items(),
+        launch_arguments={
+            'sim': sim,
+            'auto_explore': auto_explore,
+        }.items(),
         condition=UnlessCondition(localization_mode_enabled)
+    )
+
+    explorer_launch_node = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(explorer_launch),
+        launch_arguments={
+            'sim': sim,
+            'auto_explore': auto_explore,
+        }.items(),
+        condition=IfCondition(mapping_auto_explore_enabled),
     )
 
     
@@ -181,6 +214,7 @@ def generate_launch_description():
         imu_input_arg,
         sim_arg,
         localization_mode_arg,
+        auto_explore_arg,
         map_yaml_arg,
         imu_node,
         lidar_node,
@@ -192,4 +226,5 @@ def generate_launch_description():
         navigation_launch_node,
         traj_following_launch_node,
         orchestrator_node,
+        explorer_launch_node,
     ])

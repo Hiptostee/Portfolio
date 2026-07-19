@@ -15,7 +15,7 @@
 namespace paesano_orchestrator {
 class Orchestrator final : public rclcpp::Node {
  public:
-  Orchestrator();
+  explicit Orchestrator(const rclcpp::NodeOptions & options);
  private:
   using AStar = paesano_navigation::action::AStar;
   enum class State { IDLE, PLANNING, NAVIGATING, WAITING, REPLANNING };
@@ -23,6 +23,7 @@ class Orchestrator final : public rclcpp::Node {
   void requestPlan();
   void publishPlanningMap();
   void publishState();
+  void publishResult(const std::string & result);
   std::string stateName() const;
   void handleGoal(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void handlePose(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
@@ -36,7 +37,7 @@ class Orchestrator final : public rclcpp::Node {
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_, local_sub_;
   rclcpp::Subscription<std_msgs::msg::Bool>::SharedPtr blocked_sub_;
   rclcpp::Publisher<nav_msgs::msg::OccupancyGrid>::SharedPtr planning_pub_;
-  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_pub_;
+  rclcpp::Publisher<std_msgs::msg::String>::SharedPtr state_pub_, result_pub_;
   rclcpp_action::Client<AStar>::SharedPtr client_;
   rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr stop_client_;
   rclcpp::TimerBase::SharedPtr timer_;

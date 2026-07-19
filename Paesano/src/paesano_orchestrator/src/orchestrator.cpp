@@ -3,43 +3,65 @@
 #include <chrono>
 #include <cmath>
 
+#include "rclcpp_components/register_node_macro.hpp"
+
 namespace paesano_orchestrator
 {
 
-Orchestrator::Orchestrator()
-: Node("orchestrator_node")
+Orchestrator::Orchestrator(const rclcpp::NodeOptions & options)
+: Node("orchestrator_node", options)
 {
   delay_ = declare_parameter<double>("blocked_replan_delay_sec", delay_);
   occupied_threshold_ = declare_parameter<int>("occupied_threshold", occupied_threshold_);
   goal_tolerance_ = declare_parameter<double>("goal_tolerance_m", goal_tolerance_);
+  const std::string navigation_goal_topic =
+    declare_parameter<std::string>("navigation_goal_topic", "/navigation/goal");
+  const std::string pose_topic =
+    declare_parameter<std::string>("pose_topic", "/estimated_pose");
+  const std::string map_topic = declare_parameter<std::string>("map_topic", "/map");
+  const std::string local_map_topic =
+    declare_parameter<std::string>("local_map_topic", "/local_map");
+  const std::string blocked_topic = declare_parameter<std::string>(
+    "blocked_topic", "/dynamic_obstacle_blocked");
+  const std::string planning_map_topic =
+    declare_parameter<std::string>("planning_map_topic", "/planning_map");
+  const std::string state_topic =
+    declare_parameter<std::string>("state_topic", "/orchestrator/state");
+  const std::string navigation_result_topic =
+    declare_parameter<std::string>("navigation_result_topic", "/navigation/result");
+  const std::string a_star_action_name =
+    declare_parameter<std::string>("a_star_action_name", "/a_star");
+  const std::string stop_service =
+    declare_parameter<std::string>("stop_service", "/lqr/stop");
 
   goal_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
-    "/navigation/goal",
+    navigation_goal_topic,
     10,
     std::bind(&Orchestrator::handleGoal, this, std::placeholders::_1));
   pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
-    "/estimated_pose",
+    pose_topic,
     10,
     std::bind(&Orchestrator::handlePose, this, std::placeholders::_1));
   map_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(
-    "/map",
+    map_topic,
     rclcpp::QoS(1).transient_local().reliable(),
     std::bind(&Orchestrator::handleMap, this, std::placeholders::_1));
   local_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(
-    "/local_map",
+    local_map_topic,
     10,
     std::bind(&Orchestrator::handleLocalMap, this, std::placeholders::_1));
   blocked_sub_ = create_subscription<std_msgs::msg::Bool>(
-    "/dynamic_obstacle_blocked",
+    blocked_topic,
     10,
     std::bind(&Orchestrator::handleBlocked, this, std::placeholders::_1));
 
   planning_pub_ = create_publisher<nav_msgs::msg::OccupancyGrid>(
-    "/planning_map",
+    planning_map_topic,
     rclcpp::QoS(1).transient_local().reliable());
-  state_pub_ = create_publisher<std_msgs::msg::String>("/orchestrator/state", 10);
-  client_ = rclcpp_action::create_client<AStar>(this, "/a_star");
-  stop_client_ = create_client<std_srvs::srv::Trigger>("/lqr/stop");
+  state_pub_ = create_publisher<std_msgs::msg::String>(state_topic, 10);
+  result_pub_ = create_publisher<std_msgs::msg::String>(navigation_result_topic, 10);
+  client_ = rclcpp_action::create_client<AStar>(this, a_star_action_name);
+  stop_client_ = create_client<std_srvs::srv::Trigger>(stop_service);
   timer_ = create_wall_timer(
     std::chrono::milliseconds(100),
     std::bind(&Orchestrator::tick, this));
@@ -134,14 +156,19 @@ void Orchestrator::requestPlan()
   auto goal = std::make_shared<AStar::Goal>();
   goal->goal = goal_;
   plan_in_flight_ = true;
+  const bool is_replan = state_ == State::REPLANNING;
 
   rclcpp_action::Client<AStar>::SendGoalOptions options;
-  options.result_callback = [this](const auto & result) {
+  options.result_callback = [this, is_replan](const auto & result) {
     plan_in_flight_ = false;
     if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
       state_ = State::NAVIGATING;
+    } else if (is_replan) {
+      state_ = State::WAITING;
     } else {
-      state_ = blocked_ ? State::WAITING : State::IDLE;
+      have_goal_ = false;
+      state_ = State::IDLE;
+      publishResult("PLANNING_FAILED");
     }
     publishState();
   };
@@ -153,6 +180,13 @@ void Orchestrator::publishState()
   std_msgs::msg::String msg;
   msg.data = stateName();
   state_pub_->publish(msg);
+}
+
+void Orchestrator::publishResult(const std::string & result)
+{
+  std_msgs::msg::String msg;
+  msg.data = result;
+  result_pub_->publish(msg);
 }
 
 std::string Orchestrator::stateName() const
@@ -174,10 +208,4 @@ std::string Orchestrator::stateName() const
 
 }  // namespace paesano_orchestrator
 
-int main(int argc, char ** argv)
-{
-  rclcpp::init(argc, argv);
-  rclcpp::spin(std::make_shared<paesano_orchestrator::Orchestrator>());
-  rclcpp::shutdown();
-  return 0;
-}
+RCLCPP_COMPONENTS_REGISTER_NODE(paesano_orchestrator::Orchestrator)

@@ -3,3 +3,13 @@ orchestrator_node:
     blocked_replan_delay_sec: 5.0
     occupied_threshold: 50
     goal_tolerance_m: 0.15
+    navigation_goal_topic: "/navigation/goal"
+    pose_topic: "/estimated_pose"
+    map_topic: "/map"
+    local_map_topic: "/local_map"
+    blocked_topic: "/dynamic_obstacle_blocked"
+    planning_map_topic: "/planning_map"
+    state_topic: "/orchestrator/state"
+    navigation_result_topic: "/navigation/result"
+    a_star_action_name: "/a_star"
+    stop_service: "/lqr/stop"

@@ -8,10 +8,18 @@ Top-level bringup launch package for Paesano.
 ros2 launch paesano_bringup paesano_bringup.launch.py sim:=false localization_mode:=true
 ```
 
+Autonomous mapping and exploration:
+
+```bash
+ros2 launch paesano_bringup paesano_bringup.launch.py \
+  sim:=true localization_mode:=false auto_explore:=true
+```
+
 ## Key launch arguments
 
 - `sim`
 - `localization_mode`
+- `auto_explore`
 - `map_yaml`
 - `imu_input_topic`
 

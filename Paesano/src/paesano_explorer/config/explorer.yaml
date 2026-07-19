@@ -1,0 +1,19 @@
+explorer_node:
+  ros__parameters:
+    map_topic: "/map"
+    pose_topic: "/estimated_pose"
+    navigation_goal_topic: "/navigation/goal"
+    navigation_result_topic: "/navigation/result"
+    state_topic: "/exploration/state"
+    marker_topic: "/exploration/frontiers"
+
+    free_threshold: 50
+    occupied_threshold: 50
+    minimum_cluster_size: 8
+    completion_confirmation_updates: 3
+    tick_period_ms: 500
+
+    goal_standoff_m: 0.30
+    blacklist_radius_m: 0.50
+    information_gain_weight: 1.0
+    distance_weight: 1.0

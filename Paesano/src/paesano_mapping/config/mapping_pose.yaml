@@ -1,0 +1,6 @@
+mapping_pose_publisher:
+  ros__parameters:
+    map_frame: "map"
+    base_frame: "base_link"
+    pose_topic: "/estimated_pose"
+    publish_rate_hz: 20.0

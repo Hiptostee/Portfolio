@@ -1,19 +1,18 @@
 # paesano_mapping
 
-Mapping launch and `slam_toolbox` config for Paesano.
+Launches `slam_toolbox` and, during autonomous exploration, a composable TF pose publisher.
 
-## Config
+## Runtime
 
-- slam config: `config/slam_toolbox.yaml`
+- Component: `paesano_mapping::MappingPosePublisher`
+- Launch: `launch/mapping.launch.py`
+- Config: `config/slam_toolbox.yaml`, `config/mapping_pose.yaml`
 
-## Default interface
+Default publications:
 
-- map topic: `/map`
-
-## Save a map
+- `/map` from `slam_toolbox`
+- `/estimated_pose` from `map -> base_link` TF when `auto_explore:=true`
 
 ```bash
-ros2 run nav2_map_server map_saver_cli -f /home/Paesano/ros2_ws/maps/my_map
+ros2 launch paesano_mapping mapping.launch.py sim:=true auto_explore:=true
 ```
-
-ros2 run nav2_map_server map_saver_cli -f /home/paesano/ros2_ws_pi/maps/my_map_real
