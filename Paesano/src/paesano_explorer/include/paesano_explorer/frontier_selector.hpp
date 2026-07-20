@@ -16,6 +16,7 @@ class FrontierSelector
 public:
   std::optional<FrontierGoal> select(
     const nav_msgs::msg::OccupancyGrid & map,
+    const nav_msgs::msg::OccupancyGrid & inflated_map,
     const std::vector<FrontierCluster> & clusters,
     const geometry_msgs::msg::PoseStamped & robot_pose,
     const std::vector<FailedGoal> & failed_goals,

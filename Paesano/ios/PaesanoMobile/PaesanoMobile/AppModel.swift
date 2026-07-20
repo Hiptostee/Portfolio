@@ -265,6 +265,7 @@ final class AppModel: ObservableObject {
     }
 
     func setMode(_ mode: String) async {
+        endTeleop()
         isSwitchingMode = true
         inlineError = nil
         do {
@@ -275,7 +276,8 @@ final class AppModel: ObservableObject {
             )
             apply(state: state)
             await fetchMapIfNeeded(expectedRevision: state.mapRevision, force: true)
-            showToast("Switched to \(mode.capitalized)")
+            let displayMode = mode == "mapping_autonomous" ? "Autonomous Mapping" : mode.capitalized
+            showToast("Switched to \(displayMode)")
         } catch {
             inlineError = error.localizedDescription
         }

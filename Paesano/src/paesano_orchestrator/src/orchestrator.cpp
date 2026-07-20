@@ -156,15 +156,12 @@ void Orchestrator::requestPlan()
   auto goal = std::make_shared<AStar::Goal>();
   goal->goal = goal_;
   plan_in_flight_ = true;
-  const bool is_replan = state_ == State::REPLANNING;
 
   rclcpp_action::Client<AStar>::SendGoalOptions options;
-  options.result_callback = [this, is_replan](const auto & result) {
+  options.result_callback = [this](const auto & result) {
     plan_in_flight_ = false;
     if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
       state_ = State::NAVIGATING;
-    } else if (is_replan) {
-      state_ = State::WAITING;
     } else {
       have_goal_ = false;
       state_ = State::IDLE;

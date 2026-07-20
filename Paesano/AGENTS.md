@@ -50,9 +50,22 @@ Important packages include:
 - `paesano_explorer`: frontier detection, clustering, selection, and exploration state.
 - `paesano_bringup`: top-level mode and hardware launch coordination.
 
-The current active build order is autonomous mapping first, followed by spatial regions,
-room/hallway classification, RGB-D perception, object-grounded room classification, persistent
-memory, voice, and safe LLM actions.
+The current active build order is autonomous mapping first, then an adaptive planning-map MVP,
+followed by spatial regions, room/hallway classification, RGB-D perception, object-grounded room
+classification, persistent memory, voice, and safe LLM actions.
+
+The active near-term schedule is:
+
+- Wednesday, July 22, 2026: autonomous mapping MVP.
+- Immediately after autonomous mapping: adaptive planning-map MVP for moved dorm-room obstacles.
+- Wednesday, July 29, 2026: room, hallway, and doorway segmentation with stable region IDs.
+- Wednesday, August 5, 2026: RGB-D YOLO detections projected into the map and assigned to regions.
+- Thursday, August 6, 2026 onward: begin the separate local-first memory SDK.
+
+Treat these as minimum working-system milestones. Do not let optional polish expand the current
+week; move remaining hardening to `AUDITS.md`. The dated definitions of done live in `plan.md`.
+If adaptive planning-map work conflicts with room segmentation, finish the adaptive-map MVP first;
+database persistence and versioned map consolidation remain later hardening.
 
 ## Navigation Ownership
 
@@ -108,21 +121,58 @@ filter owns `map -> odom`. Never launch two publishers for that transform.
 `/map` is the one persistent world occupancy map. `/local_map` is a transient obstacle layer.
 The orchestrator overlays them into `/planning_map` for A*; it does not create a second SLAM map.
 
+Treat the saved `/map` used by the particle filter as a stable localization reference during a
+run. Do not let a local occupied or free observation rewrite it directly. Future long-lived
+environmental changes belong in a separate, versioned persistent-change layer: repeated occupied
+evidence may conservatively block planning, while clearing a static obstacle requires stronger
+multi-view evidence or human confirmation. `/planning_map` may combine these layers without
+changing the localization reference.
+
+When implementing persistent changes, use per-cell occupied and clear evidence from LiDAR rays.
+Aggregate no more than one vote per cell per scan and gate confirmations by time or viewpoint;
+consecutive 10 Hz readings are correlated. A validated clear mask may override stale occupied
+furniture in `/planning_map`, but not in the localization reference. Publish planning-map changes
+at a bounded rate or only when a cell changes state because A* rebuilds global inflation on every
+received planning map.
+
 ## Autonomous Exploration Status
 
-The exploration ROS flow is scaffolded, but the following algorithms intentionally remain for
-Joseph to implement:
+Frontier detection, eight-connected clustering, initial scoring, spatial failed-goal filtering,
+and the first selector implementation exist. They are not yet accepted as working autonomous
+exploration. A simulation rosbag showed two large valid clusters, but both selected goals remained
+only one cell from unknown space and were rejected by A*'s inflated map.
 
-- `FrontierDetector::detect`
-- `FrontierClusterer::cluster`
-- `FrontierSelector::select`
+Use these rules when finishing goal selection:
 
-Keep algorithm TODOs in `.cpp` files, not public headers. Do not silently fill these implementations
-unless the user asks for implementation help.
+- Compute the approach direction away from nearby unknown cells. Do not assume that the vector
+  toward the robot points inward from the frontier; it can run tangent to an irregular boundary.
+- Validate exploration candidates against the latest geometry-compatible `/map_inflated`, because
+  raw-map free space can still be non-traversable under A*'s obstacle buffer.
+- Try only a bounded number of spatially separated approach points from each cluster before treating
+  that frontier region as unavailable.
+- Declare `COMPLETE` only after repeated map updates contain no retained frontier clusters. If
+  clusters remain but every candidate is blocked, unsafe, or blacklisted, report recoverable
+  `STUCK` and reconsider the frontiers when relevant map or inflated-map data changes.
+
+Keep algorithm TODOs in `.cpp` files, not public headers. Do not silently fill exploration
+implementations unless the user asks for implementation help.
 
 Before expanding exploration behavior, review the `AE-*` and `AV-*` entries in `AUDITS.md`.
 In particular, preserve the known single-goal assumption until goal ownership and result IDs are
 designed explicitly.
+
+## RGB-D Active Vision
+
+- Use one Intel RealSense D435 as the RGB-D observation camera; do not introduce a second camera
+  pipeline unless Joseph explicitly changes this architecture.
+- Bench-test camera streams, YOLO, and depth projection before the final CAD mount exists. A
+  secured temporary fixed support is sufficient for initial software work.
+- First complete the fixed-camera RGB-D pipeline, then mount the camera on a rigid elevated holder
+  with one servo-controlled tilt axis. Paesano rotates its chassis for horizontal viewing.
+- Represent the tilt joint in TF as `base_link -> camera_tilt_link -> camera_link` so mapped
+  observations use the current camera orientation.
+- Prefer repeatable down, forward, and up poses. Stop the robot, wait for the tilt mechanism and
+  camera exposure to settle, and then capture any observation that will be projected or remembered.
 
 ## Code and Package Rules
 

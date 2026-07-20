@@ -14,6 +14,8 @@ ExplorerNode::ExplorerNode(const rclcpp::NodeOptions & options)
 : Node("explorer_node", options)
 {
   const std::string map_topic = declare_parameter<std::string>("map_topic", "/map");
+  const std::string inflated_map_topic =
+    declare_parameter<std::string>("inflated_map_topic", "/map_inflated");
   const std::string pose_topic = declare_parameter<std::string>("pose_topic", "/estimated_pose");
   const std::string navigation_goal_topic =
     declare_parameter<std::string>("navigation_goal_topic", "/navigation/goal");
@@ -38,12 +40,19 @@ ExplorerNode::ExplorerNode(const rclcpp::NodeOptions & options)
     "distance_weight", selection_parameters_.distance_weight);
   selection_parameters_.occupied_threshold = declare_parameter<int>(
     "occupied_threshold", selection_parameters_.occupied_threshold);
+  selection_parameters_.max_approach_points_per_cluster = declare_parameter<int>(
+    "max_approach_points_per_cluster",
+    selection_parameters_.max_approach_points_per_cluster);
   const int tick_period_ms = declare_parameter<int>("tick_period_ms", 500);
 
   map_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(
     map_topic,
     rclcpp::QoS(1).transient_local().reliable(),
     std::bind(&ExplorerNode::handleMap, this, std::placeholders::_1));
+  inflated_map_sub_ = create_subscription<nav_msgs::msg::OccupancyGrid>(
+    inflated_map_topic,
+    rclcpp::QoS(1).transient_local().reliable(),
+    std::bind(&ExplorerNode::handleInflatedMap, this, std::placeholders::_1));
   pose_sub_ = create_subscription<geometry_msgs::msg::PoseStamped>(
     pose_topic,
     10,
@@ -68,6 +77,23 @@ void ExplorerNode::handleMap(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
   map_ = *msg;
   have_map_ = true;
   ++map_revision_;
+}
+
+void ExplorerNode::handleInflatedMap(const nav_msgs::msg::OccupancyGrid::SharedPtr msg)
+{
+  const bool first_inflated_map = !have_inflated_map_;
+  inflated_map_ = *msg;
+  have_inflated_map_ = true;
+  ++inflated_map_revision_;
+
+  if (first_inflated_map) {
+    RCLCPP_INFO(
+      get_logger(),
+      "Received inflated map: %u x %u at %.3f m/cell",
+      msg->info.width,
+      msg->info.height,
+      msg->info.resolution);
+  }
 }
 
 void ExplorerNode::handlePose(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
@@ -104,7 +130,7 @@ void ExplorerNode::tick()
   state_message.data = stateName();
   state_pub_->publish(state_message);
 
-  if (!have_map_ || !have_pose_) {
+  if (!have_map_ || !have_inflated_map_ || !have_pose_) {
     state_ = State::WAITING_FOR_DATA;
     return;
   }
@@ -113,10 +139,15 @@ void ExplorerNode::tick()
     state_ = State::SELECTING;
   }
 
-  if (state_ != State::SELECTING || map_revision_ == last_processed_map_revision_) {
+  const bool map_changed = map_revision_ != last_processed_map_revision_;
+  const bool inflated_map_changed =
+    inflated_map_revision_ != last_processed_inflated_map_revision_;
+  const bool can_select = state_ == State::SELECTING || state_ == State::STUCK;
+  if (!can_select || (!map_changed && !inflated_map_changed)) {
     return;
   }
   last_processed_map_revision_ = map_revision_;
+  last_processed_inflated_map_revision_ = inflated_map_revision_;
 
   const auto frontier_cells = detector_.detect(map_, free_threshold_);
   const auto clusters = clusterer_.cluster(
@@ -125,17 +156,32 @@ void ExplorerNode::tick()
     static_cast<int>(map_.info.height),
     static_cast<std::size_t>(minimum_cluster_size_));
   const auto goal = selector_.select(
-    map_, clusters, robot_pose_, failed_goals_, selection_parameters_);
+    map_, inflated_map_, clusters, robot_pose_, failed_goals_, selection_parameters_);
   publishMarkers(frontier_cells, goal);
 
   if (!goal) {
-    if (!exploration_started_) {
+    if (!clusters.empty()) {
+      empty_frontier_updates_ = 0;
+      if (state_ != State::STUCK) {
+        RCLCPP_WARN(
+          get_logger(),
+          "Exploration stuck: %zu retained frontier clusters have no valid approach goal",
+          clusters.size());
+      }
+      state_ = State::STUCK;
+      return;
+    }
+
+    state_ = State::SELECTING;
+    if (!exploration_started_ || !map_changed) {
       return;
     }
     ++empty_frontier_updates_;
     if (empty_frontier_updates_ >= completion_confirmation_updates_) {
       state_ = State::COMPLETE;
-      RCLCPP_INFO(get_logger(), "Exploration complete: no valid frontier goals remain");
+      RCLCPP_INFO(
+        get_logger(),
+        "Exploration complete: no retained frontier clusters remain");
     }
     return;
   }
@@ -220,6 +266,8 @@ std::string ExplorerNode::stateName() const
       return "SELECTING";
     case State::NAVIGATING:
       return "NAVIGATING";
+    case State::STUCK:
+      return "STUCK";
     case State::COMPLETE:
       return "COMPLETE";
   }

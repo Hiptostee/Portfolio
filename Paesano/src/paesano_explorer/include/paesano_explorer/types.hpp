@@ -46,6 +46,7 @@ struct SelectionParameters
   double information_gain_weight{1.0};
   double distance_weight{1.0};
   int occupied_threshold{50};
+  int max_approach_points_per_cluster{5};
 };
 
 }  // namespace paesano_explorer

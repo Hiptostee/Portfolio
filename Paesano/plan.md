@@ -24,25 +24,118 @@ Paesano can:
 - [ ] Route every physical action through the deterministic orchestrator and safety checks.
 - [ ] Complete a repeatable end-to-end hardware demonstration.
 
-## Build Order
+## Near-Term Wednesday Milestones
 
-### 1. Autonomous Mapping — July 2026
+This dated schedule is the active priority order as of Saturday, July 18, 2026. Keep each milestone
+to its minimum working system and move unfinished hardening into `AUDITS.md` rather than expanding
+the feature midweek.
+
+### Wednesday, July 22 — Autonomous Mapping
+
+- [ ] Implement frontier detection, clustering, safe-goal selection, scoring, and spatial failed-goal filtering.
+- [ ] Generate standoff poses by moving away from nearby unknown cells, then require the candidate
+  cell to be traversable in the latest geometry-compatible `/map_inflated`.
+- [ ] Report recoverable `STUCK` when frontiers exist but all bounded approach candidates are blocked
+  or blacklisted; reserve `COMPLETE` for repeated updates with no retained frontier clusters.
+- [ ] Build and launch the mapping pose, A*, LQR, orchestrator, and explorer component flow.
+- [ ] Explore an unknown simulated map without manual driving.
+- [ ] Avoid immediately retrying a frontier after A* rejects its goal.
+- [ ] Stop when no meaningful reachable frontiers remain and save the resulting map.
+- [ ] Complete at least one supervised physical-robot exploration run if simulation is repeatable.
+
+Definition of done: Paesano repeatedly explores and saves a usable simulated map on its own. A
+supervised hardware run is the target, but reliability hardening remains tracked in `AUDITS.md`.
+
+### Immediately After Autonomous Mapping — Adaptive Planning Map
+
+- [ ] Track time-gated occupied and clear evidence for globally aligned cells observed in `/local_map`.
+- [ ] Preserve immediate local-obstacle stopping without waiting for persistent confirmation.
+- [ ] Add a validated clear mask that can override stale occupied furniture in `/planning_map`
+  without changing the saved localization `/map`.
+- [ ] Keep newly observed persistent obstacles occupied across local scans.
+- [ ] Publish planning-map changes only when cell state changes or at a bounded rate.
+- [ ] Trigger or retry planning when a relevant map cell changes traversability.
+- [ ] Demonstrate that removing an object captured in the saved map opens the route, while placing a
+  new object still stops the robot and produces a safe replan.
+
+Definition of done: Paesano adapts navigation to a moved dorm-room obstacle without rewriting or
+destabilizing its localization map. Database persistence and versioned map consolidation are not
+required for this first implementation.
+
+### Wednesday, July 29 — Room Segmentation
+
+- [ ] Create `paesano_semantic_mapping`.
+- [ ] Segment occupancy-grid free space into room, hallway, doorway, and unknown regions.
+- [ ] Assign stable region IDs and safe representative poses.
+- [ ] Publish region boundaries and labels for RViz inspection.
+- [ ] Save and reload the region representation with the map.
+
+Definition of done: a saved indoor map is divided into recognizable rooms and hallways with stable
+IDs that survive reload. Learned room-purpose classification is not required yet.
+
+### Wednesday, August 5 — RGB-D and YOLO
+
+- [ ] Bench-test the D435 RGB, infrared, depth, and aligned-depth streams before the final mount exists.
+- [ ] Run initial YOLO and RGB-D projection experiments with the camera secured on a temporary fixed support.
+- [ ] Launch and calibrate the selected RGB-D camera relative to `base_link`.
+- [ ] Run a pretrained YOLO model on a small room-evidence vocabulary.
+- [ ] Reject low-confidence detections and invalid depth.
+- [ ] Project detections into the `map` frame.
+- [ ] Associate detections with the correct segmented region.
+- [ ] Demonstrate at least one object observation contributing evidence toward a room type.
+
+Definition of done: Paesano does more than draw bounding boxes; it places a detected object in the
+map and associates it with a stable room region.
+
+### Thursday, August 6 onward — Memory SDK
+
+Begin the separate local-first memory library: SQLite migrations, append-only episodes, semantic
+facts, provenance, confidence, correction history, structured retrieval, and bounded LLM context.
+Integrate it with Paesano only after the core API works independently.
+
+## Detailed Build Scope
+
+The sections below retain the broader subsystem details. The dated milestone order above controls
+the immediate implementation sequence.
+
+### Autonomous Mapping — Detailed Scope
 
 - [ ] Run A*, trajectory following, and the orchestrator while `slam_toolbox` is mapping.
 - [ ] Provide the robot's current `map`-frame pose during mapping.
 - [ ] Create a `paesano_explorer` ROS 2 package.
 - [ ] Detect, cluster, filter, and score frontier regions.
-- [ ] Publish a safe reachable frontier through `/navigation/goal`.
+- [ ] Estimate the inward direction from nearby unknown cells and generate a bounded set of
+  spatially separated standoff candidates for each retained cluster.
+- [ ] Validate candidate geometry and traversability against `/map_inflated`, then publish the best
+  safe frontier through `/navigation/goal`.
 - [ ] Report explicit navigation success, failure, and cancellation results.
 - [ ] Temporarily blacklist unreachable frontiers and select another target.
-- [ ] Stop when no useful frontiers remain and save the map automatically.
+- [ ] Distinguish recoverable `STUCK` from confirmed `COMPLETE`; save the map automatically only
+  after repeated updates contain no retained frontier clusters.
 - [ ] Visualize frontiers and the selected goal in RViz.
 - [ ] Test with synthetic grids, simulation, and the physical robot.
 
 Acceptance test: starting from an unknown map, Paesano explores without manual driving,
 recovers from an unreachable frontier, declares completion, and saves a usable map.
 
-### 2. Places and Spatial Understanding — August 2026
+### Adaptive Planning Map — Detailed Scope
+
+- [ ] Maintain a grid aligned to `/map` with occupied score, clear score, state, and observation time.
+- [ ] Accept at most one evidence vote per cell per scan and gate votes by elapsed time or viewpoint.
+- [ ] Use free LiDAR rays to clear stale saved-map occupancy only after consistent evidence.
+- [ ] Let any current local obstacle override clear or free state immediately.
+- [ ] Fuse the saved map, persistent-change state, clear mask, and current local obstacles into
+  `/planning_map`.
+- [ ] Keep the particle filter subscribed to the unchanged saved `/map`.
+- [ ] Apply hysteresis so cells do not alternate rapidly between occupied and free.
+- [ ] Bound planning-map publication and A* inflation work.
+- [ ] Preserve an active goal or safely retry it when changed traversability makes a route possible.
+- [ ] Visualize changed-occupied and validated-clear cells separately in RViz.
+
+Acceptance test: a stale mapped obstacle can become traversable after repeated valid clear rays;
+a new or returning obstacle blocks immediately; localization remains stable throughout.
+
+### Places and Spatial Understanding — Detailed Scope
 
 - [ ] Create a small `paesano_semantic_mapping` package.
 - [ ] Segment free space into stable regions using occupancy-grid geometry.
@@ -57,7 +150,7 @@ recovers from an unreachable frontier, declares completion, and saves a usable m
 Acceptance test: Paesano distinguishes rooms from hallways, remembers those classifications
 after restart, and can report and navigate to a user-named place such as `my room`.
 
-### 3. Minimal Persistent Memory and Text Conversation — September 2026
+### Minimal Persistent Memory and Text Conversation — Starts August 6, 2026
 
 - [ ] Create a minimal `paesano_mind` package and SQLite database with migrations.
 - [ ] Implement bounded working memory for the current conversation and task.
@@ -75,9 +168,16 @@ after restart, and can report and navigate to a user-named place such as `my roo
 Acceptance test: after a restart, Paesano can accurately answer where it went, whether a
 task succeeded, and what Joseph previously told it, while citing the relevant time or place.
 
-### 4. Eyes and Object Memories — September to October 2026
+### Eyes and Object Memories — YOLO Milestone August 5, Continued After
 
-- [ ] Mount and calibrate an RGB-D camera to `base_link`.
+- [ ] Use one D435 as Paesano's RGB-D observation camera rather than maintaining two camera pipelines.
+- [ ] Verify the complete camera and YOLO pipeline on a bench before waiting for the final CAD mount.
+- [ ] Start with a secured adjustable fixed mount so active-vision mechanics do not block RGB-D localization.
+- [ ] After measuring the physical camera, CAD a rigid elevated holder with a single tilt axis; the robot provides horizontal rotation.
+- [ ] Add repeatable down, forward, and up observation poses for the floor ahead, normal viewing, and higher objects.
+- [ ] Publish the tilt joint state and model `base_link -> camera_tilt_link -> camera_link` in TF.
+- [ ] Stop the robot, command a view, wait for the camera and servo to settle, and only then create mapped observations.
+- [ ] Mount and calibrate the RGB-D camera to `base_link` through its current tilt transform.
 - [ ] Detect a focused room-evidence vocabulary: person, backpack, chair, bed, couch, TV,
   refrigerator, microwave, sink, toilet, desk, and door.
 - [ ] Convert image detections and depth into `map`-frame positions.
@@ -94,7 +194,7 @@ task succeeded, and what Joseph previously told it, while citing the relevant ti
 Acceptance test: Paesano sees a bed and other evidence, classifies the containing region as a
 bedroom, remembers that classification after restart, and answers where it last saw a backpack.
 
-### 5. Voice and Personality — October 2026
+### Voice and Personality — October 2026
 
 - [ ] Add push-to-talk or wake-word-controlled speech recognition.
 - [ ] Add text-to-speech through the robot's speaker.
@@ -107,7 +207,7 @@ bedroom, remembers that classification after restart, and answers where it last 
 Acceptance test: Joseph can hold a short spoken conversation, teach Paesano a place name,
 restart it, and later ask Paesano to recall that information aloud.
 
-### 6. Safe Language-Model Actions — November 2026
+### Safe Language-Model Actions — November 2026
 
 - [ ] Define schema-constrained tools: `navigate_to`, `stop_navigation`, `describe_surroundings`,
   `recall`, `propose_memory_update`, `correct_memory`, `ask_user`, `speak`, and `wait`.
@@ -125,7 +225,7 @@ restart it, and later ask Paesano to recall that information aloud.
 Acceptance test: natural-language requests can trigger only allowlisted, validated actions;
 Paesano remains safely operable with the language model stopped or producing invalid output.
 
-### 7. Integration and Christmas Demonstration — December 2026
+### Integration and Christmas Demonstration — December 2026
 
 - [ ] Run the complete system repeatedly in simulation before hardware testing.
 - [ ] Create rosbag scenarios for memory, perception, navigation, and failure regression tests.

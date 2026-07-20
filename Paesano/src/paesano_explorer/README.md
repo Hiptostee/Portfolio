@@ -1,7 +1,7 @@
 # paesano_explorer
 
-Composable frontier-exploration node for Paesano. The ROS flow is scaffolded while frontier
-detection, clustering, and goal selection remain for Joseph to implement in the `.cpp` files.
+Composable frontier-exploration node for Paesano. It detects and clusters map frontiers, selects
+navigation goals, and tracks the exploration lifecycle.
 
 ## Runtime
 
@@ -12,6 +12,7 @@ detection, clustering, and goal selection remain for Joseph to implement in the 
 Default subscriptions:
 
 - `/map`
+- `/map_inflated`
 - `/estimated_pose`
 - `/navigation/result`
 
@@ -20,6 +21,11 @@ Default publications:
 - `/navigation/goal`
 - `/exploration/state`
 - `/exploration/frontiers`
+
+Exploration states are `WAITING_FOR_DATA`, `SELECTING`, `NAVIGATING`, `STUCK`, and `COMPLETE`.
+`STUCK` means retained frontiers exist but none currently has a safe, non-blacklisted approach;
+new map data can make it selectable again. `COMPLETE` requires repeated map updates with no
+retained frontier clusters.
 
 The component is created only when `auto_explore:=true`.
 

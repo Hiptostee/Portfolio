@@ -5,6 +5,26 @@ dependable demo. Minor issues are cleanup and better visibility.
 
 ## Major
 
+### Separate localization from learned map changes
+
+Do not write local obstacle observations directly into the saved localization map. Keep the
+localization map stable and learn repeated environmental changes in a separate persistent layer.
+The planning map may conservatively combine static, persistent, and live occupied cells.
+
+Promote a new obstacle only after repeated observations across time or viewpoints. Never erase a
+static obstacle because one local scan reports free space; require repeated clear rays, localization
+confidence, and an explicit versioned map update or human confirmation. The particle filter
+currently globally reinitializes whenever it receives a new map, so live map mutation would also
+disrupt localization.
+
+The current planning-map merge ignores free cells from `/local_map`, so furniture captured in the
+saved map can never be cleared for planning even after it moves. Add per-cell occupied and clear
+evidence plus a high-confidence clearing mask for `/planning_map`. Count at most one vote per cell
+per scan and gate accepted votes by elapsed time or changed viewpoint; three adjacent 10 Hz scans
+are correlated, not three independent confirmations. Publish or reinflate the global planning map
+only when cell state changes or at a bounded rate because A* currently rebuilds its full inflated
+map on every planning-map message.
+
 ### Finish the frontier algorithms
 
 Implement frontier detection, eight-connected clustering, and safe-goal selection with scoring,

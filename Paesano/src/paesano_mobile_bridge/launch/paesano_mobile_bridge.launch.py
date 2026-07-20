@@ -14,7 +14,7 @@ def generate_launch_description():
     startup_mode_arg = DeclareLaunchArgument(
         'startup_mode',
         default_value='mapping',
-        description='Initial robot mode to launch through the bridge',
+        description='Initial mode: mapping, mapping_autonomous, or localization',
     )
     map_yaml_arg = DeclareLaunchArgument(
         'map_yaml',

@@ -143,7 +143,7 @@ class PaesanoBridgeNode(Node):
     def start(self) -> None:
         if not self._spin_thread.is_alive():
             self._spin_thread.start()
-        if self.startup_mode in {'mapping', 'localization'}:
+        if self.startup_mode in {'mapping', 'mapping_autonomous', 'localization'}:
             try:
                 self.set_mode(self.startup_mode)
             except Exception as exc:  # pragma: no cover - startup path
@@ -216,7 +216,7 @@ class PaesanoBridgeNode(Node):
 
     def set_mode(self, mode: str) -> Dict[str, Any]:
         normalized_mode = mode.lower().strip()
-        if normalized_mode not in {'mapping', 'localization'}:
+        if normalized_mode not in {'mapping', 'mapping_autonomous', 'localization'}:
             raise BridgeError(f'Unsupported mode: {mode}')
 
         with self.state_lock:
@@ -229,7 +229,7 @@ class PaesanoBridgeNode(Node):
 
     def save_map(self) -> Dict[str, Any]:
         with self.state_lock:
-            if self.current_mode != 'mapping':
+            if self.current_mode not in {'mapping', 'mapping_autonomous'}:
                 raise BridgeError('Map saving is only available in mapping mode.')
 
         self.map_save_prefix.parent.mkdir(parents=True, exist_ok=True)
@@ -358,6 +358,8 @@ class PaesanoBridgeNode(Node):
 
         if current_mode == 'mapping':
             pass
+        elif current_mode == 'mapping_autonomous':
+            raise BridgeError('Teleop is disabled during autonomous mapping.')
         elif current_mode == 'localization':
             if is_navigating:
                 raise BridgeError('Teleop is disabled while LQR is actively navigating.')
@@ -400,6 +402,7 @@ class PaesanoBridgeNode(Node):
             self.bringup_launch,
             f"sim:={'true' if self.sim else 'false'}",
             f"localization_mode:={'true' if mode == 'localization' else 'false'}",
+            f"auto_explore:={'true' if mode == 'mapping_autonomous' else 'false'}",
             f'map_yaml:={self.default_map_yaml}',
         ]
         process = subprocess.Popen(command, preexec_fn=os.setsid)
@@ -415,7 +418,7 @@ class PaesanoBridgeNode(Node):
             self.pause_requested = False
             self.is_navigating = False
             self.last_error = ''
-            if mode == 'mapping':
+            if mode in {'mapping', 'mapping_autonomous'}:
                 self.current_path_msg = None
                 self.last_planned_path_msg = None
                 self.paused_path_msg = None

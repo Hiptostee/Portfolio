@@ -1,6 +1,7 @@
 explorer_node:
   ros__parameters:
     map_topic: "/map"
+    inflated_map_topic: "/map_inflated"
     pose_topic: "/estimated_pose"
     navigation_goal_topic: "/navigation/goal"
     navigation_result_topic: "/navigation/result"
@@ -15,5 +16,6 @@ explorer_node:
 
     goal_standoff_m: 0.30
     blacklist_radius_m: 0.30
+    max_approach_points_per_cluster: 5
     information_gain_weight: 1.0
     distance_weight: 1.0

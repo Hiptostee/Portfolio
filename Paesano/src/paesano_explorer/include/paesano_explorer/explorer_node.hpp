@@ -24,9 +24,10 @@ public:
   explicit ExplorerNode(const rclcpp::NodeOptions & options);
 
 private:
-  enum class State { WAITING_FOR_DATA, SELECTING, NAVIGATING, COMPLETE };
+  enum class State { WAITING_FOR_DATA, SELECTING, NAVIGATING, STUCK, COMPLETE };
 
   void handleMap(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
+  void handleInflatedMap(const nav_msgs::msg::OccupancyGrid::SharedPtr msg);
   void handlePose(const geometry_msgs::msg::PoseStamped::SharedPtr msg);
   void handleNavigationResult(const std_msgs::msg::String::SharedPtr msg);
   void tick();
@@ -42,10 +43,12 @@ private:
 
   State state_{State::WAITING_FOR_DATA};
   nav_msgs::msg::OccupancyGrid map_;
+  nav_msgs::msg::OccupancyGrid inflated_map_;
   geometry_msgs::msg::PoseStamped robot_pose_;
   std::optional<FrontierGoal> active_goal_;
   std::vector<FailedGoal> failed_goals_;
   bool have_map_{false};
+  bool have_inflated_map_{false};
   bool have_pose_{false};
   bool exploration_started_{false};
   int free_threshold_{50};
@@ -53,10 +56,13 @@ private:
   int completion_confirmation_updates_{3};
   int empty_frontier_updates_{0};
   std::uint64_t map_revision_{0};
+  std::uint64_t inflated_map_revision_{0};
   std::uint64_t last_processed_map_revision_{0};
+  std::uint64_t last_processed_inflated_map_revision_{0};
   SelectionParameters selection_parameters_;
 
   rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
+  rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr inflated_map_sub_;
   rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr pose_sub_;
   rclcpp::Subscription<std_msgs::msg::String>::SharedPtr navigation_result_sub_;
   rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr goal_pub_;

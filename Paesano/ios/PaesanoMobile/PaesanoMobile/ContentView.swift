@@ -31,7 +31,7 @@ struct ContentView: View {
     @ViewBuilder
     private var dashboard: some View {
         switch model.bridgeState.mode {
-        case "mapping":
+        case "mapping", "mapping_autonomous":
             MappingView(model: model)
         case "localization":
             NavigationView(model: model)
@@ -145,7 +145,7 @@ private struct IdleView: View {
             VStack(spacing: 22) {
                 dashboardHeader(
                     title: "Bridge Online",
-                    subtitle: "Choose a mode. The bridge will restart the single ROS launch file with localization enabled or disabled.",
+                    subtitle: "Choose manual mapping, autonomous frontier exploration, or saved-map localization.",
                     model: model
                 )
 
@@ -165,12 +165,18 @@ private struct MappingView: View {
     @State private var rotationActive = false
     @State private var confirmSaveMap = false
 
+    private var isAutonomous: Bool {
+        model.bridgeState.mode == "mapping_autonomous"
+    }
+
     var body: some View {
         ScrollView {
             VStack(spacing: 18) {
                 dashboardHeader(
-                    title: "Mapping Mode",
-                    subtitle: "Drive with the joystick, build the map live, and save over the canonical hardware map when coverage looks good.",
+                    title: isAutonomous ? "Autonomous Mapping" : "Manual Mapping",
+                    subtitle: isAutonomous
+                        ? "Paesano is selecting frontier goals and exploring on its own. Switch to Manual Map before using teleop."
+                        : "Drive with the joystick, build the map live, and save over the canonical hardware map when coverage looks good.",
                     model: model
                 )
                 MapPanel(model: model, tapAction: nil)
@@ -182,9 +188,21 @@ private struct MappingView: View {
                     .disabled(model.isSavingMap)
                 }
 
-                HStack(spacing: 24) {
-                    driveJoystick
-                    turnJoystick
+                if isAutonomous {
+                    Text("Autonomous exploration owns navigation and motion commands.")
+                        .font(.headline)
+                        .foregroundStyle(Color.white.opacity(0.76))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding()
+                        .background(
+                            Color.white.opacity(0.08),
+                            in: RoundedRectangle(cornerRadius: 18, style: .continuous)
+                        )
+                } else {
+                    HStack(spacing: 24) {
+                        driveJoystick
+                        turnJoystick
+                    }
                 }
             }
             .padding(24)
@@ -672,7 +690,8 @@ private struct ModeSelector: View {
 
     var body: some View {
         HStack(spacing: 10) {
-            modeButton(title: "Mapping", mode: "mapping")
+            modeButton(title: "Manual Map", mode: "mapping")
+            modeButton(title: "Auto Map", mode: "mapping_autonomous")
             modeButton(title: "Localization", mode: "localization")
         }
     }
