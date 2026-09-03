@@ -26,6 +26,9 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 
+# Tool caches
+.cache/
+
 # OS
 .DS_Store
 Thumbs.db
