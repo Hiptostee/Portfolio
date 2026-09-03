@@ -46,24 +46,19 @@ src/paesano_orchestrator/       ← ROS2 component node
 ## State Machine
 
 ```
-          new goal received
-IDLE ─────────────────────► PLANNING
- ▲                               │ A* fails
- │                               ├─────────────────────► IDLE
- │              path received    │
- │◄──────────────────────────── ▼
- │                          NAVIGATING
- │                               │ goal reached
- │                               ├─────────────────────► GOAL_REACHED ──► IDLE
- │                               │ local costmap: path blocked
- │                               ▼
- │                            BLOCKED
- │                               │ lqr_stop() sent, new A* goal sent
- │                               ▼
- │                          REPLANNING
- │ replan fails                  │ new path received
- ◄───────────────────────────── ▼
-                            NAVIGATING
+IDLE -> PLANNING -> NAVIGATING
+                       |
+                       | path blocked
+                       v
+                    WAITING
+                   /       \
+       clears < 5 s         blocked >= 5 s
+                 /           \
+         NAVIGATING       REPLANNING
+                              |
+                              | retry every 2 s for 20 s
+                              v
+                  NAVIGATING or PLANNING_FAILED
 ```
 
 ### States
@@ -73,9 +68,18 @@ IDLE ─────────────────────► PLANNING
 | `IDLE` | No active goal. Waiting for `/navigation/goal`. |
 | `PLANNING` | A\* action in flight. Waiting for path result. |
 | `NAVIGATING` | LQR is tracking the path. Checking local map each tick. |
-| `BLOCKED` | Obstacle detected ahead. Stopping LQR and replanning. |
-| `REPLANNING` | A\* action in flight with same destination, new start pose. |
-| `GOAL_REACHED` | Robot within `goal_tolerance_m` of goal. Transitioning to IDLE. |
+| `WAITING` | The current path is blocked, but its short-obstruction grace period has not elapsed. |
+| `REPLANNING` | The old path was stopped; A\* periodically retries the retained destination. |
+
+## Blocked-path recovery parameters
+
+Configured in `config/orchestrator.yaml`:
+
+| Parameter | Default | Meaning |
+|---|---:|---|
+| `blocked_replan_delay_sec` | `5.0` | How long to wait before stopping the old path and beginning replans. |
+| `blocked_replan_retry_interval_sec` | `2.0` | Delay between failed A\* replan attempts. |
+| `blocked_replan_timeout_sec` | `20.0` | Recovery window starting with the first replan; failure is reported when it expires. |
 
 ---
 

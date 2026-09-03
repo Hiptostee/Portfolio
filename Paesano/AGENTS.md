@@ -48,6 +48,8 @@ Important packages include:
 - `paesano_local_map`: live robot-centered obstacle layer.
 - `paesano_orchestrator`: owns navigation goals, planning, obstacle waiting/replanning, and results.
 - `paesano_explorer`: frontier detection, clustering, selection, and exploration state.
+- `paesano_semantic_mapping`: converts the occupancy grid into clean structural floorplans and
+  stable room, hallway, and doorway regions.
 - `paesano_bringup`: top-level mode and hardware launch coordination.
 
 The current active build order is autonomous mapping first, then an adaptive planning-map MVP,
@@ -59,7 +61,8 @@ The active near-term schedule is:
 - Wednesday, July 22, 2026: autonomous mapping MVP.
 - Immediately after autonomous mapping: adaptive planning-map MVP for moved dorm-room obstacles.
 - Wednesday, July 29, 2026: room, hallway, and doorway segmentation with stable region IDs.
-- Wednesday, August 5, 2026: RGB-D YOLO detections projected into the map and assigned to regions.
+- Wednesday, August 5, 2026: periodic stopped RGB-D scans projected into the map, followed by
+  post-mapping region assignment and room classification.
 - Thursday, August 6, 2026 onward: begin the separate local-first memory SDK.
 
 Treat these as minimum working-system milestones. Do not let optional polish expand the current
@@ -86,6 +89,9 @@ Goal source
   A* or publish `/cmd_vel` directly.
 - A* computes a path; it does not own the complete navigation lifecycle.
 - The orchestrator is the single owner of active navigation state and recovery policy.
+- For a dynamically blocked path, preserve the current goal during the short wait and bounded
+  replan window. Defaults are a 5-second wait, replans every 2 seconds, and failure after a
+  20-second recovery window; keep all three timings configurable in the orchestrator.
 - LQR and the motor-control path own velocity commands.
 - The intelligence layer may propose structured intentions but must never bypass deterministic
   planning, collision stopping, command validation, or emergency-stop behavior.
@@ -121,12 +127,24 @@ filter owns `map -> odom`. Never launch two publishers for that transform.
 `/map` is the one persistent world occupancy map. `/local_map` is a transient obstacle layer.
 The orchestrator overlays them into `/planning_map` for A*; it does not create a second SLAM map.
 
+After initial SLAM, derive a separate clean structural floorplan containing room and hallway
+regions, door connections, stable region IDs, and simplified boundaries in the `map` frame. Use
+this semantic floorplan for the mobile dashboard, room memory, and human-facing visualization.
+Do not feed simplified or inferred geometry back into the particle filter or treat it as the
+collision-planning map; localization continues using the original saved occupancy map, while A*
+uses `/planning_map`.
+
 Treat the saved `/map` used by the particle filter as a stable localization reference during a
 run. Do not let a local occupied or free observation rewrite it directly. Future long-lived
 environmental changes belong in a separate, versioned persistent-change layer: repeated occupied
 evidence may conservatively block planning, while clearing a static obstacle requires stronger
 multi-view evidence or human confirmation. `/planning_map` may combine these layers without
 changing the localization reference.
+
+Run persistent change mapping alongside localization during normal operation, not only during
+initial SLAM. Confirmed learned changes must survive restarts, remain tied to the exact reference
+map version or identity that produced them, and stay reversible without mutating that reference
+map. Save learned state atomically at a bounded interval rather than writing on every scan.
 
 When implementing persistent changes, use per-cell occupied and clear evidence from LiDAR rays.
 Aggregate no more than one vote per cell per scan and gate confirmations by time or viewpoint;
@@ -173,6 +191,16 @@ designed explicitly.
   observations use the current camera orientation.
 - Prefer repeatable down, forward, and up poses. Stop the robot, wait for the tilt mechanism and
   camera exposure to settle, and then capture any observation that will be projected or remembered.
+- During mapping, trigger semantic scans after a configurable travel distance, initially about
+  1.5-2.0 m, or when the explorer detects entry into a new open space. Coordinate the pause through
+  the navigation owner, preserve the active exploration goal, and resume only after the camera has
+  returned to its navigation pose.
+- A mapping-time semantic scan stops the chassis, tilts the camera upward about 20-35 degrees,
+  captures several settled RGB-D frames, runs YOLO and depth projection, transforms valid detections
+  into `map`, and stores class, confidence, global position, and timestamp.
+- Do not infer room-purpose labels during mapping. After the occupancy map is complete, segment its
+  rooms and hallways, assign stored detections to stable regions, aggregate their evidence, and then
+  infer room labels.
 
 ## Code and Package Rules
 
@@ -181,6 +209,8 @@ Follow `CodeStandard.md`. In particular:
 - Custom runtime nodes must be composable ROS 2 components constructed with `rclcpp::NodeOptions`.
 - Public headers contain declarations, public types, and member variables only.
 - Implementations and file-local helpers belong in `.cpp` files.
+- Group semantic-mapping algorithm stages into focused header/source pairs. Keep the semantic
+  mapping node source limited to ROS I/O and readable top-level pipeline calls.
 - Declare topics, services, actions, frames, and runtime tunables as parameters with code defaults.
 - Put normal parameter overrides in package YAML files.
 - Keep launch files focused on composition, config loading, and high-level launch arguments.

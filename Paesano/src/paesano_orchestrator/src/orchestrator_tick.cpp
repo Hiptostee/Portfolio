@@ -42,9 +42,36 @@ void Orchestrator::tick()
       stop_client_->async_send_request(request);
     }
 
+    const auto current_time = now();
+    blocked_recovery_active_ = true;
+    blocked_recovery_started_ = current_time;
+    next_replan_attempt_ =
+      current_time + rclcpp::Duration::from_seconds(replan_retry_interval_);
     state_ = State::REPLANNING;
     publishState();
     requestPlan();
+    return;
+  }
+
+  if (state_ == State::REPLANNING && blocked_recovery_active_) {
+    const auto current_time = now();
+    const bool recovery_timed_out =
+      (current_time - blocked_recovery_started_).seconds() >= replan_timeout_;
+
+    if (recovery_timed_out && !plan_in_flight_) {
+      have_goal_ = false;
+      blocked_recovery_active_ = false;
+      state_ = State::IDLE;
+      publishState();
+      publishResult("PLANNING_FAILED");
+      return;
+    }
+
+    if (!plan_in_flight_ && current_time >= next_replan_attempt_) {
+      next_replan_attempt_ =
+        current_time + rclcpp::Duration::from_seconds(replan_retry_interval_);
+      requestPlan();
+    }
     return;
   }
 
@@ -56,6 +83,7 @@ void Orchestrator::tick()
 
   if (goal_reached) {
     have_goal_ = false;
+    blocked_recovery_active_ = false;
     state_ = State::IDLE;
     publishState();
     publishResult("SUCCEEDED");

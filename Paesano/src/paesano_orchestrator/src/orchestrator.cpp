@@ -12,6 +12,10 @@ Orchestrator::Orchestrator(const rclcpp::NodeOptions & options)
 : Node("orchestrator_node", options)
 {
   delay_ = declare_parameter<double>("blocked_replan_delay_sec", delay_);
+  replan_retry_interval_ = declare_parameter<double>(
+    "blocked_replan_retry_interval_sec", replan_retry_interval_);
+  replan_timeout_ = declare_parameter<double>(
+    "blocked_replan_timeout_sec", replan_timeout_);
   occupied_threshold_ = declare_parameter<int>("occupied_threshold", occupied_threshold_);
   goal_tolerance_ = declare_parameter<double>("goal_tolerance_m", goal_tolerance_);
   const std::string navigation_goal_topic =
@@ -72,6 +76,7 @@ void Orchestrator::handleGoal(const geometry_msgs::msg::PoseStamped::SharedPtr m
   goal_ = *msg;
   have_goal_ = true;
   plan_in_flight_ = false;
+  blocked_recovery_active_ = false;
   state_ = State::PLANNING;
   publishState();
 }
@@ -161,7 +166,11 @@ void Orchestrator::requestPlan()
   options.result_callback = [this](const auto & result) {
     plan_in_flight_ = false;
     if (result.code == rclcpp_action::ResultCode::SUCCEEDED && result.result->success) {
+      blocked_recovery_active_ = false;
       state_ = State::NAVIGATING;
+    } else if (blocked_recovery_active_) {
+      next_replan_attempt_ = now() + rclcpp::Duration::from_seconds(replan_retry_interval_);
+      state_ = State::REPLANNING;
     } else {
       have_goal_ = false;
       state_ = State::IDLE;
