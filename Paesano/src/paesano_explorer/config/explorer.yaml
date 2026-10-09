@@ -10,12 +10,12 @@ explorer_node:
 
     free_threshold: 50
     occupied_threshold: 50
-    minimum_cluster_size: 8
+    minimum_cluster_size: 4
     completion_confirmation_updates: 3
     tick_period_ms: 500
 
     goal_standoff_m: 0.30
-    blacklist_radius_m: 0.30
-    max_approach_points_per_cluster: 5
-    information_gain_weight: 1.0
+    blacklist_radius_m: 0.15
+    max_approach_points_per_cluster: 12
+    information_gain_weight: 0.8
     distance_weight: 1.0
