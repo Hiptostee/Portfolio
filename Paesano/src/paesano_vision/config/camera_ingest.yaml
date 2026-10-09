@@ -1,0 +1,6 @@
+camera_ingest:
+  ros__parameters:
+    color_topic: "/camera/camera/color/image_raw"
+    depth_topic: "/camera/camera/aligned_depth_to_color/image_raw"
+    camera_info_topic: "/camera/camera/color/camera_info"
+    report_period_ms: 5000
